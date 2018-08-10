@@ -62,8 +62,13 @@ object Scala2Unpickler {
   def arrayToRepeated(tp: Type)(implicit ctx: Context): Type = tp match {
     case tp: MethodType =>
       val lastArg = tp.paramInfos.last
-      assert(lastArg isRef defn.ArrayClass)
-      val elemtp0 :: Nil = lastArg.baseType(defn.ArrayClass).argInfos
+      val lastArg1 = if (ctx.settings.YexplicitNulls.value) {
+        lastArg.stripJavaNull
+      } else {
+        lastArg
+      }
+      assert(lastArg1 isRef defn.ArrayClass)
+      val elemtp0 :: Nil = lastArg1.baseType(defn.ArrayClass).argInfos
       val elemtp = elemtp0 match {
         case AndType(t1, t2) => // drop intersection with Object for abstract types an parameters in varargs. Erasure can handle them.
           if (t2.isRef(defn.ObjectClass))
@@ -76,9 +81,15 @@ object Scala2Unpickler {
         case _ =>
           elemtp0
       }
+      val repParamTp = defn.RepeatedParamType.appliedTo(elemtp)
+      val lastParamTp = if (ctx.settings.YexplicitNulls.value && lastArg.isJavaNullableUnion) {
+        repParamTp.toJavaNullable
+      } else {
+        repParamTp
+      }
       tp.derivedLambdaType(
         tp.paramNames,
-        tp.paramInfos.init :+ defn.RepeatedParamType.appliedTo(elemtp),
+        tp.paramInfos.init :+ lastParamTp,
         tp.resultType)
     case tp: PolyType =>
       tp.derivedLambdaType(tp.paramNames, tp.paramInfos, arrayToRepeated(tp.resultType))

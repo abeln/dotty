@@ -24,13 +24,13 @@ import Inferencing._
 import collection.mutable
 import config.Printers.{overload, typr, unapp}
 import TypeApplications._
-
 import reporting.diagnostic.Message
 import reporting.trace
 import Constants.{Constant, IntTag, LongTag}
 import dotty.tools.dotc.reporting.diagnostic.messages.{UnapplyInvalidReturnType, NotAnExtractor, UnapplyInvalidNumberOfArguments}
 import Denotations.SingleDenotation
 import annotation.constructorOnly
+import dotty.tools.dotc.core.FlowFacts.Inferred
 
 object Applications {
   import tpd._
@@ -525,7 +525,7 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
               case arg :: Nil if isVarArg(arg) =>
                 addTyped(arg, formal)
               case _ =>
-                val elemFormal = formal.widenExpr.argTypesLo.head
+                val elemFormal = formal.widenExpr.repeatedToSingle
                 val typedArgs =
                   harmonic(harmonizeArgs, elemFormal)(args.map(typedArg(_, elemFormal)))
                 typedArgs.foreach(addArg(_, elemFormal))
@@ -779,18 +779,33 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
           typr.println(i"result failure for $tree with type ${fun1.tpe.widen}, expected = $pt")
 
       /** Type application where arguments come from prototype, and no implicits are inserted */
-      def simpleApply(fun1: Tree, proto: FunProto)(implicit ctx: Context): Tree =
-        methPart(fun1).tpe match {
-          case funRef: TermRef =>
-            val app =
-              if (proto.allArgTypesAreCurrent())
-                new ApplyToTyped(tree, fun1, funRef, proto.typedArgs, pt)
-              else
-                new ApplyToUntyped(tree, fun1, funRef, proto, pt)(argCtx(tree))
-            convertNewGenericArray(app.result)
-          case _ =>
-            handleUnexpectedFunType(tree, fun1)
+      def simpleApply(fun1: Tree, proto: FunProto)(implicit ctx: Context): Tree = {
+        val ctx1 = if (ctx.settings.YexplicitNulls.value) {
+          // TODO(abeln): we're re-doing work here by recomputing what's implies by the lhs of the comparison.
+          // e.g. in `A && B && C && D`, we'll recompute the facts implied by `A && B` twice.
+          // Find a more-efficient way to do this.
+          ctx.fresh.addNonNullFacts(FlowFacts.inferWithinCond(fun1))
+        } else {
+          ctx
         }
+
+        // Separate into a function so we can pass the updated context.
+        def proc(implicit ctx: Context) = {
+          methPart(fun1).tpe match {
+            case funRef: TermRef =>
+              val app =
+                if (proto.allArgTypesAreCurrent())
+                  new ApplyToTyped(tree, fun1, funRef, proto.typedArgs, pt)
+                else
+                  new ApplyToUntyped(tree, fun1, funRef, proto, pt)(argCtx(tree))
+              convertNewGenericArray(app.result)
+            case _ =>
+              handleUnexpectedFunType(tree, fun1)
+          }
+        }
+
+        proc(ctx1)
+      }
 
       /** Try same application with an implicit inserted around the qualifier of the function
        *  part. Return an optional value to indicate success.

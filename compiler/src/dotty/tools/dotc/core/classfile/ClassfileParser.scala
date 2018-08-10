@@ -157,7 +157,7 @@ class ClassfileParser(
 
       enterOwnInnerClasses()
 
-      classRoot.setFlag(sflags)
+      classRoot.setFlag(Flags.JavaDefined | sflags)
       moduleRoot.setFlag(Flags.JavaDefined | Flags.ModuleClassCreationFlags)
       setPrivateWithin(classRoot, jflags)
       setPrivateWithin(moduleRoot, jflags)
@@ -213,13 +213,13 @@ class ClassfileParser(
       if (method) Flags.Method | methodTranslation.flags(jflags)
       else fieldTranslation.flags(jflags)
     val name = pool.getName(in.nextChar)
+    val desc = pool.getName(in.nextChar) // jvm descriptor (JVMS §4.3)
     if (!(sflags is Flags.Private) || name == nme.CONSTRUCTOR) {
       val member = ctx.newSymbol(
-        getOwner(jflags), name, sflags, memberCompleter, coord = start)
+        getOwner(jflags), name, sflags, memberCompleter, coord = start, descriptor = Some(desc))
       getScope(jflags).enter(member)
     }
     // skip rest of member for now
-    in.nextChar // info
     skipAttributes()
   }
 
@@ -269,9 +269,14 @@ class ClassfileParser(
         setPrivateWithin(denot, jflags)
         denot.info = translateTempPoly(parseAttributes(sym, denot.info))
         if (isConstructor) normalizeConstructorInfo()
-
         if ((denot is Flags.Method) && (jflags & JAVA_ACC_VARARGS) != 0)
           denot.info = arrayToRepeated(denot.info)
+
+        if (ctx.settings.YexplicitNulls.value) {
+          val old = denot.info
+          denot.info = JavaNull.nullifyMember(denot.symbol, denot.info)
+          // println(s"nullified member type from classfile for ${denot.symbol.name.show} from ${old.show} into ${denot.info.show}")
+        }
 
         // seal java enums
         if (isEnum) {

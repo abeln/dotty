@@ -1,3 +1,3 @@
 object Test {
-  val x = ???.getClass.getMethods.head.getParameterTypes.mkString(",")
+  val x = ???.getClass.getMethods.head.nn.getParameterTypes.nn.mkString(",")
 }

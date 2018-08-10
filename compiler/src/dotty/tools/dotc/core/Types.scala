@@ -33,6 +33,7 @@ import scala.util.hashing.{ MurmurHash3 => hashing }
 import config.Printers.{core, typr}
 import reporting.trace
 import java.lang.ref.WeakReference
+import dotty.tools.dotc.transform.SymUtils._
 
 import scala.annotation.internal.sharable
 
@@ -241,6 +242,53 @@ object Types {
         }
       }
 
+    /** Is this type exactly `Null` (no vars, aliases, refinements etc allowed)? */
+    def isNullType(implicit ctx: Context): Boolean = this match {
+      case tp: TypeRef => tp.symbol eq defn.NullClass
+      case _ => false
+    }
+
+    /** Is this type a reference to `Null`, possibly after aliasing? */
+    def isRefToNull(implicit ctx: Context): Boolean = this.isRef(defn.NullClass)
+
+    /** Is this (after widening and dealiasing) a type of the form `T | Null`? */
+    def isNullableUnion(implicit ctx: Context): Boolean = {
+      assert(ctx.settings.YexplicitNulls.value)
+      this.widenDealias.normNullableUnion match {
+        case OrType(_, right) => right.isRefToNull
+        case _ => false
+      }
+    }
+
+    /** Is this type guaranteed not to have `null` as a value? */
+    final def isNotNull(implicit ctx: Context): Boolean = this match {
+      case tp: ConstantType => tp.value.value != null
+      case tp: ClassInfo => !tp.cls.isNullableClass && tp.cls != defn.NothingClass
+      case tp: TypeBounds => tp.lo.isNotNull
+      case tp: TypeProxy => tp.underlying.isNotNull
+      case AndType(tp1, tp2) => tp1.isNotNull || tp2.isNotNull
+      case OrType(tp1, tp2) => tp1.isNotNull && tp2.isNotNull
+      case _ => false
+    }
+
+    /** Is this type exactly `JavaNull` (no vars, aliases, refinements etc allowed)? */
+    def isJavaNullType(implicit ctx: Context): Boolean = {
+      assert(ctx.settings.YexplicitNulls.value)
+      // We can't do `this == defn.JavaNull` because when trees are unpickled new references
+      // to `JavaNull` could be created that are different from `defn.JavaNull`.
+      // Instead, we compare the symbol.
+      this.isDirectRef(defn.JavaNull)
+    }
+
+    /** Is this (after widening and dealiasing) a type of the form `T | JavaNull`? */
+    def isJavaNullableUnion(implicit ctx: Context): Boolean = {
+      assert(ctx.settings.YexplicitNulls.value)
+      this.widenDealias.normNullableUnion match {
+        case OrType(_, right) => right.isJavaNullType
+        case _ => false
+      }
+    }
+
     /** Is this type exactly Nothing (no vars, aliases, refinements etc allowed)? */
     def isBottomType(implicit ctx: Context): Boolean = this match {
       case tp: TypeRef => tp.symbol eq defn.NothingClass
@@ -268,17 +316,6 @@ object Types {
           false
       }
       loop(this)
-    }
-
-    /** Is this type guaranteed not to have `null` as a value? */
-    final def isNotNull(implicit ctx: Context): Boolean = this match {
-      case tp: ConstantType => tp.value.value != null
-      case tp: ClassInfo => !tp.cls.isNullableClass && tp.cls != defn.NothingClass
-      case tp: TypeBounds => tp.lo.isNotNull
-      case tp: TypeProxy => tp.underlying.isNotNull
-      case AndType(tp1, tp2) => tp1.isNotNull || tp2.isNotNull
-      case OrType(tp1, tp2) => tp1.isNotNull && tp2.isNotNull
-      case _ => false
     }
 
     /** Is this type produced as a repair for an error? */
@@ -312,8 +349,16 @@ object Types {
       (new isGroundAccumulator).apply(true, this)
 
     /** Is this a type of a repeated parameter? */
-    def isRepeatedParam(implicit ctx: Context): Boolean =
-      typeSymbol eq defn.RepeatedParamClass
+    def isRepeatedParam(implicit ctx: Context): Boolean = {
+      def isRep(tpe: Type) = tpe.typeSymbol eq defn.RepeatedParamClass
+      if (!ctx.settings.YexplicitNulls.value) {
+        isRep(this)
+      } else {
+        // A repeated param is represented as either RepeatedParamClass[ElemTpe] or
+        // RepeatedParamClass[ElemTpe]|JavaNull, if it comes from Java.
+        isRep(this) || isRep(stripJavaNull)
+      }
+    }
 
     /** Is this the type of a method that has a repeated parameter type as
      *  last parameter type?
@@ -437,6 +482,13 @@ object Types {
         val rsym = r.classSymbol
         if (lsym isSubClass rsym) rsym
         else if (rsym isSubClass lsym) lsym
+        else if (ctx.settings.YexplicitNulls.value && this.isNullableUnion) {
+          val OrType(left, _) = this.normNullableUnion
+          // If `left` is a reference type, then the class LUB of `left | Null` is `RefEq`.
+          // This is another one-of case that keeps this method sound, but not complete.
+          if (left.classSymbol isSubClass defn.ObjectClass) defn.RefEqClass
+          else NoSymbol
+        }
         else NoSymbol
       case _ =>
         NoSymbol
@@ -595,11 +647,19 @@ object Types {
         case AndType(l, r) =>
           goAnd(l, r)
         case tp: OrType =>
-          // we need to keep the invariant that `pre <: tp`. Branch `union-types-narrow-prefix`
-          // achieved that by narrowing `pre` to each alternative, but it led to merge errors in
-          // lots of places. The present strategy is instead of widen `tp` using `join` to be a
-          // supertype of `pre`.
-          go(tp.join)
+          if (ctx.settings.YexplicitNulls.value && tp.isJavaNullableUnion) {
+            // Selecting `name` from a type `T|JavaNull` is like selecting name` from `T`.
+            // This can throw at runtime, but we trade soundness for usability.
+            // We need to strip JavaNull from both the type and the prefix so that
+            // `pre <: tp` continues to hold.
+            tp.stripJavaNull.findMember(name, pre.stripJavaNull, required, excluded)
+          } else {
+            // we need to keep the invariant that `pre <: tp`. Branch `union-types-narrow-prefix`
+            // achieved that by narrowing `pre` to each alternative, but it led to merge errors in
+            // lots of places. The present strategy is instead of widen `tp` using `join` to be a
+            // supertype of `pre`.
+            go(tp.join)
+          }
         case tp: JavaArrayType =>
           defn.ObjectType.findMember(name, pre, required, excluded)
         case err: ErrorType =>
@@ -872,16 +932,21 @@ object Types {
      *  if `matchLoosely` evaluates to true the types `=> T` and `()T` are seen
      *  as overriding each other.
      */
-    final def overrides(that: Type, matchLoosely: => Boolean)(implicit ctx: Context): Boolean = {
+    final def overrides(that: Type, matchLoosely: => Boolean, ignoreNulls: Boolean = true)(implicit ctx: Context): Boolean = {
       def widenNullary(tp: Type) = tp match {
         case tp @ MethodType(Nil) => tp.resultType
         case _ => tp
       }
-      ((this.widenExpr frozen_<:< that.widenExpr) ||
+      val (this1, that1) = if (ctx.settings.YexplicitNulls.value && ignoreNulls) {
+        (this.stripInnerNulls, that.stripInnerNulls)
+      } else {
+        (this, that)
+      }
+      ((this1.widenExpr frozen_<:< that1.widenExpr) ||
         matchLoosely && {
-          val this1 = widenNullary(this)
-          val that1 = widenNullary(that)
-          ((this1 `ne` this) || (that1 `ne` that)) && this1.overrides(that1, matchLoosely = false)
+          val this2 = widenNullary(this1)
+          val that2 = widenNullary(that1)
+          ((this2 `ne` this1) || (that2 `ne` that1)) && this2.overrides(that2, matchLoosely = false)
         }
       )
     }
@@ -903,7 +968,12 @@ object Types {
      *      parameter types.
      */
     def matches(that: Type)(implicit ctx: Context): Boolean = track("matches") {
-      ctx.typeComparer.matchesType(this, that, relaxed = !ctx.phase.erasedTypes)
+      val (this1, that1) = if (!ctx.settings.YexplicitNulls.value) {
+        (this, that)
+      } else {
+        (this.stripInnerNulls, that.stripInnerNulls)
+      }
+      ctx.typeComparer.matchesType(this1, that1, relaxed = !ctx.phase.erasedTypes)
     }
 
     /** This is the same as `matches` except that it also matches => T with T and
@@ -979,6 +1049,77 @@ object Types {
       case _ => this
     }
 
+    /** Syntactically strip the nullability from this type. If the normalized form (as per `normNullableUnion`)
+     *  of this type is `T1 | ... | Tk | ... | Tn`, and all types in the range `Tk ... Tn` are references to `Null`,
+     *  then return `T1 | ... | Tk-1`.
+     *  If this type isn't (syntactically) nullable, then return the type unchanged.
+     */
+    def stripNull(implicit ctx: Context): Type = {
+      assert(ctx.settings.YexplicitNulls.value)
+      // If there are no `Null`s to strip off, try to keep the method a no-op
+      // by keeping track of whether the result has changed.
+      // Otherwise, we would widen and dealias as a side effect.
+      @tailrec def strip(tp: Type, changed: Boolean): (Type, Boolean) = {
+        tp match {
+          case OrType(left, right) if right.isRefToNull => strip(left, changed = true)
+          case _ => (tp, changed)
+        }
+      }
+      val (tp, changed) = strip(this.widenDealias.normNullableUnion, false)
+      if (changed) tp else this
+    }
+
+    /** Collapses all nullable unions within this type, and not just the outermost ones (as `stripNull` does).
+     *  e.g. (Array[String|Null]|Null).stripNull => Array[String|Null]
+     *       (Array[String|Null]|Null).stripInnerNulls => Array[String]
+     */
+    def stripInnerNulls(implicit ctx: Context): Type = {
+      assert(ctx.settings.YexplicitNulls.value)
+
+      object RemoveNulls extends TypeMap {
+        override def apply(tp: Type): Type = tp match {
+          case tp: OrType if tp.isNullableUnion => mapOver(tp.stripNull)
+          case _ => mapOver(tp)
+        }
+      }
+
+      RemoveNulls(this)
+    }
+
+    /** Like `stripNull`, but only removes the outermost direct reference to `JavaNull`.
+     *  Assuming that there will be only one `| JavaNull` is safe because `JavaNull` is only
+     *  added (once) by the compiler.
+     */
+    def stripJavaNull(implicit ctx: Context): Type = {
+      assert(ctx.settings.YexplicitNulls.value)
+      this.widenDealias.normNullableUnion match {
+        case OrType(left, right) if right.isJavaNullType => left
+        case _ => this
+      }
+    }
+
+    /** Normalizes unions so that all `Null`s (or aliases to `Null`) appear to the right of all other types.
+     *  In the process, it also flattens the type so that there are no nested unions at the top level.
+     *  e.g. `Null | (T1 | Null) | T2` => `T1 | T2 | Null | Null`
+     */
+    def normNullableUnion(implicit ctx: Context): Type = {
+      assert(ctx.settings.YexplicitNulls.value)
+      def split(tp: Type, nonNull: List[Type], nll: List[Type]): (List[Type], List[Type]) = {
+        tp match {
+          case OrType(left, right) =>
+            // Recurse on the right first so we get the types in pre-order.
+            val (nonNull1, nll1) = split(right, nonNull, nll)
+            split(left, nonNull1, nll1)
+          case _ =>
+            if (tp.isRefToNull) (nonNull, tp :: nll) else (tp :: nonNull, nll)
+        }
+      }
+      val (nonNull, nll) = split(this, Nil, Nil)
+      val all = nonNull ++ nll
+      assert(all.nonEmpty)
+      all.tail.foldLeft(all.head)(OrType.apply)
+    }
+
     /** Widen from singleton type to its underlying non-singleton
      *  base type by applying one or more `underlying` dereferences,
      *  Also go from => T to T.
@@ -1045,9 +1186,15 @@ object Types {
      */
     def widenUnion(implicit ctx: Context): Type = this match {
       case OrType(tp1, tp2) =>
-        ctx.typeComparer.lub(tp1.widenUnion, tp2.widenUnion, canConstrain = true) match {
-          case union: OrType => union.join
-          case res => res
+        if (ctx.settings.YexplicitNulls.value && isNullableUnion) {
+          // Don't widen `T|Null`, since it reduces to `Any` and we lose too much info.
+          val OrType(leftTpe, nullTpe) = normNullableUnion
+          OrType(leftTpe.widenUnion, nullTpe)
+        } else {
+          ctx.typeComparer.lub(tp1.widenUnion, tp2.widenUnion, canConstrain = true) match {
+            case union: OrType => union.join
+            case res => res
+          }
         }
       case tp @ AndType(tp1, tp2) =>
         tp derived_& (tp1.widenUnion, tp2.widenUnion)
@@ -1209,7 +1356,13 @@ object Types {
     /** If this is a repeated type, its element type, otherwise the type itself */
     def repeatedToSingle(implicit ctx: Context): Type = this match {
       case tp @ ExprType(tp1) => tp.derivedExprType(tp1.repeatedToSingle)
-      case _                  => if (isRepeatedParam) this.argTypesHi.head else this
+      case _                  =>
+        val this1 = if (!ctx.settings.YexplicitNulls.value) {
+          this
+        } else {
+          this.stripJavaNull
+        }
+        if (isRepeatedParam) this1.argTypesHi.head else this
     }
 
     /** If this is a FunProto or PolyProto, WildcardType, otherwise this. */
@@ -1452,6 +1605,13 @@ object Types {
       new ctx.SubstApproxMap(from, to).apply(this)
 
 // ----- misc -----------------------------------------------------------
+
+    /** Create a `JavaNullable` version of this type. */
+    def toJavaNullable(implicit ctx: Context): Type = {
+      assert(ctx.settings.YexplicitNulls.value)
+      if (this.isJavaNullableUnion) this
+      else OrType(this, defn.JavaNullType)
+    }
 
     /** Turn type into a function type.
      *  @pre this is a method type without parameter dependencies.
@@ -1715,6 +1875,13 @@ object Types {
     private[this] var checkedPeriod: Period = Nowhere
     private[this] var myStableHash: Byte = 0
 
+    // TODO(abeln): remove this hack.
+    // This is a hack to detect whether `this` is an instance of `NonNullTermRef`, and adjust
+    // the denotation accordingly. The "adjustment" happens in `computeDenot`, which is currently
+    // marked as private.
+    // Overriden in `NonNullTermRef`.
+    protected val isNonNull: Boolean = false
+
     // Invariants:
     // (1) checkedPeriod != Nowhere  =>  lastDenotation != null
     // (2) lastDenotation != null    =>  lastSymbol != null
@@ -1820,14 +1987,25 @@ object Types {
     private def computeDenot(implicit ctx: Context): Denotation = {
 
       def finish(d: Denotation) = {
-        if (d.exists)
+        if (d.exists) {
           // Avoid storing NoDenotations in the cache - we will not be able to recover from
           // them. The situation might arise that a type has NoDenotation in some later
           // phase but a defined denotation earlier (e.g. a TypeRef to an abstract type
           // is undefined after erasure.) We need to be able to do time travel back and
           // forth also in these cases.
-          setDenot(d)
-        d
+
+          val d1 = if (ctx.settings.YexplicitNulls.value && isNonNull) {
+            // TODO(abeln): remove once `isNonNull` is gone.
+            // If the denotation is computed for the first time, or if it's ever updated, make sure
+            // that the `info` is non-null.
+            d.mapInfo(_.stripNull)
+          } else {
+            d
+          }
+
+          setDenot(d1)
+          d1
+        } else d
       }
 
       def fromDesignator = designator match {
@@ -2229,7 +2407,7 @@ object Types {
                               private var myDesignator: Designator)
     extends NamedType with SingletonType with ImplicitRef {
 
-    type ThisType = TermRef
+    type ThisType >: this.type <: TermRef
     type ThisName = TermName
 
     override def designator: Designator = myDesignator
@@ -2280,8 +2458,35 @@ object Types {
   }
 
   final class CachedTermRef(prefix: Type, designator: Designator, hc: Int) extends TermRef(prefix, designator) {
+    type ThisType = CachedTermRef
+
     assert((prefix ne NoPrefix) || designator.isInstanceOf[Symbol])
     myHash = hc
+  }
+
+  /** A `TermRef` that, through flow-sensitive type inference, we know is non-null.
+   *  Accordingly, the `info` in its denotation won't be of the form `T|Null`.
+   *  Notice that this class isn't cached, unlike the regular `TermRef`.
+   */
+  final class NonNullTermRef(prefix: Type, designator: Designator) extends TermRef(prefix, designator) {
+    type ThisType = NonNullTermRef
+
+    // This allows `NamedType` to identify `NonNullTermRef` from all other named types.
+    override protected val isNonNull: Boolean = true
+  }
+
+  object NonNullTermRef {
+
+    /** Create a `TermRef` that's just like `tref`, but whose `info` is always non-null. */
+    def fromTermRef(tref: TermRef)(implicit ctx: Context): NonNullTermRef = {
+      assert(ctx.settings.YexplicitNulls.value)
+      val denot = tref.denot.mapInfo(_.stripNull)
+      val nn = new NonNullTermRef(tref.prefix, denot.symbol)
+      // We need to set the non-null denotation directly because normally the "non-nullable" denotations
+      // are created in `computeDenot`, but they _won't_ be computed if the original `tref` _already_ had
+      // a cached denotation.
+      nn.withDenot(denot)
+    }
   }
 
   final class CachedTypeRef(prefix: Type, designator: Designator, hc: Int) extends TypeRef(prefix, designator) {
@@ -4270,15 +4475,25 @@ object Types {
       case _ =>
         false
     }
-    def unapply(tp: Type)(implicit ctx: Context): Option[MethodType] =
-      if (isInstantiatable(tp)) {
-        val absMems = tp.abstractTermMembers
+    def unapply(tp: Type)(implicit ctx: Context): Option[MethodType] = {
+      val tp1 = if (!ctx.settings.YexplicitNulls.value) {
+        tp
+      } else {
+        // Strip the nullability from the type (if it exists) before matching
+        // against the SAM type. This is so that we can use e.g. `Function1[Int, Int]|Null`
+        // as a prototype for e.g. `(x) => x`.
+        // See tests/pos/explicit-null-sam-types.scala
+        tp.stripNull
+      }
+      if (isInstantiatable(tp1)) {
+        // Ignore the synthetic super accessor: it'll be dealt with in `ExpandSAMs`.
+        val absMems = tp1.abstractTermMembers.filter(!_.symbol.isSuperAccessor)
         // println(s"absMems: ${absMems map (_.show) mkString ", "}")
         if (absMems.size == 1)
           absMems.head.info match {
             case mt: MethodType if !mt.isParamDependent &&
-                !defn.isImplicitFunctionType(mt.resultType) =>
-              val cls = tp.classSymbol
+              !defn.isImplicitFunctionType(mt.resultType) =>
+              val cls = tp1.classSymbol
 
               // Given a SAM type such as:
               //
@@ -4304,7 +4519,7 @@ object Types {
                         mapOver(info.alias)
                       case TypeBounds(lo, hi) =>
                         range(atVariance(-variance)(apply(lo)), apply(hi))
-                       case _ =>
+                      case _ =>
                         range(defn.NothingType, defn.AnyType) // should happen only in error cases
                     }
                   case _ =>
@@ -4316,7 +4531,7 @@ object Types {
             case _ =>
               None
           }
-        else if (tp isRef defn.PartialFunctionClass)
+        else if (tp1 isRef defn.PartialFunctionClass)
           // To maintain compatibility with 2.x, we treat PartialFunction specially,
           // pretending it is a SAM type. In the future it would be better to merge
           // Function and PartialFunction, have Function1 contain a isDefinedAt method
@@ -4327,6 +4542,7 @@ object Types {
         else None
       }
       else None
+    }
   }
 
   // ----- TypeMaps --------------------------------------------------------------------
@@ -4779,7 +4995,7 @@ object Types {
 
     protected def reapply(tp: Type): Type = apply(tp)
   }
-
+  
   /** A range of possible types between lower bound `lo` and upper bound `hi`.
    *  Only used internally in `ApproximatingTypeMap`.
    */

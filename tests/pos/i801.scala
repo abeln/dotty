@@ -1,9 +1,11 @@
-object T1 {
-  import java.util.ArrayList, java.util.stream.{Stream => JStream}
-  new java.util.ArrayList[String]().stream.map(_.toInt).map(_.toString): JStream[String]
-}
+class Foo {
+  object T1 {
+    import java.util.ArrayList, java.util.stream.{Stream => JStream}
+    new java.util.ArrayList[String]().stream.map(_.nn.toInt).map(_.nn.toString): JStream[String|Null]|Null
+  }
 
-object T2 {
-  import java.util._, java.util.stream.{Stream => JStream}
-  def f: JStream[String] = new java.util.ArrayList[String](Arrays.asList("1", "2")).stream.map(_.toInt).map(_.toString)
+  object T2 {
+    import java.util._, java.util.stream.{Stream => JStream}
+    def f: JStream[String]|Null = new java.util.ArrayList[String](Arrays.asList[String]("1", "2").nn).stream.map(_.nn.toInt).map(_.nn.toString)
+  }
 }

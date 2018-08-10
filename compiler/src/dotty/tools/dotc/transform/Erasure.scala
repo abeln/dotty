@@ -54,8 +54,14 @@ class Erasure extends Phase with DenotTransformer {
         // After erasure, all former Any members are now Object members
         val ClassInfo(pre, _, ps, decls, selfInfo) = ref.info
         val extendedScope = decls.cloneScope
-        for (decl <- defn.AnyClass.classInfo.decls)
-          if (!decl.isConstructor) extendedScope.enter(decl)
+        def addDecls(cls: ClassSymbol) = {
+          for (decl <- cls.classInfo.decls)
+            if (!decl.isConstructor) extendedScope.enter(decl)
+        }
+        addDecls(defn.AnyClass)
+        if (ctx.settings.YexplicitNulls.value) {
+          addDecls(defn.RefEqClass)
+        }
         ref.copySymDenotation(
           info = transformInfo(ref.symbol,
               ClassInfo(pre, defn.ObjectClass, ps, extendedScope, selfInfo))
@@ -68,7 +74,14 @@ class Erasure extends Phase with DenotTransformer {
             defn.ObjectClass.primaryConstructor
         else oldSymbol
         val oldOwner = ref.owner
-        val newOwner = if (oldOwner eq defn.AnyClass) defn.ObjectClass else oldOwner
+        val newOwner = {
+          val shouldBeObject = if (ctx.settings.YexplicitNulls.value) {
+            (oldOwner eq defn.AnyClass) || (oldOwner eq defn.RefEqClass)
+          } else {
+            oldOwner eq defn.AnyClass
+          }
+          if (shouldBeObject) defn.ObjectClass else oldOwner
+        }
         val oldInfo = ref.info
         val newInfo = transformInfo(oldSymbol, oldInfo)
         val oldFlags = ref.flags

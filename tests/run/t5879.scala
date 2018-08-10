@@ -2,6 +2,8 @@ import collection.immutable.HashMap
 
 
 object Test {
+  // TODO(abeln): remove once standard library is updated.
+  def adaptNull[T <: AnyRef](x: Null): T = x.asInstanceOf[T]
 
   def main(args: Array[String]): Unit = {
     resolveDefault()
@@ -14,7 +16,7 @@ object Test {
     val a = HashMap(1 -> "1")
     val b = HashMap(1 -> "2")
 
-    val r = a.merged(b)(null)
+    val r = a.merged(b)(adaptNull(null))
     println(r)
     println(r(1))
   }

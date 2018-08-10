@@ -31,6 +31,12 @@ class CompilationTests extends ParallelTesting {
 
   // Positive tests ------------------------------------------------------------
 
+  @Test
+  def compileCollectionsStrawman: Unit = {
+    implicit val testGroup: TestGroup = TestGroup("compileCollectionsStrawman")
+    compileDir("collection-strawman/collections/src/main", defaultOptions)
+  }.checkCompile()
+
   // @Test  // enable to test compileStdLib separately with detailed stats
   def compileStdLibOnly: Unit = {
     implicit val testGroup: TestGroup = TestGroup("compileStdLibOnly")

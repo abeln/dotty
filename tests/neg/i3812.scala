@@ -3,11 +3,14 @@ object Test {
     val x = 42
     val Y = "42"
 
-    x match { case { 42 }           => () } // error // error
-    x match { case { "42".toInt }   => () } // error // error
-    x match { case { "42" }.toInt   => () } // error // error
-    x match { case { "42".toInt }   => () } // error // error
-    x match { case { Y.toInt }      => () } // error // error
-    x match { case { Y }.toInt      => () } // error // error
+    // This used to have twice as many error messages,
+    // but changes to the error term in the parser
+    // mean that the null-related errors are now gone.
+    x match { case { 42 }           => () } // error 
+    x match { case { "42".toInt }   => () } // error
+    x match { case { "42" }.toInt   => () } // error
+    x match { case { "42".toInt }   => () } // error
+    x match { case { Y.toInt }      => () } // error
+    x match { case { Y }.toInt      => () } // error
   }
 }

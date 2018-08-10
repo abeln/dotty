@@ -286,7 +286,12 @@ class Definitions {
   lazy val ObjectClass: ClassSymbol = {
     val cls = ctx.requiredClass("java.lang.Object")
     assert(!cls.isCompleted, "race for completing java.lang.Object")
-    cls.info = ClassInfo(cls.owner.thisType, cls, AnyClass.typeRef :: Nil, newScope)
+    val parents = if (ctx.settings.YexplicitNulls.value) {
+      AnyClass.typeRef :: RefEqClass.typeRef :: Nil
+    } else {
+      AnyClass.typeRef :: Nil
+    }
+    cls.info = ClassInfo(cls.owner.thisType, cls, parents, newScope)
     cls.setFlag(NoInits)
 
     // The companion object doesn't really exist, `NoType` is the general
@@ -303,8 +308,17 @@ class Definitions {
   lazy val AnyRefAlias: TypeSymbol = enterAliasType(tpnme.AnyRef, ObjectType)
   def AnyRefType: TypeRef = AnyRefAlias.typeRef
 
-    lazy val Object_eq: TermSymbol = enterMethod(ObjectClass, nme.eq, methOfAnyRef(BooleanType), Final)
-    lazy val Object_ne: TermSymbol = enterMethod(ObjectClass, nme.ne, methOfAnyRef(BooleanType), Final)
+    // TODO(abeln): modify usage sites to use `RefEq_eq/ne` once we migrate to explicit nulls?
+    lazy val Object_eq: TermSymbol = if (ctx.settings.YexplicitNulls.value) {
+      RefEq_eq
+    } else {
+      enterMethod(ObjectClass, nme.eq, methOfAnyRef(BooleanType), Final)
+    }
+    lazy val Object_ne: TermSymbol = if (ctx.settings.YexplicitNulls.value) {
+      RefEq_ne
+    } else {
+      enterMethod(ObjectClass, nme.ne, methOfAnyRef(BooleanType), Final)
+    }
     lazy val Object_synchronized: TermSymbol = enterPolyMethod(ObjectClass, nme.synchronized_, 1,
         pt => MethodType(List(pt.paramRefs(0)), pt.paramRefs(0)), Final)
     lazy val Object_clone: TermSymbol = enterMethod(ObjectClass, nme.clone_, MethodType(Nil, ObjectType), Protected)
@@ -338,22 +352,79 @@ class Definitions {
       pt => MethodType(List(FunctionOf(Nil, pt.paramRefs(0))), pt.paramRefs(0)))
 
   /** Method representing a throw */
-  lazy val throwMethod: TermSymbol = enterMethod(OpsPackageClass, nme.THROWkw,
-      MethodType(List(ThrowableType), NothingType))
+  lazy val throwMethod: TermSymbol = {
+    val argTpe = if (ctx.settings.YexplicitNulls.value) {
+      OrType(ThrowableType, NullType)
+    } else {
+      ThrowableType
+    }
+    enterMethod(OpsPackageClass, nme.THROWkw, MethodType(List(argTpe), NothingType))
+  }
 
   lazy val NothingClass: ClassSymbol = enterCompleteClassSymbol(
     ScalaPackageClass, tpnme.Nothing, AbstractFinal, List(AnyClass.typeRef))
   def NothingType: TypeRef = NothingClass.typeRef
   lazy val RuntimeNothingModuleRef: TermRef = ctx.requiredModuleRef("scala.runtime.Nothing")
-  lazy val NullClass: ClassSymbol = enterCompleteClassSymbol(
-    ScalaPackageClass, tpnme.Null, AbstractFinal, List(ObjectClass.typeRef))
+
+  /** `RefEq` is the trait defining the reference equality operators.
+   *  It's just a marker trait and there's no corresponding class file, since it gets erased to `Object`.
+   */
+  lazy val RefEqClass: ClassSymbol = {
+    assert(ctx.settings.YexplicitNulls.value)
+    enterCompleteClassSymbol(ScalaPackageClass, tpnme.RefEq, Trait, AnyClass.typeRef :: Nil)
+  }
+  def RefEqType: TypeRef = {
+    assert(ctx.settings.YexplicitNulls.value)
+    RefEqClass.typeRef
+  }
+
+    lazy val RefEq_eq: TermSymbol = {
+      assert(ctx.settings.YexplicitNulls.value)
+      enterMethod(RefEqClass, nme.eq, MethodType(List(RefEqType), BooleanType), Final)
+    }
+    lazy val RefEq_ne: TermSymbol = {
+      assert(ctx.settings.YexplicitNulls.value)
+      enterMethod(RefEqClass, nme.ne, MethodType(List(RefEqType), BooleanType), Final)
+    }
+
+    def RefEqMethods: List[TermSymbol] = {
+      assert(ctx.settings.YexplicitNulls.value)
+      List(RefEq_eq, RefEq_ne)
+    }
+
+  lazy val NullClass: ClassSymbol = {
+    val parents = if (ctx.settings.YexplicitNulls.value) {
+      List(AnyClass.typeRef, RefEqClass.typeRef)
+    } else {
+      List(ObjectClass.typeRef)
+    }
+    enterCompleteClassSymbol(ScalaPackageClass, tpnme.Null, AbstractFinal, parents)
+  }
   def NullType: TypeRef = NullClass.typeRef
   lazy val RuntimeNullModuleRef: TermRef = ctx.requiredModuleRef("scala.runtime.Null")
+
+  /** An alias for null values that originate in Java code.
+   *  This type gets special treatment in the Typer. Specifically, `JavaNull` can be selected through:
+   *  e.g.
+   *  ```
+   *  // x: String|Null
+   *  x.length // error: `Null` has no `length` field
+   *  // x2: String|JavaNull
+   *  x2.length // allowed by the Typer, but unsound (might throw NPE)
+   *  ```
+   */
+  lazy val JavaNull: TypeSymbol = {
+    assert(ctx.settings.YexplicitNulls.value)
+    enterAliasType(tpnme.JavaNull, NullType)
+  }
+  def JavaNullType: TypeRef = {
+    assert(ctx.settings.YexplicitNulls.value)
+    JavaNull.typeRef
+  }
 
   lazy val ImplicitScrutineeTypeSym =
     newSymbol(ScalaPackageClass, tpnme.IMPLICITkw, EmptyFlags, TypeBounds.empty).entered
   def ImplicitScrutineeTypeRef: TypeRef = ImplicitScrutineeTypeSym.typeRef
-
 
   lazy val ScalaPredefModuleRef: TermRef = ctx.requiredModuleRef("scala.Predef")
   def ScalaPredefModule(implicit ctx: Context): Symbol = ScalaPredefModuleRef.symbol
@@ -586,12 +657,16 @@ class Definitions {
   lazy val BoxedNumberClass: ClassSymbol          = ctx.requiredClass("java.lang.Number")
   lazy val ClassCastExceptionClass: ClassSymbol   = ctx.requiredClass("java.lang.ClassCastException")
     lazy val ClassCastExceptionClass_stringConstructor: TermSymbol  = ClassCastExceptionClass.info.member(nme.CONSTRUCTOR).suchThat(_.info.firstParamTypes match {
-      case List(pt) => (pt isRef StringClass)
+      case List(pt) =>
+        val pt1 = if (ctx.settings.YexplicitNulls.value) pt.stripNull else pt
+        pt1.stripNull isRef StringClass
       case _ => false
     }).symbol.asTerm
   lazy val ArithmeticExceptionClass: ClassSymbol  = ctx.requiredClass("java.lang.ArithmeticException")
     lazy val ArithmeticExceptionClass_stringConstructor: TermSymbol  = ArithmeticExceptionClass.info.member(nme.CONSTRUCTOR).suchThat(_.info.firstParamTypes match {
-      case List(pt) => (pt isRef StringClass)
+      case List(pt) =>
+        val pt1 = if (ctx.settings.YexplicitNulls.value) pt.stripNull else pt
+        pt1.stripNull isRef StringClass
       case _ => false
     }).symbol.asTerm
 
@@ -1018,10 +1093,23 @@ class Definitions {
       name.length > prefix.length &&
       name.drop(prefix.length).forall(_.isDigit))
 
-  def isBottomClass(cls: Symbol): Boolean =
+  def isBottomClass(cls: Symbol): Boolean = {
+    if (ctx.settings.YexplicitNulls.value && !ctx.phase.erasedTypes) cls == NothingClass
+    else isBottomClassAfterErasure(cls)
+  }
+
+  def isBottomClassAfterErasure(cls: Symbol): Boolean = {
     cls == NothingClass || cls == NullClass
-  def isBottomType(tp: Type): Boolean =
+  }
+
+  def isBottomType(tp: Type): Boolean = {
+    if (ctx.settings.YexplicitNulls.value && !ctx.phase.erasedTypes) tp.derivesFrom(NothingClass)
+    else isBottomTypeAfterErasure(tp)
+  }
+
+  def isBottomTypeAfterErasure(tp: Type): Boolean = {
     tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
+  }
 
   /** Is a function class.
    *   - FunctionXXL
@@ -1115,9 +1203,10 @@ class Definitions {
     () => ScalaPackageVal.termRef
   )
 
-  val PredefImportFns: List[() => TermRef] = List[() => TermRef](
+  lazy val PredefImportFns: List[() => TermRef] = List[() => TermRef](
     () => ScalaPredefModuleRef,
-    () => DottyPredefModuleRef
+    () => DottyPredefModuleRef,
+    () => ctx.requiredModuleRef("scala.ExplicitNulls") // TODO(abeln): move to right place
   )
 
   lazy val RootImportFns: List[() => TermRef] =
@@ -1132,7 +1221,14 @@ class Definitions {
   lazy val UnqualifiedOwnerTypes: Set[NamedType] =
     RootImportTypes.toSet[NamedType] ++ RootImportTypes.map(_.symbol.moduleClass.typeRef)
 
-  lazy val NotRuntimeClasses: Set[Symbol] = Set(AnyClass, AnyValClass, NullClass, NothingClass)
+  lazy val NotRuntimeClasses: Set[Symbol] = {
+    val classes: Set[Symbol] = Set(AnyClass, AnyValClass, NullClass, NothingClass)
+    if (ctx.settings.YexplicitNulls.value) {
+      classes + RefEqClass
+    } else {
+      classes
+    }
+  }
 
   /** Classes that are known not to have an initializer irrespective of
    *  whether NoInits is set. Note: FunctionXXLClass is in this set
@@ -1324,38 +1420,58 @@ class Definitions {
   def isValueSubClass(sym1: Symbol, sym2: Symbol): Boolean =
     valueTypeEnc(sym2.asClass.name) % valueTypeEnc(sym1.asClass.name) == 0
 
-  lazy val specialErasure: SimpleIdentityMap[Symbol, ClassSymbol] =
-    SimpleIdentityMap.Empty[Symbol]
-      .updated(AnyClass, ObjectClass)
-      .updated(AnyValClass, ObjectClass)
-      .updated(SingletonClass, ObjectClass)
-      .updated(TupleClass, ObjectClass)
-      .updated(NonEmptyTupleClass, ProductClass)
+  lazy val specialErasure: SimpleIdentityMap[Symbol, ClassSymbol] = {
+    val idMap =
+      SimpleIdentityMap.Empty[Symbol]
+        .updated(AnyClass, ObjectClass)
+        .updated(AnyValClass, ObjectClass)
+        .updated(SingletonClass, ObjectClass)
+        .updated(TupleClass, ObjectClass)
+        .updated(NonEmptyTupleClass, ProductClass)
+    if (ctx.settings.YexplicitNulls.value) {
+      idMap.updated(RefEqClass, ObjectClass)
+    } else {
+      idMap
+    }
+  }
 
   // ----- Initialization ---------------------------------------------------
 
   /** Lists core classes that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
-  lazy val syntheticScalaClasses: List[TypeSymbol] = List(
-    AnyClass,
-    AnyRefAlias,
-    AnyKindClass,
-    andType,
-    orType,
-    RepeatedParamClass,
-    ByNameParamClass2x,
-    AnyValClass,
-    NullClass,
-    NothingClass,
-    SingletonClass,
-    EqualsPatternClass)
+  lazy val syntheticScalaClasses: List[TypeSymbol] = {
+    val classes = List(
+      AnyClass,
+      AnyRefAlias,
+      AnyKindClass,
+      andType,
+      orType,
+      RepeatedParamClass,
+      ByNameParamClass2x,
+      AnyValClass,
+      NullClass,
+      NothingClass,
+      SingletonClass,
+      EqualsPatternClass)
+    if (ctx.settings.YexplicitNulls.value) {
+      classes :+ RefEqClass
+    } else {
+      classes
+    }
+  }
 
   lazy val syntheticCoreClasses: List[Symbol] = syntheticScalaClasses ++ List(
     EmptyPackageVal,
     OpsPackageClass)
 
   /** Lists core methods that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
-  lazy val syntheticCoreMethods: List[TermSymbol] =
-    AnyMethods ++ ObjectMethods ++ List(String_+, throwMethod)
+  lazy val syntheticCoreMethods: List[TermSymbol] = {
+    val methods = AnyMethods ++ ObjectMethods ++ List(String_+, throwMethod)
+    if (ctx.settings.YexplicitNulls.value) {
+      methods ++ RefEqMethods
+    } else {
+      methods
+    }
+  }
 
   lazy val reservedScalaClassNames: Set[Name] = syntheticScalaClasses.map(_.name).toSet
 

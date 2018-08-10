@@ -10,7 +10,7 @@ import dotty.tools.dotc.reporting.diagnostic.messages.TypeMismatch
 import dotty.tools.dotc.util.Spans.Span
 
 /** Expand SAM closures that cannot be represented by the JVM as lambdas to anonymous classes.
- *  These fall into five categories
+ *  These fall into six categories
  *
  *   1. Partial function closures, we need to generate isDefinedAt and applyOrElse methods for these.
  *   2. Closures implementing non-trait classes
@@ -19,6 +19,7 @@ import dotty.tools.dotc.util.Spans.Span
  *   4. Closures that implement traits which run initialization code.
  *   5. Closures that get synthesized abstract methods in the transformation pipeline. These methods can be
  *      (1) superaccessors, (2) outer references, (3) accessors for fields.
+ *   6. Nullable functions: e.g. `(Int => Int)|Null` (if explicit nulls is enabled)
  *
  *  However, implicit function types do not count as SAM types.
  */
@@ -36,19 +37,33 @@ class ExpandSAMs extends MiniPhase {
       tpt.tpe match {
         case NoType =>
           tree // it's a plain function
-        case tpe if defn.isImplicitFunctionType(tpe) =>
-          tree
-        case tpe @ SAMType(_) if tpe.isRef(defn.PartialFunctionClass) =>
-          val tpe1 = checkRefinements(tpe, fn)
-          toPartialFunction(tree, tpe1)
-        case tpe @ SAMType(_) if isPlatformSam(tpe.classSymbol.asClass) =>
-          checkRefinements(tpe, fn)
-          tree
-        case tpe =>
-          val tpe1 = checkRefinements(tpe, fn)
-          val Seq(samDenot) = tpe1.abstractTermMembers.filter(!_.symbol.isSuperAccessor)
-          cpy.Block(tree)(stats,
+        case SAMType(_) =>
+          val tpe = if (ctx.settings.YexplicitNulls.value) {
+            // If the type is a SAM type, it's also possibly nullable. However, here we're desugaring an
+            // expression of the form `def fun() = {...}; closure(fun)`, so the desugaring should use the
+            // more precise non-nullable type for the literal.
+            // TODO(abeln): this makes handling closures typed as nullable go through the slow path that doesn't
+            // use SAM types.
+            // In other words, `val x: Int => Int = (x) => x` and `val x: (Int => Int)|Null = (x) => x` both typecheck,
+            // but the former uses the platform SAM types, vs the latter which uses an anonymous class.
+            tpt.tpe.stripNull
+          } else {
+            tpt.tpe
+          }
+          if (defn.isImplicitFunctionType(tpe)) {
+            tree
+          } else if (tpe.isRef(defn.PartialFunctionClass)) {
+            val tpe1 = checkRefinements(tpe, fn)
+            toPartialFunction(tree, tpe1)
+          } else if (isPlatformSam(tpe.classSymbol.asClass)) {
+            checkRefinements(tpe, fn)
+            tree
+          } else {
+            val tpe1 = checkRefinements(tpe, fn)
+            val Seq(samDenot) = tpe1.abstractTermMembers.filter(!_.symbol.isSuperAccessor)
+            cpy.Block(tree)(stats,
               AnonClass(tpe1 :: Nil, fn.symbol.asTerm :: Nil, samDenot.symbol.asTerm.name :: Nil))
+          }
       }
     case _ =>
       tree

@@ -456,10 +456,16 @@ class TypeApplications(val self: Type) extends AnyVal {
    */
   def underlyingIfRepeated(isJava: Boolean)(implicit ctx: Context): Type =
     if (self.isRepeatedParam) {
+      val self1 = if (ctx.settings.YexplicitNulls.value) {
+        self.stripJavaNull
+      } else {
+        self
+      }
       val seqClass = if (isJava) defn.ArrayClass else defn.SeqClass
       // If `isJava` is set, then we want to turn `RepeatedParam[T]` into `Array[_ <: T]`,
       // since arrays aren't covariant until after erasure. See `tests/pos/i5140`.
-      translateParameterized(defn.RepeatedParamClass, seqClass, wildcardArg = isJava)
+      val trans = self1.translateParameterized(defn.RepeatedParamClass, seqClass, wildcardArg = isJava)
+      if (ctx.settings.YexplicitNulls.value && isJava) trans.toJavaNullable else trans
     }
     else self
 

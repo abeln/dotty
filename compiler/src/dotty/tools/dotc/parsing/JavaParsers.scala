@@ -831,9 +831,14 @@ object JavaParsers {
       val superclazz =
         AppliedTypeTree(javaLangDot(tpnme.Enum), List(enumType))
         */
+      val enumName = if (ctx.settings.YexplicitNulls.value) {
+        ""
+      } else {
+        null
+      }
       val superclazz = Apply(TypeApply(
         Select(New(javaLangDot(tpnme.Enum)), nme.CONSTRUCTOR), List(enumType)),
-        List(Literal(Constant(null)),Literal(Constant(0))))
+        List(Literal(Constant(enumName)),Literal(Constant(0))))
       val enumclazz = atSpan(start, nameOffset) {
         TypeDef(name,
           makeTemplate(superclazz :: interfaces, body, List(), true)).withMods(mods | Flags.JavaEnum)

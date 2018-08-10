@@ -155,14 +155,23 @@ class DottyPrimitives(ctx: Context) {
     addPrimitive(defn.Any_asInstanceOf, AS)
     addPrimitive(defn.Any_##, HASH)
 
-    // java.lang.Object
-    addPrimitive(defn.Object_eq, ID)
-    addPrimitive(defn.Object_ne, NI)
- /*   addPrimitive(defn.Any_==, EQ)
-    addPrimitive(defn.Any_!=, NE)*/
-    addPrimitive(defn.Object_synchronized, SYNCHRONIZED)
-    /*addPrimitive(defn.Any_isInstanceOf, IS)
-    addPrimitive(defn.Any_asInstanceOf, AS)*/
+    if (ctx.settings.YexplicitNulls.value) {
+      // scala.RefEq
+      addPrimitive(defn.RefEq_eq, ID)
+      addPrimitive(defn.RefEq_ne, NI)
+
+      // java.lang.Object
+      addPrimitive(defn.Object_synchronized, SYNCHRONIZED)
+    } else {
+      // java.lang.Object
+      addPrimitive(defn.Object_eq, ID)
+      addPrimitive(defn.Object_ne, NI)
+      /* addPrimitive(defn.Any_==, EQ)
+      addPrimitive(defn.Any_!=, NE) */
+      addPrimitive(defn.Object_synchronized, SYNCHRONIZED)
+      /*addPrimitive(defn.Any_isInstanceOf, IS)
+      addPrimitive(defn.Any_asInstanceOf, AS)*/
+    }
 
     // java.lang.String
     addPrimitive(defn.String_+, CONCAT)

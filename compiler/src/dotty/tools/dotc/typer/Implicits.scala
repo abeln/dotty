@@ -620,8 +620,19 @@ trait Implicits { self: Typer =>
           SelectionProto(name, memberProto, compat, privateOK = false)
         case tp => tp
       }
-      try inferImplicit(adjust(to), from, from.span)
-      catch {
+      try {
+        val to1 = adjust(to)
+        inferImplicit(to1, from, from.span) match {
+          case err: SearchFailure if ctx.settings.YexplicitNulls.value && !err.isAmbiguous && from.tpe.isJavaNullableUnion =>
+            // TODO(abeln): is this worth keeping?
+            // When looking for an implicit conversion from A|JavaNull -> B, if we
+            // can't find it, then also look for an implicit conversion from A -> B.
+            // This is done to ease Java interop.
+            val from1 =  from.ensureConforms(from.tpe.stripJavaNull)
+            inferImplicit(to1, from1, from.span)
+          case res => res
+        }
+      } catch {
         case ex: AssertionError =>
           implicits.println(s"view $from ==> $to")
           implicits.println(ctx.typerState.constraint.show)
@@ -705,11 +716,17 @@ trait Implicits { self: Typer =>
        *  This is the case if assumedCanEqual(tp1, tp2), or
        *  one of `tp1`, `tp2` has a reflexive `Eql` instance.
        */
-      def validEqAnyArgs(tp1: Type, tp2: Type)(implicit ctx: Context) =
+      def validEqAnyArgs(tp1: Type, tp2: Type)(implicit ctx: Context): Boolean = {
         assumedCanEqual(tp1, tp2) || {
           val nestedCtx = ctx.fresh.addMode(Mode.StrictEquality)
-          !hasEq(tp1)(nestedCtx) && !hasEq(tp2)(nestedCtx)
+          // If either of the types is `Null`, then we only want to generate the fallback `Eq`
+          // the other type is a reference type.
+          lazy val eitherIsNull = tp1.isRef(defn.NullClass) || tp2.isRef(defn.NullClass)
+          val res = !hasEq(tp1)(nestedCtx) && !hasEq(tp2)(nestedCtx)
+          if (ctx.settings.YexplicitNulls.value) res && !eitherIsNull
+          else res
         }
+      }
 
       /** Is an `Eql[cls1, cls2]` instance assumed for predefined classes `cls1`, cls2`? */
       def canComparePredefinedClasses(cls1: ClassSymbol, cls2: ClassSymbol): Boolean = {
@@ -924,6 +941,17 @@ trait Implicits { self: Typer =>
    *     unless strict equality is set.
    */
   private def assumedCanEqual(ltp: Type, rtp: Type)(implicit ctx: Context) = {
+    def eqNullable: Boolean = {
+      val other =
+        if (ltp.isRef(defn.NullClass)) rtp
+        else if (rtp.isRef(defn.NullClass)) ltp
+        else NoType
+      // Even if we have explicit nulls, we still allow comparing reference types with null.
+      // This is because nulls can still sneak in without detection by the type
+      // system (e.g. via Java), so checking for null is a useful escape hatch.
+      (other ne NoType) && !other.derivesFrom(defn.AnyValClass)
+    }
+
     // Map all non-opaque abstract types to their upper bound.
     // This is done to check whether such types might plausibly be comparable to each other.
     val lift = new TypeMap {
@@ -940,12 +968,12 @@ trait Implicits { self: Typer =>
       }
     }
 
-    ltp.isError ||
-    rtp.isError ||
-    !strictEquality && {
+    val res = ltp.isError || rtp.isError || !strictEquality && {
       ltp <:< lift(rtp) ||
       rtp <:< lift(ltp)
     }
+    if (ctx.settings.YexplicitNulls.value) res || eqNullable
+    else res
   }
 
   /** Check that equality tests between types `ltp` and `rtp` make sense */

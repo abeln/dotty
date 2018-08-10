@@ -28,8 +28,8 @@ import printing._
 import config.{JavaPlatform, SJSPlatform, Platform, ScalaSettings}
 
 import scala.annotation.internal.sharable
-
 import DenotTransformers.DenotTransformer
+import dotty.tools.dotc.core.FlowFacts.NonNullFacts
 import dotty.tools.dotc.profile.Profiler
 import util.Property.Key
 import util.Store
@@ -143,6 +143,11 @@ object Contexts {
     private[this] var _gadt: GADTMap = _
     protected def gadt_=(gadt: GADTMap): Unit = _gadt = gadt
     def gadt: GADTMap = _gadt
+
+    /** The terms currently known to be non-null (in spite of their declared type) */
+    private[this] var _nonNullFacts: NonNullFacts = _
+    protected def nonNullFacts_=(nnFacts: NonNullFacts): Unit = _nonNullFacts = nnFacts
+    def nonNullFacts: NonNullFacts = _nonNullFacts
 
     /** The history of implicit searches that are currently active */
     private[this] var _searchHistory: SearchHistory = null
@@ -524,6 +529,16 @@ object Contexts {
     def setImportInfo(importInfo: ImportInfo): this.type = { this.importInfo = importInfo; this }
     def setGadt(gadt: GADTMap): this.type = { this.gadt = gadt; this }
     def setFreshGADTBounds: this.type = setGadt(gadt.fresh)
+    def setNonNullFacts(facts: NonNullFacts): this.type = {
+      assert(settings.YexplicitNulls.value)
+      this.nonNullFacts = facts
+      this
+    }
+    def addNonNullFacts(facts: NonNullFacts): this.type = {
+      assert(settings.YexplicitNulls.value)
+      setNonNullFacts(this.nonNullFacts ++ facts)
+      this
+    }
     def setSearchHistory(searchHistory: SearchHistory): this.type = { this.searchHistory = searchHistory; this }
     def setSource(source: SourceFile): this.type = { this.source = source; this }
     def setTypeComparerFn(tcfn: Context => TypeComparer): this.type = { this.typeComparer = tcfn(this); this }
@@ -606,6 +621,7 @@ object Contexts {
     typeComparer = new TypeComparer(this)
     searchHistory = new SearchRoot
     gadt = EmptyGADTMap
+    nonNullFacts = FlowFacts.emptyNonNullFacts
   }
 
   @sharable object NoContext extends Context {

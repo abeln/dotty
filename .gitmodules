@@ -37,3 +37,10 @@
 [submodule "community-build/community-projects/sourcecode"]
 	path = community-build/community-projects/sourcecode
 	url = https://github.com/dotty-staging/sourcecode
+# TODO(abeln): remove once we finish porting collection-strawman
+# to explicit nulls.
+[submodule "collection-strawman"]
+	path = collection-strawman
+	#url = https://github.com/dotty-staging/collection-strawman.git
+	url = https://github.com/abeln/collection-strawman.git
+	branch = explicit-null

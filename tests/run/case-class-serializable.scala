@@ -25,12 +25,12 @@ object SerDes {
     val buffer = new ByteArrayOutputStream
     val out = new ObjectOutputStream(buffer)
     out.writeObject(obj)
-    buffer.toByteArray
+    buffer.toByteArray.nn
   }
 
   def deserialize(a: Array[Byte]): AnyRef = {
     val in = new ObjectInputStream(new ByteArrayInputStream(a))
-    in.readObject
+    in.readObject.nn
   }
 
   def serializeDeserialize[T <: AnyRef](obj: T) = deserialize(serialize(obj)).asInstanceOf[T]
