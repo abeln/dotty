@@ -924,6 +924,15 @@ trait Implicits { self: Typer =>
    *     unless strict equality is set.
    */
   private def assumedCanEqual(ltp: Type, rtp: Type)(implicit ctx: Context) = {
+    def eqNullable: Boolean = {
+      val other =
+        if (ltp.isRef(defn.NullClass)) rtp
+        else if (rtp.isRef(defn.NullClass)) ltp
+        else NoType
+
+      (other ne NoType) && other.classSymbol.isNullableClass
+    }
+
     // Map all non-opaque abstract types to their upper bound.
     // This is done to check whether such types might plausibly be comparable to each other.
     val lift = new TypeMap {
@@ -944,7 +953,8 @@ trait Implicits { self: Typer =>
     rtp.isError ||
     !strictEquality && {
       ltp <:< lift(rtp) ||
-      rtp <:< lift(ltp)
+      rtp <:< lift(ltp) ||
+      eqNullable
     }
   }
 
