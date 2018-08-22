@@ -486,7 +486,7 @@ object Flags {
   final val FromStartFlags: FlagSet =
     Module | Package | Deferred | Method.toCommonFlags | Case |
     HigherKinded.toCommonFlags | Param | ParamAccessor.toCommonFlags |
-    Scala2ExistentialCommon | MutableOrOpaque | Touched | JavaStatic |
+    Scala2ExistentialCommon | MutableOrOpaque | Touched | JavaStatic | JavaDefined |
     CovariantOrOuter | ContravariantOrLabel | CaseAccessor.toCommonFlags |
     Extension.toCommonFlags | NonMember | Implicit | Implied | Permanent | Synthetic |
     SuperAccessorOrScala2x | Inline
