@@ -1263,7 +1263,7 @@ class Namer { typer: Typer =>
     val resTpe = paramFn(checkSimpleKinded(typedAheadType(mdef.tpt, tptProto)).tpe)
     val isConstructor = mdef.name == nme.CONSTRUCTOR
     if (mdef.mods.is(JavaDefined) && !isConstructor) {
-      val nullMap = new NullifyMap
+      val nullMap = new JavaNullMap
       nullMap(resTpe)
     } else {
       resTpe
