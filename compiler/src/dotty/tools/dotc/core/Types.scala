@@ -1013,9 +1013,14 @@ object Types {
     /** Widen from singleton type to its underlying non-singleton
      *  base type by applying one or more `underlying` dereferences.
      */
-    final def widenSingleton(implicit ctx: Context): Type = stripTypeVar.stripAnnots match {
-      case tp: SingletonType if !tp.isOverloaded => tp.underlying.widenSingleton
-      case _ => this
+    final def widenSingleton(implicit ctx: Context): Type = {
+//      println(s"widenSingleton ${this.show}")
+      stripTypeVar.stripAnnots match {
+        case tp: SingletonType if !tp.isOverloaded =>
+//          println(s"underlying = ${tp.underlying}")
+          tp.underlying.widenSingleton
+        case _ => this
+      }
     }
 
     /** Widen from TermRef to its underlying non-termref
@@ -2247,6 +2252,8 @@ object Types {
     //assert(name.toString != "<local Coder>")
     override def underlying(implicit ctx: Context): Type = {
       val d = denot
+//      println(s"${d.show}")
+//      println(s"underlying isoverloaded = ${d.isOverloaded} d.info = ${d.info}")
       if (d.isOverloaded) NoType else d.info
     }
 
