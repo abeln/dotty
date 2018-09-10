@@ -21,6 +21,7 @@ import transform.ValueClasses._
 import transform.TypeUtils._
 import transform.SymUtils._
 import reporting.diagnostic.messages._
+import dotty.tools.dotc.config.Printers
 
 trait NamerContextOps { this: Context =>
   import NamerContextOps._
@@ -1275,13 +1276,13 @@ class Namer { typer: Typer =>
       case _ =>
         WildcardType
     }
-    val resTpe = paramFn(checkSimpleKinded(typedAheadType(mdef.tpt, tptProto)).tpe)
-    val isConstructor = mdef.name == nme.CONSTRUCTOR
-    if (mdef.mods.is(JavaDefined) && !isConstructor) {
-      val nullMap = new JavaNullMap
-      nullMap(resTpe)
+    val memTpe = paramFn(checkSimpleKinded(typedAheadType(mdef.tpt, tptProto)).tpe)
+    if (mdef.mods.is(JavaDefined)) {
+      val nullifiedTpe = nullifyMember(sym, memTpe)
+      Printers.nullability.println(s"nullified member type from source for ${sym.name.show} from ${memTpe.show} into ${nullifiedTpe.show}")
+      nullifiedTpe
     } else {
-      resTpe
+      memTpe
     }
   }
 
