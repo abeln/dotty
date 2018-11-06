@@ -361,6 +361,7 @@ class Definitions {
   def JavaNullType = JavaNull.typeRef
 
   def javaNullable(tp: Type) = OrType(tp, JavaNullType)
+  def nullable(tp: Type) = OrType(tp, NullType)
 
   lazy val ScalaPredefModuleRef: TermRef = ctx.requiredModuleRef("scala.Predef")
   def ScalaPredefModule(implicit ctx: Context): Symbol = ScalaPredefModuleRef.symbol
