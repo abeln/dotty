@@ -833,16 +833,21 @@ class Typer extends Namer
       case _ => false
     }
 
-    pt match {
-      case pt: TypeVar if untpd.isFunctionWithUnknownParamType(tree) =>
+    // If the prototype is of the form e.g. `Function1[Int, Int]|Null`, then we should be
+    // able discard the `| Null` from it, since the literal itself isn't nullable.
+    // This gives us a more precise (useful) prototype.
+    val pt1 = pt.stripNull
+
+    pt1 match {
+      case pt1: TypeVar if untpd.isFunctionWithUnknownParamType(tree) =>
         // try to instantiate `pt` if this is possible. If it does not
         // work the error will be reported later in `inferredParam`,
         // when we try to infer the parameter type.
-        isFullyDefined(pt, ForceDegree.noBottom)
+        isFullyDefined(pt1, ForceDegree.noBottom)
       case _ =>
     }
 
-    val (protoFormals, resultTpt) = decomposeProtoFunction(pt, params.length)
+    val (protoFormals, resultTpt) = decomposeProtoFunction(pt1, params.length)
 
     def refersTo(arg: untpd.Tree, param: untpd.ValDef): Boolean = arg match {
       case Ident(name) => name == param.name
@@ -923,7 +928,7 @@ class Typer extends Namer
           }
         case _ =>
       }
-      errorType(AnonymousFunctionMissingParamType(param, params, tree, pt), param.sourcePos)
+      errorType(AnonymousFunctionMissingParamType(param, params, tree, pt1), param.sourcePos)
     }
 
     def protoFormal(i: Int): Type =
@@ -954,7 +959,7 @@ class Typer extends Namer
                 inferredParamType(param, protoFormal(i)).underlyingIfRepeated(isJava = false)))
         desugar.makeClosure(inferredParams, fnBody, resultTpt, isContextual)
       }
-    typed(desugared, pt)
+    typed(desugared, pt1)
   }
 
   def typedClosure(tree: untpd.Closure, pt: Type)(implicit ctx: Context): Tree = track("typedClosure") {
