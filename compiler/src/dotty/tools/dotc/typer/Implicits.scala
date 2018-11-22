@@ -628,8 +628,15 @@ trait Implicits { self: Typer =>
           SelectionProto(name, memberProto, compat, privateOK = false)
         case tp => tp
       }
-      try inferImplicit(adjust(to), from, from.span)
-      catch {
+      try {
+        val to1 = adjust(to)
+        inferImplicit(to1, from, from.span) match {
+          case err: SearchFailure if !err.isAmbiguous && from.tpe.isJavaNullableUnion =>
+            val from1 =  from.ensureConforms(from.tpe.stripJavaNull)
+            inferImplicit(to1, from1, from.span)
+          case res => res
+        }
+      } catch {
         case ex: AssertionError =>
           implicits.println(s"view $from ==> $to")
           implicits.println(ctx.typerState.constraint.show)
