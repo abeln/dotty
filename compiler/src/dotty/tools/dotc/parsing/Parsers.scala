@@ -345,7 +345,10 @@ object Parsers {
             accept(SEMI)
         }
 
-    def errorTermTree: Literal = atSpan(in.offset) { Literal(Constant(null)) }
+    /** An error tree that stands for a pattern or an expression */
+    def errorTermTree(inPattern: Boolean): Tree = atSpan(in.offset) {
+      Ident(if (inPattern) nme.WILDCARD else nme.???)
+    }
 
     private[this] var inFunReturnType = false
     private def fromWithinReturnType[T](body: => T): T = {
@@ -1538,7 +1541,7 @@ object Parsers {
           if (isLiteral) literal()
           else {
             syntaxErrorOrIncomplete(IllegalStartSimpleExpr(tokenString(in.token)), expectedOffset)
-            errorTermTree
+            errorTermTree(inPattern = false)
           }
       }
       simpleExprRest(t, canApply)
@@ -1857,7 +1860,7 @@ object Parsers {
         if (isLiteral) literal(inPattern = true)
         else {
           syntaxErrorOrIncomplete(IllegalStartOfSimplePattern(), expectedOffset)
-          errorTermTree
+          errorTermTree(inPattern = true)
         }
     }
 
