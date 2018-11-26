@@ -63,7 +63,6 @@ object equality {
     null == 1    // error
     1 == null    // error
 
-
     class Fruit derives Eql
 
     class Apple extends Fruit
