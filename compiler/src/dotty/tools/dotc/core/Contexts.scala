@@ -23,13 +23,14 @@ import reporting._
 import reporting.diagnostic.Message
 import io.{AbstractFile, NoAbstractFile, PlainFile, Path}
 import scala.io.Codec
+
 import collection.mutable
 import printing._
 import config.{JavaPlatform, SJSPlatform, Platform, ScalaSettings}
 
 import scala.annotation.internal.sharable
-
 import DenotTransformers.DenotTransformer
+import dotty.tools.dotc.core.FlowFacts.NonNullSet
 import dotty.tools.dotc.profile.Profiler
 import util.Property.Key
 import util.Store
@@ -143,6 +144,11 @@ object Contexts {
     private[this] var _gadt: GADTMap = _
     protected def gadt_=(gadt: GADTMap): Unit = _gadt = gadt
     def gadt: GADTMap = _gadt
+
+    /** The terms currently known to be non-null (in spite of their declared type) */
+    private[this] var _nonNullFacts: NonNullSet = _
+    protected def nonNullFacts_=(nnSet: NonNullSet): Unit = _nonNullFacts = nnSet
+    def nonNullFacts: NonNullSet = _nonNullFacts
 
     /** The history of implicit searches that are currently active */
     private[this] var _searchHistory: SearchHistory = null
@@ -524,6 +530,7 @@ object Contexts {
     def setImportInfo(importInfo: ImportInfo): this.type = { this.importInfo = importInfo; this }
     def setGadt(gadt: GADTMap): this.type = { this.gadt = gadt; this }
     def setFreshGADTBounds: this.type = setGadt(gadt.fresh)
+    def setNonNullFacts(nnSet: NonNullSet): this.type = { this.nonNullFacts = nnSet; this }
     def setSearchHistory(searchHistory: SearchHistory): this.type = { this.searchHistory = searchHistory; this }
     def setSource(source: SourceFile): this.type = { this.source = source; this }
     def setTypeComparerFn(tcfn: Context => TypeComparer): this.type = { this.typeComparer = tcfn(this); this }
@@ -606,6 +613,7 @@ object Contexts {
     typeComparer = new TypeComparer(this)
     searchHistory = new SearchRoot
     gadt = EmptyGADTMap
+    nonNullFacts = FlowFacts.emptyNonNullSet
   }
 
   @sharable object NoContext extends Context {
