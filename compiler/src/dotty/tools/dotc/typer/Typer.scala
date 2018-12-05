@@ -397,11 +397,13 @@ class Typer extends Namer
       } else
         errorType(new MissingIdent(tree, kind, name.show), tree.sourcePos)
 
-    val tree1 = ownType match {
-      case ownType: NamedType if !prefixIsElidable(ownType) =>
-        ref(ownType).withSpan(tree.span)
+    val ownType1 = FlowFacts.refineType(ownType)
+
+    val tree1 = ownType1 match {
+      case ownType1: NamedType if !prefixIsElidable(ownType1) =>
+        ref(ownType1).withSpan(tree.span)
       case _ =>
-        tree.withType(ownType)
+        tree.withType(ownType1)
     }
 
     checkStableIdentPattern(tree1, pt)
@@ -421,8 +423,11 @@ class Typer extends Namer
     tree
   }
 
-  private def typedSelect(tree: untpd.Select, pt: Type, qual: Tree)(implicit ctx: Context): Select =
-    checkValue(assignType(cpy.Select(tree)(qual, tree.name), qual), pt)
+  private def typedSelect(tree: untpd.Select, pt: Type, qual: Tree)(implicit ctx: Context): Select = {
+    val select = assignType(cpy.Select(tree)(qual, tree.name), qual)
+    val select1 = select.withType(FlowFacts.refineType(select.tpe))
+    checkValue(select1, pt)
+  }
 
   def typedSelect(tree: untpd.Select, pt: Type)(implicit ctx: Context): Tree = track("typedSelect") {
 
@@ -729,15 +734,26 @@ class Typer extends Namer
     if (tree.isInline) checkInInlineContext("inline if", tree.posd)
     val cond1 = typed(tree.cond, defn.BooleanType)
 
+    val newFacts = FlowFacts.inferNonNull(cond1)
+    // TODO(abeln): generalize
+    val thenCtx = if (newFacts.isEmpty) {
+      ctx
+    } else {
+      ctx.fresh.setNonNullFacts(ctx.nonNullFacts ++ newFacts)
+    }
+
     if (tree.elsep.isEmpty) {
-      val thenp1 = typed(tree.thenp, defn.UnitType)
+      val thenp1 = typed(tree.thenp, defn.UnitType)(thenCtx)
       val elsep1 = tpd.unitLiteral.withSpan(tree.span.endPos)
       cpy.If(tree)(cond1, thenp1, elsep1).withType(defn.UnitType)
     }
     else {
-      val thenp1 :: elsep1 :: Nil = harmonic(harmonize, pt)(
-        (tree.thenp :: tree.elsep :: Nil).map(typed(_, pt.notApplied)))
-      assignType(cpy.If(tree)(cond1, thenp1, elsep1), thenp1, elsep1)
+      val thenp2 :: elsep2 :: Nil = harmonic(harmonize, pt) {
+        val thenp1 = typed(tree.thenp, pt.notApplied)(thenCtx)
+        val elsep1 = typed(tree.elsep, pt.notApplied)
+        thenp1 :: elsep1 :: Nil
+      }
+      assignType(cpy.If(tree)(cond1, thenp2, elsep2), thenp2, elsep2)
     }
   }
 
