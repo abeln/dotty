@@ -754,9 +754,8 @@ class Typer extends Namer
     val cond1 = typed(tree.cond, defn.BooleanType)
 
     val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(cond1)
-    def withFacts(facts: NonNullSet): Context = if (facts.isEmpty) ctx else ctx.fresh.setNonNullFacts(ctx.nonNullFacts ++ facts)
-    val thenCtx = withFacts(ifTrue)
-    val elseCtx = withFacts(ifFalse)
+    val thenCtx = ctx.fresh.addNonNullFacts(ifTrue)
+    val elseCtx = ctx.fresh.addNonNullFacts(ifFalse)
 
     if (tree.elsep.isEmpty) {
       val thenp1 = typed(tree.thenp, defn.UnitType)(thenCtx)
