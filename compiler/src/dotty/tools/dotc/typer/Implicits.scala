@@ -712,11 +712,15 @@ trait Implicits { self: Typer =>
        *  This is the case if assumedCanEqual(tp1, tp2), or
        *  one of `tp1`, `tp2` has a reflexive `Eql` instance.
        */
-      def validEqAnyArgs(tp1: Type, tp2: Type)(implicit ctx: Context) =
+      def validEqAnyArgs(tp1: Type, tp2: Type)(implicit ctx: Context): Boolean = {
         assumedCanEqual(tp1, tp2) || {
           val nestedCtx = ctx.fresh.addMode(Mode.StrictEquality)
-          !hasEq(tp1)(nestedCtx) && !hasEq(tp2)(nestedCtx)
+          // If either of the types is `Null`, then we only want to generate the fallback `Eq`
+          // the other type is a reference type.
+          val eitherIsNull = tp1.isRef(defn.NullClass) || tp2.isRef(defn.NullClass)
+          !eitherIsNull && !hasEq(tp1)(nestedCtx) && !hasEq(tp2)(nestedCtx)
         }
+      }
 
       /** Is an `Eql[cls1, cls2]` instance assumed for predefined classes `cls1`, cls2`? */
       def canComparePredefinedClasses(cls1: ClassSymbol, cls2: ClassSymbol): Boolean = {

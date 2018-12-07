@@ -62,6 +62,11 @@ object equality {
     true == null // error
     null == 1    // error
     1 == null    // error
+    {
+      val x: AnyVal = ???
+      if (x == null) {} // error
+      def foo[T <: AnyVal](x: T) = if (x != null) {} // error
+    }
 
     class Fruit derives Eql
 
