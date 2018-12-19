@@ -4414,6 +4414,7 @@ object Types {
       // See tests/pos/explicit-null-sam-types.scala
       val strippedTp = tp.stripNull
       if (isInstantiatable(strippedTp)) {
+        // Ignore the synthetic super accessor: it'll be dealt with in `ExpandSAMs`.
         val absMems = strippedTp.abstractTermMembers.filter(!_.symbol.isSuperAccessor)
         // println(s"absMems: ${absMems map (_.show) mkString ", "}")
         if (absMems.size == 1)
