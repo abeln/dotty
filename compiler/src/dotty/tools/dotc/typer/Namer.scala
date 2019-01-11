@@ -142,7 +142,7 @@ trait NamerContextOps { this: Context =>
         val make = MethodType.maker(isJava = isJava, isImplicit = isImplicit, isErased = isErased, isContextual = isContextual)
         if (isJava)
           for (param <- params)
-            if (param.info.isDirectRef(defn.ObjectClass)) param.info = defn.AnyType
+            if (param.info.stripNull.isDirectRef(defn.ObjectClass)) param.info = defn.AnyType
         make.fromSymbols(params, resultType)
       }
     if (typeParams.nonEmpty) PolyType.fromParams(typeParams.asInstanceOf[List[TypeSymbol]], monotpe)

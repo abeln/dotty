@@ -38,7 +38,7 @@ object Test extends AnyRef with App {
     Console.println(x + n);
   }
 
-  var inst: AnyRef = null;
+  var inst: AnyRef|Null = null;
 
   def try4 = {
     if (inst == null) {

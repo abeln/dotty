@@ -280,7 +280,7 @@ class Definitions {
   lazy val ObjectClass: ClassSymbol = {
     val cls = ctx.requiredClass("java.lang.Object")
     assert(!cls.isCompleted, "race for completing java.lang.Object")
-    cls.info = ClassInfo(cls.owner.thisType, cls, AnyClass.typeRef :: Nil, newScope)
+    cls.info = ClassInfo(cls.owner.thisType, cls, AnyClass.typeRef :: RefEqClass.typeRef :: Nil, newScope)
     cls.setFlag(NoInits)
 
     // The companion object doesn't really exist, `NoType` is the general
@@ -297,8 +297,9 @@ class Definitions {
   lazy val AnyRefAlias: TypeSymbol = enterAliasType(tpnme.AnyRef, ObjectType)
   def AnyRefType: TypeRef = AnyRefAlias.typeRef
 
-    lazy val Object_eq: TermSymbol = enterMethod(ObjectClass, nme.eq, methOfAnyRef(BooleanType), Final)
-    lazy val Object_ne: TermSymbol = enterMethod(ObjectClass, nme.ne, methOfAnyRef(BooleanType), Final)
+    // TODO(abeln): modify usage sites to use `RefEq_eq/ne`?
+    lazy val Object_eq: TermSymbol = RefEq_eq
+    lazy val Object_ne: TermSymbol = RefEq_ne
     lazy val Object_synchronized: TermSymbol = enterPolyMethod(ObjectClass, nme.synchronized_, 1,
         pt => MethodType(List(pt.paramRefs(0)), pt.paramRefs(0)), Final)
     lazy val Object_clone: TermSymbol = enterMethod(ObjectClass, nme.clone_, MethodType(Nil, ObjectType), Protected)
@@ -336,8 +337,18 @@ class Definitions {
     ScalaPackageClass, tpnme.Nothing, AbstractFinal, List(AnyClass.typeRef))
   def NothingType: TypeRef = NothingClass.typeRef
   lazy val RuntimeNothingModuleRef: TermRef = ctx.requiredModuleRef("scala.runtime.Nothing")
+
+  lazy val RefEqClass: ClassSymbol = enterCompleteClassSymbol(
+    ScalaPackageClass, tpnme.RefEq, Trait, AnyClass.typeRef :: Nil)
+  def RefEqType: TypeRef = RefEqClass.typeRef
+
+    lazy val RefEq_eq: TermSymbol = enterMethod(RefEqClass, nme.eq, MethodType(List(RefEqType), BooleanType), Final)
+    lazy val RefEq_ne: TermSymbol = enterMethod(RefEqClass, nme.ne, MethodType(List(RefEqType), BooleanType), Final)
+
+    def RefEqMethods: List[TermSymbol] = List(RefEq_eq, RefEq_ne)
+
   lazy val NullClass: ClassSymbol = enterCompleteClassSymbol(
-    ScalaPackageClass, tpnme.Null, AbstractFinal, List(ObjectClass.typeRef))
+    ScalaPackageClass, tpnme.Null, AbstractFinal, AnyClass.typeRef :: RefEqClass.typeRef :: Nil)
   def NullType: TypeRef = NullClass.typeRef
   lazy val RuntimeNullModuleRef: TermRef = ctx.requiredModuleRef("scala.runtime.Null")
 
@@ -1111,7 +1122,7 @@ class Definitions {
   lazy val UnqualifiedOwnerTypes: Set[NamedType] =
     RootImportTypes.toSet[NamedType] ++ RootImportTypes.map(_.symbol.moduleClass.typeRef)
 
-  lazy val NotRuntimeClasses: Set[Symbol] = Set(AnyClass, AnyValClass, NullClass, NothingClass)
+  lazy val NotRuntimeClasses: Set[Symbol] = Set(AnyClass, AnyValClass, RefEqClass, NullClass, NothingClass)
 
   /** Classes that are known not to have an initializer irrespective of
    *  whether NoInits is set. Note: FunctionXXLClass is in this set
@@ -1307,6 +1318,7 @@ class Definitions {
     SimpleIdentityMap.Empty[Symbol]
       .updated(AnyClass, ObjectClass)
       .updated(AnyValClass, ObjectClass)
+      .updated(RefEqClass, ObjectClass)
       .updated(SingletonClass, ObjectClass)
       .updated(TupleClass, ObjectClass)
       .updated(NonEmptyTupleClass, ProductClass)
@@ -1316,6 +1328,7 @@ class Definitions {
   /** Lists core classes that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
   lazy val syntheticScalaClasses: List[TypeSymbol] = List(
     AnyClass,
+    RefEqClass,
     AnyRefAlias,
     AnyKindClass,
     RepeatedParamClass,
@@ -1332,7 +1345,7 @@ class Definitions {
 
   /** Lists core methods that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
   lazy val syntheticCoreMethods: List[TermSymbol] =
-    AnyMethods ++ ObjectMethods ++ List(String_+, throwMethod)
+    AnyMethods ++ ObjectMethods ++ RefEqMethods ++ List(String_+, throwMethod)
 
   lazy val reservedScalaClassNames: Set[Name] = syntheticScalaClasses.map(_.name).toSet
 
