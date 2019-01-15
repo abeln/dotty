@@ -23,7 +23,6 @@ import reporting._
 import reporting.diagnostic.Message
 import io.{AbstractFile, NoAbstractFile, PlainFile, Path}
 import scala.io.Codec
-
 import collection.mutable
 import printing._
 import config.{JavaPlatform, SJSPlatform, Platform, ScalaSettings}
