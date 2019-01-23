@@ -751,7 +751,7 @@ object CollectionStrawMan6 extends LowPriority {
 
     override def view = new ArrayView(xs)
 
-    def elemTag: ClassTag[A] = ClassTag(xs.getClass.getComponentType)
+    def elemTag: ClassTag[A] = ClassTag(xs.getClass.getComponentType.nn)
 
     protected def fromIterableWithSameElemType(coll: Iterable[A]): Array[A] = coll.toArray[A](elemTag)
 
