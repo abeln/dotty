@@ -12,9 +12,14 @@ object Test extends dotty.runtime.LegacyApp {
     assert(s1 == s2, s1 + "\nvs.\n" + s2)
   }
 
-  compare(List(1, 2, 3, 4).aggregate(new java.lang.StringBuffer)(_ append _, _ append _).toString, "1234")
-  compare(List(1, 2, 3, 4).par.aggregate(new java.lang.StringBuffer)(_ append _, _ append _).toString, "1234")
-  compare(Seq(0 until 100: _*).aggregate(new java.lang.StringBuffer)(_ append _, _ append _).toString, (0 until 100).mkString)
-  compare(Seq(0 until 100: _*).par.aggregate(new java.lang.StringBuffer)(_ append _, _ append _).toString, (0 until 100).mkString)
+  import java.lang.StringBuffer
+
+  def appendInt(sb1: StringBuffer|Null, v: Int): StringBuffer = sb1.nn.append(v).nn
+  def appendBuff(sb1: StringBuffer|Null, sb2: StringBuffer): StringBuffer = sb1.nn.append(sb2).nn
+
+  compare(List(1, 2, 3, 4).aggregate(new StringBuffer)(appendInt, appendBuff).toString, "1234")
+  compare(List(1, 2, 3, 4).par.aggregate(new StringBuffer)(appendInt, appendBuff).toString, "1234")
+  compare(Seq(0 until 100: _*).aggregate(new StringBuffer)(appendInt, appendBuff).toString, (0 until 100).mkString)
+  compare(Seq(0 until 100: _*).par.aggregate(new StringBuffer)(appendInt, appendBuff).toString, (0 until 100).mkString)
 
 }
