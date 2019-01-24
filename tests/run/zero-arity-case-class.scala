@@ -4,9 +4,9 @@ object Test {
   def main(args: Array[String]): Unit = {
     assert(Foo.unapply(Foo()) == true)
 
-    // unapply generate by scalac are `_ != null`,
-    // dotty returns true in all cases
-    assert(Foo.unapply(null) == true)
+    // The line below no longer typechecks, since null is no
+    // longer a subtype of `Foo`.
+    // assert(Foo.unapply(null) == true)
 
     Foo() match {
       case Foo() => ()
