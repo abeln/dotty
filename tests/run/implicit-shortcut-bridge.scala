@@ -16,7 +16,7 @@ class Y extends X[Int] {
 
 object Test {
   def check(expected: Set[String], cls: Class[_]): Unit = {
-    val actual = cls.getMethods.filter(_.getName.startsWith("foo")).map(_.toString).toSet
+    val actual = cls.getMethods.filter(_.nn.getName.startsWith("foo")).map(_.toString).toSet
     assert(expected == actual, s"[$cls] expected: ${expected}\nactual: $actual")
   }
 

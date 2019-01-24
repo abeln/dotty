@@ -44,7 +44,7 @@ object Test {
     val out = new java.io.ObjectOutputStream(bos)
     out.writeObject(o)
     out.close
-    bos.toByteArray
+    bos.toByteArray.nn
   }
 
 
