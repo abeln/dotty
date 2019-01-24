@@ -11,7 +11,7 @@ class FooLifted {
 object Test extends App {
   def numLifted(o: Object) = {
     def isLifted(m: java.lang.reflect.Method) = m.getName.startsWith("lifted")
-    o.getClass.getDeclaredMethods.count(isLifted)
+    o.getClass.getDeclaredMethods.count(m => isLifted(m.nn))
   }
   
   println("Foo #lifted: " + numLifted(new Foo))

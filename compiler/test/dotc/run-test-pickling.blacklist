@@ -14,3 +14,4 @@ instances.scala
 instances-anonymous.scala
 # need support for flow-sensitive type inference
 constant-optimization.scala
+i2939.scala
