@@ -13,7 +13,7 @@ class C extends T
 
 object Test extends App {
   def check(c: Class[_], e: String) = {
-    val s = c.getDeclaredMethods.sortBy(_.getName).map(m => s"${m.getName} - ${m.getDeclaredAnnotations.mkString(", ")}").mkString(";")
+    val s = c.getDeclaredMethods.sortBy(_.nn.getName.nn).map(m => s"${m.nn.getName} - ${m.nn.getDeclaredAnnotations.mkString(", ")}").mkString(";")
     assert(s == e, s"found: $s\nexpected: $e")
   }
   check(classOf[C], "foo - @org.junit.Test()")
