@@ -118,20 +118,20 @@ class Lst[+T](val elems: Any) extends AnyVal { self =>
   def mapConserve[U](f: T => U): Lst[U] = elems match {
     case null => Empty
     case elems: Arr => def elem(i: Int) = elems(i).asInstanceOf[T]
-      var newElems: Arr = null
+      var newElems: Arr|Null = null
       var i = 0
       while (i < elems.length) {
         val x = elem(i)
         val y = f(x)
-        if (newElems != null) newElems(i) = y
+        if (newElems != null) newElems.nn(i) = y
         else if (!eq(x, y)) {
           newElems = new Arr(elems.length)
           System.arraycopy(elems, 0, newElems, 0, i)
-          newElems(i) = y
+          newElems.nn(i) = y
         }
         i += 1
       }
-      if (newElems == null) this.asInstanceOf[Lst[U]] else multi[U](newElems)
+      if (newElems == null) this.asInstanceOf[Lst[U]] else multi[U](newElems.nn)
     case elem: T @ unchecked => single[U](f(elem))
   }
 
@@ -373,20 +373,20 @@ class Lst[+T](val elems: Any) extends AnyVal { self =>
             if (len == 0) Empty
             else if (len == 1) single[V](op(elem1(0), elem2(0)))
             else {
-              var newElems: Arr = null
+              var newElems: Arr|Null = null
               var i = 0
               while (i < len) {
                 val x = elem1(i)
                 val y = op(x, elem2(i))
-                if (newElems != null) newElems(i) = y
+                if (newElems != null) newElems.nn(i) = y
                 else if (!eq(x, y)) {
                   newElems = new Arr(len)
-                  System.arraycopy(elems, 0, newElems, 0, i)
-                  newElems(i) = y
+                  System.arraycopy(elems, 0, newElems.nn, 0, i)
+                  newElems.nn(i) = y
                 }
                 i += 1
               }
-              multi[V](newElems)
+              multi[V](newElems.nn)
             }
           case elem2: U @unchecked =>
             single[V](op(elem1(0), elem2))
@@ -675,7 +675,7 @@ object Lst {
   def fromIterable[T](xs: Iterable[T]): Lst[T] = fromIterator(xs.iterator)
 
   object :: {
-    def unapply[T](xs: Lst[T]): Option[(T, Lst[T])] = xs.elems match {
+    def unapply[T](xs: Lst[T]|Null): Option[(T, Lst[T])] = xs.elems match {
       case null => None
       case elems: Arr =>
         Some((elems(0).asInstanceOf[T], _fromArray[T](elems, 1, elems.length)))
