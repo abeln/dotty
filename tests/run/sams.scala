@@ -95,7 +95,7 @@ object Test {
 
     // Implicit nullary function
     {
-      val f: implicit () => Int = 42
+      val f: () |=> Int = 42
       assert (f == 42)
     }
 
