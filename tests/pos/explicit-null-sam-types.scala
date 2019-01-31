@@ -21,7 +21,7 @@ class Foo {
 
   // Implicit nullary function
   {
-    val f: implicit () => String = "hello"
+    val f: () |=> String = "hello"
     f
   }
 }

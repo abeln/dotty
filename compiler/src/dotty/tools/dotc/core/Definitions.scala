@@ -372,15 +372,6 @@ class Definitions {
     newSymbol(ScalaPackageClass, tpnme.IMPLICITkw, EmptyFlags, TypeBounds.empty).entered
   def ImplicitScrutineeTypeRef: TypeRef = ImplicitScrutineeTypeSym.typeRef
 
-<<<<<<< HEAD
-  /** Marker for null values that originate in Java.
-   *  Equivalently defined as `type JavaNull = Null @JavaNull`
-   */
-  lazy val JavaNull = enterAliasType(tpnme.JavaNull, AnnotatedType.make(NullType, List(Annotation(JavaNullAnnot))))
-  def JavaNullType = JavaNull.typeRef
-
-  def nullable(tp: Type) = OrType(tp, NullType)
-
   lazy val ScalaPredefModuleRef: TermRef = ctx.requiredModuleRef("scala.Predef")
   def ScalaPredefModule(implicit ctx: Context): Symbol = ScalaPredefModuleRef.symbol
     lazy val Predef_conformsR: TermRef = ScalaPredefModule.requiredMethodRef(nme.conforms_)

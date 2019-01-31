@@ -111,7 +111,7 @@ object Test extends App {
       instance of CanThrow
       try op
       catch {
-        case ex: Exception => handler(ex.getMessage)
+        case ex: Exception => handler(ex.getMessage.nn)
       }
     }
   }

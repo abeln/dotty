@@ -3,7 +3,7 @@ import java.util.function.Consumer
 object Test {
   def f(): Unit = assert(false)
   def f(x: Int): Unit = assert(false)
-  def f(x: String): Unit = ()
+  def f(x: String|Null): Unit = ()
 
   def foo(c: Consumer[String]) = c.accept("")
 
