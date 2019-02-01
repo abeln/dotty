@@ -1028,25 +1028,55 @@ object Types {
       case _ => this
     }
 
-    /** Strips the nullability from a type: `T | Null` goes to `T` */
-    def stripNull(implicit ctx: Context): Type = this.widenDealias.normNullableUnion match {
-      case OrType(left, right) if right.isRefToNull => left.stripNull
-      case _ => this
+    /** Syntactically strip the nullability from this type. If the normalized form (as per `normNullableUnion`)
+     *  of this type is `T1 | ... | Tk | ... | Tn`, and all types in the range `Tk ... Tn` are references to `Null`,
+     *  then return `T1 | ... | Tk-1`.
+     *  If this type isn't (syntactically) nullable, then return the type unchanged.
+     */
+    def stripNull(implicit ctx: Context): Type = {
+      // If there are no `Null`s to strip off, try to keep the method a no-op
+      // by keeping track of whether the result has changed.
+      // Otherwise, we would widen and dealias as a side effect.
+      @tailrec def strip(tp: Type, changed: Boolean): (Type, Boolean) = {
+        tp match {
+          case OrType(left, right) if right.isRefToNull => strip(left, changed = true)
+          case _ => (tp, changed)
+        }
+      }
+      val (tp, changed) = strip(this.widenDealias.normNullableUnion, false)
+      if (changed) tp else this
     }
 
-    /** Strips the Java nullability from a type: `T | JavaNull` goes to `T` */
-    def stripJavaNull(implicit ctx: Context): Type = this.widenDealias.normNullableUnion match {
-      case OrType(left, right) if right.isJavaNullType => left.stripJavaNull
-      case _ => this
-    }
-
-    /** Normalizes nullable unions so that `Null` is the last operand (e.g. `Null|T` goes to `T|Null`) */
-    def normNullableUnion(implicit ctx: Context): Type = {
-      // TODO(abeln): make normalization more robust (e.g. so it can handle nested unions).
-      this match {
-        case OrType(left, right) if left.isRefToNull => OrType(right, left)
+    /** Like `stripNull`, but only removes the outermost direct reference to `JavaNull`.
+     *  Assuming that there will be only one `| JavaNull` is safe because `JavaNull` is only
+     *  added (once) by the compiler.
+     */
+    def stripJavaNull(implicit ctx: Context): Type = {
+      this.widenDealias.normNullableUnion match {
+        case OrType(left, right) if right.isJavaNullType => left
         case _ => this
       }
+    }
+
+    /** Normalizes unions so that all `Null`s (or aliases to `Null`) appear to the right of all other types.
+     *  In the process, it also flattens the type so that there are no nested unions at the top level.
+     *  e.g. `Null | (T1 | Null) | T2` => `T1 | T2 | Null | Null`
+     */
+    def normNullableUnion(implicit ctx: Context): Type = {
+      def split(tp: Type, nonNull: List[Type], nll: List[Type]): (List[Type], List[Type]) = {
+        tp match {
+          case OrType(left, right) =>
+            // Recurse on the right first so we get the types in pre-order.
+            val (nonNull1, nll1) = split(right, nonNull, nll)
+            split(left, nonNull1, nll1)
+          case _ =>
+            if (tp.isRefToNull) (nonNull, tp :: nll) else (tp :: nonNull, nll)
+        }
+      }
+      val (nonNull, nll) = split(this, Nil, Nil)
+      val all = nonNull ++ nll
+      assert(all.nonEmpty)
+      all.tail.foldLeft(all.head)(OrType.apply)
     }
 
     /** Widen from singleton type to its underlying non-singleton
