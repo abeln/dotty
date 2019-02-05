@@ -10,11 +10,15 @@ object ExplicitNulls {
   }
 
   object ArrayConversions {
-    // TODO(abeln) add additional versions of these a la FunctionN?
-    implicit def toNullable1[T](a: Array[T]): Array[T|Null] = a.asInstanceOf[Array[T|Null]]
-    implicit def toNullable2[T](a: Array[Array[T]]): Array[Array[T|Null]|Null] = a.asInstanceOf[Array[Array[T|Null]|Null]] 
+    // In the conversion methods below, the type arguments need to be reference types, since
+    // otherwise `Array[T]` and `Array[T|Null]` will have different erasures.
 
-    implicit def fromNullable1[T](a: Array[T|Null]): Array[T] = a.asInstanceOf[Array[T]]
-    implicit def fromNullable2[T](a: Array[Array[T|Null]|Null]): Array[Array[T]] = a.asInstanceOf[Array[Array[T]]]
+    implicit class ToNullable1[T <: AnyRef](arr: Array[T]) extends AnyVal {
+      def withNullElems: Array[T|Null] = arr.asInstanceOf[Array[T|Null]]
+    }
+
+    implicit class FromNullable1[T <: AnyRef](arr: Array[T|Null]) extends AnyVal {
+      def withNonNullElems: Array[T] = arr.asInstanceOf[Array[T]]
+    }
   }
 }

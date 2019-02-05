@@ -3,7 +3,7 @@ object Test {
   def sort[T <: AnyRef : Ordering](a: Array[T]): Array[T] = {
     import java.util.Arrays
     import scala.ExplicitNulls.ArrayConversions._
-    val a2: Array[T] = Arrays.copyOf(a, a.length).nn
+    val a2: Array[T] = Arrays.copyOf(a.withNullElems, a.length).nn.withNonNullElems
     scala.util.Sorting.quickSort(a2)
     a2
   }
