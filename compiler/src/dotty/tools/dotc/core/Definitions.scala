@@ -3,7 +3,7 @@ package dotc
 package core
 
 import Types._, Contexts._, Symbols._, SymDenotations._, StdNames._, Names._
-import Flags._, Scopes._, Decorators._, NameOps._, Periods._, Annotations.Annotation
+import Flags._, Scopes._, Decorators._, NameOps._, Periods._
 import unpickleScala2.Scala2Unpickler.ensureConstructor
 import scala.collection.mutable
 import collection.mutable
@@ -280,7 +280,8 @@ class Definitions {
   lazy val ObjectClass: ClassSymbol = {
     val cls = ctx.requiredClass("java.lang.Object")
     assert(!cls.isCompleted, "race for completing java.lang.Object")
-    cls.info = ClassInfo(cls.owner.thisType, cls, AnyClass.typeRef :: RefEqClass.typeRef :: Nil, newScope)
+    val parents = if (!ctx.settings.YexplicitNulls.value) AnyClass.typeRef :: Nil else AnyClass.typeRef :: RefEqClass.typeRef :: Nil
+    cls.info = ClassInfo(cls.owner.thisType, cls, parents, newScope)
     cls.setFlag(NoInits)
 
     // The companion object doesn't really exist, `NoType` is the general
@@ -297,9 +298,17 @@ class Definitions {
   lazy val AnyRefAlias: TypeSymbol = enterAliasType(tpnme.AnyRef, ObjectType)
   def AnyRefType: TypeRef = AnyRefAlias.typeRef
 
-    // TODO(abeln): modify usage sites to use `RefEq_eq/ne`?
-    lazy val Object_eq: TermSymbol = RefEq_eq
-    lazy val Object_ne: TermSymbol = RefEq_ne
+    // TODO(abeln): modify usage sites to use `RefEq_eq/ne` once we migrate to explicit nulls?
+    lazy val Object_eq: TermSymbol = if (!ctx.settings.YexplicitNulls.value) {
+      enterMethod(ObjectClass, nme.eq, methOfAnyRef(BooleanType), Final)
+    } else {
+      RefEq_eq
+    }
+    lazy val Object_ne: TermSymbol = if (!ctx.settings.YexplicitNulls.value) {
+      enterMethod(ObjectClass, nme.ne, methOfAnyRef(BooleanType), Final)
+    } else {
+      RefEq_ne
+    }
     lazy val Object_synchronized: TermSymbol = enterPolyMethod(ObjectClass, nme.synchronized_, 1,
         pt => MethodType(List(pt.paramRefs(0)), pt.paramRefs(0)), Final)
     lazy val Object_clone: TermSymbol = enterMethod(ObjectClass, nme.clone_, MethodType(Nil, ObjectType), Protected)
@@ -330,8 +339,14 @@ class Definitions {
       pt => MethodType(List(FunctionOf(Nil, pt.paramRefs(0))), pt.paramRefs(0)))
 
   /** Method representing a throw */
-  lazy val throwMethod = enterMethod(OpsPackageClass, nme.THROWkw,
-      MethodType(List(OrType(ThrowableType, NullType)), NothingType))
+  lazy val throwMethod: TermSymbol = {
+    val argTpe = if (!ctx.settings.YexplicitNulls.value) {
+      ThrowableType
+    } else {
+      OrType(ThrowableType, NullType)
+    }
+    enterMethod(OpsPackageClass, nme.THROWkw, MethodType(List(argTpe), NothingType))
+  }
 
   lazy val NothingClass: ClassSymbol = enterCompleteClassSymbol(
     ScalaPackageClass, tpnme.Nothing, AbstractFinal, List(AnyClass.typeRef))
@@ -341,17 +356,37 @@ class Definitions {
   /** `RefEq` is the trait defining the reference equality operators.
    *  It's just a marker trait and there's no corresponding class file, since it gets erased to `Object`.
    */
-  lazy val RefEqClass: ClassSymbol = enterCompleteClassSymbol(
-    ScalaPackageClass, tpnme.RefEq, Trait, AnyClass.typeRef :: Nil)
-  def RefEqType: TypeRef = RefEqClass.typeRef
+  lazy val RefEqClass: ClassSymbol = {
+    assert(ctx.settings.YexplicitNulls.value)
+    enterCompleteClassSymbol(ScalaPackageClass, tpnme.RefEq, Trait, AnyClass.typeRef :: Nil)
+  }
+  def RefEqType: TypeRef = {
+    assert(ctx.settings.YexplicitNulls.value)
+    RefEqClass.typeRef
+  }
 
-    lazy val RefEq_eq: TermSymbol = enterMethod(RefEqClass, nme.eq, MethodType(List(RefEqType), BooleanType), Final)
-    lazy val RefEq_ne: TermSymbol = enterMethod(RefEqClass, nme.ne, MethodType(List(RefEqType), BooleanType), Final)
+    lazy val RefEq_eq: TermSymbol = {
+      assert(ctx.settings.YexplicitNulls.value)
+      enterMethod(RefEqClass, nme.eq, MethodType(List(RefEqType), BooleanType), Final)
+    }
+    lazy val RefEq_ne: TermSymbol = {
+      assert(ctx.settings.YexplicitNulls.value)
+      enterMethod(RefEqClass, nme.ne, MethodType(List(RefEqType), BooleanType), Final)
+    }
 
-    def RefEqMethods: List[TermSymbol] = List(RefEq_eq, RefEq_ne)
+    def RefEqMethods: List[TermSymbol] = {
+      assert(ctx.settings.YexplicitNulls.value)
+      List(RefEq_eq, RefEq_ne)
+    }
 
-  lazy val NullClass: ClassSymbol = enterCompleteClassSymbol(
-    ScalaPackageClass, tpnme.Null, AbstractFinal, AnyClass.typeRef :: RefEqClass.typeRef :: Nil)
+  lazy val NullClass: ClassSymbol = {
+    val parents = if (!ctx.settings.YexplicitNulls.value) {
+      List(ObjectClass.typeRef)
+    } else {
+      List(AnyClass.typeRef, RefEqClass.typeRef)
+    }
+    enterCompleteClassSymbol(ScalaPackageClass, tpnme.Null, AbstractFinal, parents)
+  }
   def NullType: TypeRef = NullClass.typeRef
   lazy val RuntimeNullModuleRef: TermRef = ctx.requiredModuleRef("scala.runtime.Null")
 
@@ -365,8 +400,14 @@ class Definitions {
    *  x2.length // allowed by the Typer, but unsound (might throw NPE)
    *  ```
    */
-  lazy val JavaNull = enterAliasType(tpnme.JavaNull, NullType)
-  def JavaNullType = JavaNull.typeRef
+  lazy val JavaNull: TypeSymbol = {
+    assert(ctx.settings.YexplicitNulls.value)
+    enterAliasType(tpnme.JavaNull, NullType)
+  }
+  def JavaNullType: TypeRef = {
+    assert(ctx.settings.YexplicitNulls.value)
+    JavaNull.typeRef
+  }
 
   lazy val ImplicitScrutineeTypeSym =
     newSymbol(ScalaPackageClass, tpnme.IMPLICITkw, EmptyFlags, TypeBounds.empty).entered
@@ -1014,12 +1055,16 @@ class Definitions {
       name.length > prefix.length &&
       name.drop(prefix.length).forall(_.isDigit))
 
-  def isBottomClass(cls: Symbol) = {
+  def isBottomClass(cls: Symbol) = if (!ctx.settings.YexplicitNulls.value) {
+    cls == NothingClass || cls == NullClass
+  } else {
     // After erasure, reference types become nullable again.
     if (!ctx.phase.erasedTypes) cls == NothingClass
     else cls == NothingClass || cls == NullClass
   }
-  def isBottomType(tp: Type) = {
+  def isBottomType(tp: Type) = if (!ctx.settings.YexplicitNulls.value) {
+    tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
+  } else {
     // After erasure, reference types become nullable again.
     if (!ctx.phase.erasedTypes) tp.derivesFrom(NothingClass)
     else tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
@@ -1110,10 +1155,10 @@ class Definitions {
     () => ScalaPackageVal.termRef
   )
 
-  val PredefImportFns: List[() => TermRef] = List[() => TermRef](
+  lazy val PredefImportFns: List[() => TermRef] = List[() => TermRef](
     () => ScalaPredefModuleRef,
     () => DottyPredefModuleRef,
-    () => ctx.requiredModuleRef("scala.NonNull") // TODO(abeln): move to right place
+    () => ctx.requiredModuleRef("scala.ExplicitNulls") // TODO(abeln): move to right place
   )
 
   lazy val RootImportFns: List[() => TermRef] =
@@ -1128,7 +1173,14 @@ class Definitions {
   lazy val UnqualifiedOwnerTypes: Set[NamedType] =
     RootImportTypes.toSet[NamedType] ++ RootImportTypes.map(_.symbol.moduleClass.typeRef)
 
-  lazy val NotRuntimeClasses: Set[Symbol] = Set(AnyClass, AnyValClass, RefEqClass, NullClass, NothingClass)
+  lazy val NotRuntimeClasses: Set[Symbol] = {
+    val classes: Set[Symbol] = Set(AnyClass, AnyValClass, NullClass, NothingClass)
+    if (!ctx.settings.YexplicitNulls.value) {
+      classes
+    } else {
+      classes + RefEqClass
+    }
+  }
 
   /** Classes that are known not to have an initializer irrespective of
    *  whether NoInits is set. Note: FunctionXXLClass is in this set
@@ -1320,38 +1372,56 @@ class Definitions {
   def isValueSubClass(sym1: Symbol, sym2: Symbol): Boolean =
     valueTypeEnc(sym2.asClass.name) % valueTypeEnc(sym1.asClass.name) == 0
 
-  lazy val specialErasure: SimpleIdentityMap[Symbol, ClassSymbol] =
-    SimpleIdentityMap.Empty[Symbol]
-      .updated(AnyClass, ObjectClass)
-      .updated(AnyValClass, ObjectClass)
-      .updated(RefEqClass, ObjectClass)
-      .updated(SingletonClass, ObjectClass)
-      .updated(TupleClass, ObjectClass)
-      .updated(NonEmptyTupleClass, ProductClass)
+  lazy val specialErasure: SimpleIdentityMap[Symbol, ClassSymbol] = {
+    val idMap =
+      SimpleIdentityMap.Empty[Symbol]
+        .updated(AnyClass, ObjectClass)
+        .updated(AnyValClass, ObjectClass)
+        .updated(SingletonClass, ObjectClass)
+        .updated(TupleClass, ObjectClass)
+        .updated(NonEmptyTupleClass, ProductClass)
+    if (!ctx.settings.YexplicitNulls.value) {
+      idMap
+    } else {
+      idMap.updated(RefEqClass, ObjectClass)
+    }
+  }
 
   // ----- Initialization ---------------------------------------------------
 
   /** Lists core classes that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
-  lazy val syntheticScalaClasses: List[TypeSymbol] = List(
-    AnyClass,
-    RefEqClass,
-    AnyRefAlias,
-    AnyKindClass,
-    RepeatedParamClass,
-    ByNameParamClass2x,
-    AnyValClass,
-    NullClass,
-    NothingClass,
-    SingletonClass,
-    EqualsPatternClass)
+  lazy val syntheticScalaClasses: List[TypeSymbol] = {
+    val classes = List(
+      AnyClass,
+      AnyRefAlias,
+      AnyKindClass,
+      RepeatedParamClass,
+      ByNameParamClass2x,
+      AnyValClass,
+      NullClass,
+      NothingClass,
+      SingletonClass,
+      EqualsPatternClass)
+    if (!ctx.settings.YexplicitNulls.value) {
+      classes
+    } else {
+      classes :+ RefEqClass
+    }
+  }
 
   lazy val syntheticCoreClasses: List[Symbol] = syntheticScalaClasses ++ List(
     EmptyPackageVal,
     OpsPackageClass)
 
   /** Lists core methods that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
-  lazy val syntheticCoreMethods: List[TermSymbol] =
-    AnyMethods ++ ObjectMethods ++ RefEqMethods ++ List(String_+, throwMethod)
+  lazy val syntheticCoreMethods: List[TermSymbol] = {
+    val methods = AnyMethods ++ ObjectMethods ++ List(String_+, throwMethod)
+    if (!ctx.settings.YexplicitNulls.value) {
+      methods
+    } else {
+      methods ++ RefEqMethods
+    }
+  }
 
   lazy val reservedScalaClassNames: Set[Name] = syntheticScalaClasses.map(_.name).toSet
 

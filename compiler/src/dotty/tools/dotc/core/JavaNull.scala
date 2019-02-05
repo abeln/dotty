@@ -13,6 +13,7 @@ object JavaNull {
    *  `tp` is the member type. The type inside `sym` shouldn't be used (might not be even set).
    */
   def nullifyMember(sym: Symbol, tp: Type)(implicit ctx: Context): Type = {
+    assert(ctx.settings.YexplicitNulls.value)
     assert(sym.is(JavaDefined), s"can only nullify java-defined members")
 
     // A list of members that are special-cased.
@@ -117,7 +118,7 @@ object JavaNull {
   /** A type map that adds `| JavaNull`.
    *  @param alreadyNullable whether the type being mapped is already nullable (at the outermost level)
    */
-  class JavaNullMap(alreadyNullable: Boolean)(implicit ctx: Context) extends TypeMap {
+  private class JavaNullMap(alreadyNullable: Boolean)(implicit ctx: Context) extends TypeMap {
     /** Should we nullify `tp` at the outermost level? */
     def shouldNullify(tp: Type): Boolean = {
       !alreadyNullable && (tp match {

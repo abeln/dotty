@@ -326,7 +326,11 @@ object Parsers {
 
     /** An error tree that stands for a pattern or an expression */
     def errorTermTree(inPattern: Boolean): Tree = atSpan(in.offset) {
-      Ident(if (inPattern) nme.WILDCARD else nme.???)
+      if (!ctx.settings.YexplicitNulls.value) {
+        Literal(Constant(null))
+      } else {
+        Ident(if (inPattern) nme.WILDCARD else nme.???)
+      }
     }
 
     private[this] var inFunReturnType = false

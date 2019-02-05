@@ -631,7 +631,7 @@ trait Implicits { self: Typer =>
       try {
         val to1 = adjust(to)
         inferImplicit(to1, from, from.span) match {
-          case err: SearchFailure if !err.isAmbiguous && from.tpe.isJavaNullableUnion =>
+          case err: SearchFailure if ctx.settings.YexplicitNulls.value && !err.isAmbiguous && from.tpe.isJavaNullableUnion =>
             // TODO(abeln): is this worth keeping?
             // When looking for an implicit conversion from A|JavaNull -> B, if we
             // can't find it, then also look for an implicit conversion from A -> B.
@@ -751,11 +751,15 @@ trait Implicits { self: Typer =>
       inferImplicit(defn.EqType.appliedTo(tp, tp), EmptyTree, span).isSuccess
 
     def validEqAnyArgs(tp1: Type, tp2: Type)(implicit ctx: Context) = {
-      lazy val eitherIsNull = tp1.isRef(defn.NullClass) || tp2.isRef(defn.NullClass)
       List(tp1, tp2).foreach(fullyDefinedType(_, "eqAny argument", span))
-      // If either of the types is `Null`, then we only want to generate the fallback `Eq`
-      // the other type is a reference type.
-      assumedCanEqual(tp1, tp2) || !eitherIsNull && !hasEq(tp1) && !hasEq(tp2)
+      if (!ctx.settings.YexplicitNulls.value) {
+        assumedCanEqual(tp1, tp2) || !hasEq(tp1) && !hasEq(tp2)
+      } else {
+        lazy val eitherIsNull = tp1.isRef(defn.NullClass) || tp2.isRef(defn.NullClass)
+        // If either of the types is `Null`, then we only want to generate the fallback `Eq`
+        // the other type is a reference type.
+        assumedCanEqual(tp1, tp2) || !eitherIsNull && !hasEq(tp1) && !hasEq(tp2)
+      }
     }
 
     /** If `formal` is of the form `scala.reflect.Generic[T]` for some class type `T`,
@@ -904,8 +908,7 @@ trait Implicits { self: Typer =>
         if (ltp.isRef(defn.NullClass)) rtp
         else if (rtp.isRef(defn.NullClass)) ltp
         else NoType
-      // Even though classes deriving from `AnyRef` are non-nullable, we still
-      // allow testing them for equality against null.
+      // Even if we have explicit nulls, we still allow comparing reference types with null.
       // This is because nulls can still sneak in without detection by the type
       // system (e.g. via Java), so checking for null is a useful escape hatch.
       (other ne NoType) && !other.derivesFrom(defn.AnyValClass)

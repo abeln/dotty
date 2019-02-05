@@ -249,12 +249,14 @@ object TypeErasure {
    *  which leads to more predictable bytecode and (?) faster dynamic dispatch.
    */
   def erasedLub(tp1: Type, tp2: Type)(implicit ctx: Context): Type = {
-    // After erasure, C | Null is just C, if C is a reference type.
-    // We need to short-circuit this case here because the regular lub logic below
-    // relies on the class hierarchy, which doesn't properly capture `Null`s subtyping
-    // behaviour.
-    if (tp1.isRefToNull && tp2.derivesFrom(defn.ObjectClass)) return tp2
-    if (tp2.isRefToNull && tp1.derivesFrom(defn.ObjectClass)) return tp1
+    if (ctx.settings.YexplicitNulls.value) {
+      // After erasure, C | Null is just C, if C is a reference type.
+      // We need to short-circuit this case here because the regular lub logic below
+      // relies on the class hierarchy, which doesn't properly capture `Null`s subtyping
+      // behaviour.
+      if (tp1.isRefToNull && tp2.derivesFrom(defn.ObjectClass)) return tp2
+      if (tp2.isRefToNull && tp1.derivesFrom(defn.ObjectClass)) return tp1
+    }
     tp1 match {
       case JavaArrayType(elem1) =>
         import dotty.tools.dotc.transform.TypeUtils._

@@ -20,16 +20,19 @@ object FlowFacts {
   /** The initial state where no `TermRef`s are known to be non-null */
   @sharable val emptyNonNullSet = Set.empty[TermRef]
 
-  /** Is `tref` non-null (even if its info says it isn't)? */
-  def isNonNull(nnSet: NonNullSet, tref: TermRef): Boolean = {
-    nnSet.contains(tref)
+  /** Try to improve the precision of `tpe` using flow-sensitive type information. */
+  def refineType(tpe: Type)(implicit ctx: Context): Type = {
+    assert(ctx.settings.YexplicitNulls.value)
+    tpe match {
+      case tref: TermRef if isNonNull(ctx.nonNullFacts, tref) =>
+        NonNullTermRef.fromTermRef(tref)
+      case _ => tpe
+    }
   }
 
-  /** Try to improve the precision of `tpe` using flow-sensitive type information. */
-  def refineType(tpe: Type)(implicit ctx: Context): Type = tpe match {
-    case tref: TermRef if isNonNull(ctx.nonNullFacts, tref) =>
-      NonNullTermRef.fromTermRef(tref)
-    case _ => tpe
+  /** Is `tref` non-null (even if its info says it isn't)? */
+  private def isNonNull(nnSet: NonNullSet, tref: TermRef): Boolean = {
+    nnSet.contains(tref)
   }
 
   /** Nullability facts inferred from a condition.
@@ -80,6 +83,7 @@ object FlowFacts {
    * TODO(abeln): add longer description of the algorithm
    */
   def inferNonNull(cond: Tree)(implicit ctx: Context): Inferred = {
+    assert(ctx.settings.YexplicitNulls.value)
     /** Combine two sets of facts according to `op`. */
     def combine(lhs: Inferred, op: Name, rhs: Inferred): Inferred = {
       op match {
@@ -155,6 +159,7 @@ object FlowFacts {
    *  ```
    */
   def propagateWithinCond(cond: Tree)(implicit ctx: Context): Context = {
+    assert(ctx.settings.YexplicitNulls.value)
     cond match {
       case Select(lhs, op) if op == nme.ZAND || op == nme.ZOR =>
         val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(lhs)

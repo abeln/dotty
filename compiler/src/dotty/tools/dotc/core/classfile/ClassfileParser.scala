@@ -7,7 +7,6 @@ import Contexts._, Symbols._, Types._, Names._, StdNames._, NameOps._, Scopes._,
 import SymDenotations._, unpickleScala2.Scala2Unpickler._, Constants._, Annotations._, util.Spans._
 import NameKinds.DefaultGetterName
 import dotty.tools.dotc.core.tasty.{TastyHeaderUnpickler, TastyReader}
-import dotty.tools.dotc.config.Printers
 import ast.tpd._
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, IOException }
 
@@ -273,9 +272,11 @@ class ClassfileParser(
         if ((denot is Flags.Method) && (jflags & JAVA_ACC_VARARGS) != 0)
           denot.info = arrayToRepeated(denot.info)
 
-        val old = denot.info
-        denot.info = JavaNull.nullifyMember(denot.symbol, denot.info)
-        // println(s"nullified member type from classfile for ${denot.symbol.name.show} from ${old.show} into ${denot.info.show}")
+        if (ctx.settings.YexplicitNulls.value) {
+          val old = denot.info
+          denot.info = JavaNull.nullifyMember(denot.symbol, denot.info)
+          // println(s"nullified member type from classfile for ${denot.symbol.name.show} from ${old.show} into ${denot.info.show}")
+        }
 
         // seal java enums
         if (isEnum) {
