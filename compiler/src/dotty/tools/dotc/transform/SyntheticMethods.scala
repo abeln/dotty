@@ -120,7 +120,13 @@ class SyntheticMethods(thisPhase: DenotTransformer) {
       val ioob = defn.IndexOutOfBoundsException.typeRef
       // Second constructor of ioob that takes a String argument
       def filterStringConstructor(s: Symbol): Boolean = s.info match {
-        case m: MethodType if s.isConstructor && m.paramInfos.size == 1 => m.paramInfos.head.stripJavaNull == defn.StringType
+        case m: MethodType if s.isConstructor && m.paramInfos.size == 1 =>
+          val pinfo = if (!ctx.settings.YexplicitNulls.value) {
+            m.paramInfos.head
+          } else {
+            m.paramInfos.head.stripJavaNull
+          }
+          pinfo == defn.StringType
         case _ => false
       }
       val constructor = ioob.typeSymbol.info.decls.find(filterStringConstructor _).asTerm

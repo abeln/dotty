@@ -1,6 +1,6 @@
 object sorting {
 
-  import scala.NonNull.ArrayConversions._
+  import scala.ExplicitNulls.ArrayConversions._
 
   val xs: Array[String] = ???
 

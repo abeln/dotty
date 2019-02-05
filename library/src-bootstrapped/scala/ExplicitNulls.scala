@@ -1,6 +1,6 @@
 package scala
 
-object NonNull {
+object ExplicitNulls {
   implicit class NonNull[T](x: T|Null) extends AnyVal {
     def nn: T = if (x == null) {
       throw new NullPointerException("tried to cast away nullability, but value is null")

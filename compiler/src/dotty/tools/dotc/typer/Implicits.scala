@@ -623,7 +623,7 @@ trait Implicits { self: Typer =>
       try {
         val to1 = adjust(to)
         inferImplicit(to1, from, from.span) match {
-          case err: SearchFailure if !err.isAmbiguous && from.tpe.isJavaNullableUnion =>
+          case err: SearchFailure if ctx.settings.YexplicitNulls.value && !err.isAmbiguous && from.tpe.isJavaNullableUnion =>
             // TODO(abeln): is this worth keeping?
             // When looking for an implicit conversion from A|JavaNull -> B, if we
             // can't find it, then also look for an implicit conversion from A -> B.
@@ -721,8 +721,10 @@ trait Implicits { self: Typer =>
           val nestedCtx = ctx.fresh.addMode(Mode.StrictEquality)
           // If either of the types is `Null`, then we only want to generate the fallback `Eq`
           // the other type is a reference type.
-          val eitherIsNull = tp1.isRef(defn.NullClass) || tp2.isRef(defn.NullClass)
-          !eitherIsNull && !hasEq(tp1)(nestedCtx) && !hasEq(tp2)(nestedCtx)
+          lazy val eitherIsNull = tp1.isRef(defn.NullClass) || tp2.isRef(defn.NullClass)
+          val res = !hasEq(tp1)(nestedCtx) && !hasEq(tp2)(nestedCtx)
+          if (ctx.settings.YexplicitNulls.value) res && !eitherIsNull
+          else res
         }
       }
 
@@ -944,8 +946,7 @@ trait Implicits { self: Typer =>
         if (ltp.isRef(defn.NullClass)) rtp
         else if (rtp.isRef(defn.NullClass)) ltp
         else NoType
-      // Even though classes deriving from `AnyRef` are non-nullable, we still
-      // allow testing them for equality against null.
+      // Even if we have explicit nulls, we still allow comparing reference types with null.
       // This is because nulls can still sneak in without detection by the type
       // system (e.g. via Java), so checking for null is a useful escape hatch.
       (other ne NoType) && !other.derivesFrom(defn.AnyValClass)
@@ -967,13 +968,12 @@ trait Implicits { self: Typer =>
       }
     }
 
-    ltp.isError ||
-    rtp.isError ||
-    !strictEquality && {
+    val res = ltp.isError || rtp.isError || !strictEquality && {
       ltp <:< lift(rtp) ||
-      rtp <:< lift(ltp) ||
-      eqNullable
+      rtp <:< lift(ltp)
     }
+    if (ctx.settings.YexplicitNulls.value) res || eqNullable
+    else res
   }
 
   /** Check that equality tests between types `ltp` and `rtp` make sense */

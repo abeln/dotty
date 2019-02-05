@@ -692,13 +692,16 @@ object SymDenotations {
 
     /** Is this symbol a class with nullable values? */
     final def isNullableClass(implicit ctx: Context): Boolean = {
-      if (!ctx.phase.erasedTypes) symbol == defn.NullClass || symbol == defn.AnyClass
-      else isNullableClassAfterErasure
+      if (ctx.settings.YexplicitNulls.value && !ctx.phase.erasedTypes) {
+        symbol == defn.NullClass || symbol == defn.AnyClass
+      } else {
+        isNullableClassAfterErasure
+      }
     }
 
     /** Is this symbol a class with nullable values after erasure? */
     final def isNullableClassAfterErasure(implicit ctx: Context): Boolean = {
-      // After erasure, reference types become nullable again.
+      // Reference types are nullable after erasure.
       isClass && !isValueClass && !is(ModuleClass) && symbol != defn.NothingClass
     }
 

@@ -21,7 +21,6 @@ import transform.ValueClasses._
 import transform.TypeUtils._
 import transform.SymUtils._
 import reporting.diagnostic.messages._
-import dotty.tools.dotc.config.Printers
 
 trait NamerContextOps { this: Context =>
   import NamerContextOps._
@@ -140,8 +139,14 @@ trait NamerContextOps { this: Context =>
           else (params.head is Implicit, params.head is Erased, params.head.is(Given))
         val make = MethodType.maker(isJava = isJava, isImplicit = isImplicit, isErased = isErased, isContextual = isContextual)
         if (isJava)
-          for (param <- params)
-            if (param.info.stripNull.isDirectRef(defn.ObjectClass)) param.info = defn.AnyType
+          for (param <- params) {
+            val paramInfo = if (!ctx.settings.YexplicitNulls.value) {
+              param.info
+            } else {
+              param.info.stripNull
+            }
+            if (paramInfo.isDirectRef(defn.ObjectClass)) param.info = defn.AnyType
+          }
         make.fromSymbols(params, resultType)
       }
     if (typeParams.nonEmpty) PolyType.fromParams(typeParams.asInstanceOf[List[TypeSymbol]], monotpe)
@@ -1277,7 +1282,7 @@ class Namer { typer: Typer =>
         WildcardType
     }
     val memTpe = paramFn(checkSimpleKinded(typedAheadType(mdef.tpt, tptProto)).tpe)
-    if (mdef.mods.is(JavaDefined)) {
+    if (ctx.settings.YexplicitNulls.value && mdef.mods.is(JavaDefined)) {
       val nullifiedTpe = JavaNull.nullifyMember(sym, memTpe)
       // println(s"nullified member type from source for ${sym.name.show} from ${memTpe.show} into ${nullifiedTpe.show}")
       nullifiedTpe

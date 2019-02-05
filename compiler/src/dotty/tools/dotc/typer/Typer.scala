@@ -416,7 +416,11 @@ class Typer extends Namer
       } else
         errorType(new MissingIdent(tree, kind, name.show), tree.sourcePos)
 
-    val ownType1 = FlowFacts.refineType(ownType)
+    val ownType1 = if (!ctx.settings.YexplicitNulls.value) {
+      ownType
+    } else {
+      FlowFacts.refineType(ownType)
+    }
 
     val tree1 = ownType1 match {
       case ownType1: NamedType if !prefixIsElidable(ownType1) =>
@@ -444,7 +448,11 @@ class Typer extends Namer
 
   private def typedSelect(tree: untpd.Select, pt: Type, qual: Tree)(implicit ctx: Context): Select = {
     val select = assignType(cpy.Select(tree)(qual, tree.name), qual)
-    val select1 = select.withType(FlowFacts.refineType(select.tpe))
+    val select1 = if (!ctx.settings.YexplicitNulls.value) {
+      select
+    } else {
+      select.withType(FlowFacts.refineType(select.tpe))
+    }
     checkValue(select1, pt)
   }
 
@@ -753,9 +761,12 @@ class Typer extends Namer
     if (tree.isInline) checkInInlineContext("inline if", tree.posd)
     val cond1 = typed(tree.cond, defn.BooleanType)
 
-    val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(cond1)
-    val thenCtx = ctx.fresh.addNonNullFacts(ifTrue)
-    val elseCtx = ctx.fresh.addNonNullFacts(ifFalse)
+    val (thenCtx, elseCtx) = if (!ctx.settings.YexplicitNulls.value) {
+      (ctx, ctx)
+    } else {
+      val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(cond1)
+      (ctx.fresh.addNonNullFacts(ifTrue), ctx.fresh.addNonNullFacts(ifFalse))
+    }
 
     if (tree.elsep.isEmpty) {
       val thenp1 = typed(tree.thenp, defn.UnitType)(thenCtx)
@@ -1220,7 +1231,12 @@ class Typer extends Namer
   }
 
   def typedThrow(tree: untpd.Throw)(implicit ctx: Context): Tree = track("typedThrow") {
-    val expr1 = typed(tree.expr, OrType(defn.ThrowableType, defn.NullType))
+    val pt = if (!ctx.settings.YexplicitNulls.value) {
+      defn.ThrowableType
+    } else {
+      OrType(defn.ThrowableType, defn.NullType)
+    }
+    val expr1 = typed(tree.expr, pt)
     Throw(expr1).withSpan(tree.span)
   }
 

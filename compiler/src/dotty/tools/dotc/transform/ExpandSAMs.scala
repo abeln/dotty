@@ -19,7 +19,7 @@ import dotty.tools.dotc.util.Spans.Span
  *   4. Closures that implement traits which run initialization code.
  *   5. Closures that get synthesized abstract methods in the transformation pipeline. These methods can be
  *      (1) superaccessors, (2) outer references, (3) accessors for fields.
- *   6. Nullable functions: e.g. `(Int => Int)|Null`
+ *   6. Nullable functions: e.g. `(Int => Int)|Null` (if explicit nulls is enabled)
  *
  *  However, implicit function types do not count as SAM types.
  */
@@ -38,14 +38,18 @@ class ExpandSAMs extends MiniPhase {
         case NoType =>
           tree // it's a plain function
         case SAMType(_) =>
-          // If the type is a SAM type, it's also possibly nullable. However, here we're desugaring an
-          // expression of the form `def fun() = {...}; closure(fun)`, so the desugaring should use the
-          // more precise non-nullable type for the literal.
-          // TODO(abeln): this makes handling closures typed as nullable go through the slow path that doesn't
-          // use SAM types.
-          // In other words, `val x: Int => Int = (x) => x` and `val x: (Int => Int)|Null = (x) => x` both typecheck,
-          // but the former uses the platform SAM types, vs the latter which uses an anonymous class.
-          val tpe = tpt.tpe.stripNull
+          val tpe = if (!ctx.settings.YexplicitNulls.value) {
+            tpt.tpe
+          } else {
+            // If the type is a SAM type, it's also possibly nullable. However, here we're desugaring an
+            // expression of the form `def fun() = {...}; closure(fun)`, so the desugaring should use the
+            // more precise non-nullable type for the literal.
+            // TODO(abeln): this makes handling closures typed as nullable go through the slow path that doesn't
+            // use SAM types.
+            // In other words, `val x: Int => Int = (x) => x` and `val x: (Int => Int)|Null = (x) => x` both typecheck,
+            // but the former uses the platform SAM types, vs the latter which uses an anonymous class.
+            tpt.tpe.stripNull
+          }
           if (defn.isImplicitFunctionType(tpe)) {
             tree
           } else if (tpe.isRef(defn.PartialFunctionClass)) {
