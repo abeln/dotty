@@ -397,7 +397,11 @@ class SpaceEngine(implicit ctx: Context) extends SpaceLogic {
 
   /** Is `tp1` a subtype of `tp2`?  */
   def isSubType(tp1: Type, tp2: Type): Boolean = {
-    val res = tp1 <:< tp2
+    val res = if (!ctx.settings.YexplicitNulls.value) {
+      (tp1 != constantNullType || tp2 == constantNullType) && tp1 <:< tp2
+    } else {
+      tp1 <:< tp2
+    }
     debug.println(s"${tp1} <:< ${tp2} = $res")
     res
   }
