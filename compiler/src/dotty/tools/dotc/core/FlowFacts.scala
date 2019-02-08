@@ -2,7 +2,6 @@ package dotty.tools.dotc.core
 
 import dotty.tools.dotc.ast.tpd._
 import StdNames.nme
-import dotty.tools.dotc.ast.Trees.{Tree => _, _}
 import dotty.tools.dotc.ast.tpd
 import dotty.tools.dotc.core.Constants.Constant
 import dotty.tools.dotc.core.Contexts.Context
@@ -98,18 +97,35 @@ object FlowFacts {
     /** Recurse over a conditional to extract flow facts. */
     def recur(tree: Tree): Inferred = {
       tree match {
-        case Apply(Select(lhs, op), List(rhs)) =>
-          if (op == nme.ZAND || op == nme.ZOR) combine(recur(lhs), op, recur(rhs))
-          else if (op == nme.EQ || op == nme.NE || op == nme.eq || op == nme.ne) newFact(lhs, isEq = (op == nme.EQ || op == nme.eq), rhs)
-          else emptyFacts
-        case TypeApply(Select(lhs, op), List(targ)) if op == nme.isInstanceOf_ && targ.tpe.isRefToNull =>
-          // TODO(abeln): handle type test with argument that's not a subtype of `Null`.
-          // We could infer "non-null" in that case: e.g. `if (x.isInstanceOf[String]) { // x can't be null }`
-          newFact(lhs, isEq = true, nullLit)
-        case Select(lhs, neg) if neg == nme.UNARY_! => recur(lhs).negate
-        case Block(_, expr) => recur(expr)
-        case Inlined(_, _, expansion) => recur(expansion)
-        case Typed(expr, _) => recur(expr) // TODO(abeln): check that the type is `Boolean`?
+        case app: Apply =>
+          (app.fun, app.args) match {
+            case (select: Select, List(rhs)) =>
+              val lhs = select.qualifier
+              val op = select.name
+              if (op == nme.ZAND || op == nme.ZOR) combine(recur(lhs), op, recur(rhs))
+              else if (op == nme.EQ || op == nme.NE || op == nme.eq || op == nme.ne) newFact(lhs, isEq = (op == nme.EQ || op == nme.eq), rhs)
+              else emptyFacts
+            case _ => emptyFacts
+          }
+        case tApp: TypeApply =>
+          (tApp.fun, tApp.args) match {
+            case (select: Select, List(tArg)) =>
+              val lhs = select.qualifier
+              val op = select.name
+              if (op == nme.isInstanceOf_ && tArg.tpe.isRefToNull) {
+                // TODO(abeln): handle type test with argument that's not a subtype of `Null`.
+                // We could infer "non-null" in that case: e.g. `if (x.isInstanceOf[String]) { // x can't be null }`
+                newFact(lhs, isEq = true, nullLit)
+              } else emptyFacts
+            case _ => emptyFacts
+          }
+        case select: Select =>
+          val lhs = select.qualifier
+          val op = select.name
+          if (op == nme.UNARY_!) recur(lhs).negate else emptyFacts
+        case block: Block => recur(block.expr)
+        case inline: Inlined => recur(inline.expansion)
+        case typed: Typed => recur(typed.expr) // TODO(abeln): check that the type is `Boolean`?
         case _ => emptyFacts
       }
     }
@@ -119,7 +135,7 @@ object FlowFacts {
      */
     def newFact(lhs: Tree, isEq: Boolean, rhs: Tree): Inferred = {
       def isNullLit(tree: Tree): Boolean = tree match {
-        case Literal(const) if const.tag == Constants.NullTag => true
+        case lit: Literal if lit.const.tag == Constants.NullTag => true
         case _ => false
       }
 
@@ -161,10 +177,16 @@ object FlowFacts {
   def propagateWithinCond(cond: Tree)(implicit ctx: Context): Context = {
     assert(ctx.settings.YexplicitNulls.value)
     cond match {
-      case Select(lhs, op) if op == nme.ZAND || op == nme.ZOR =>
-        val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(lhs)
-        if (op == nme.ZAND) ctx.fresh.addNonNullFacts(ifTrue)
-        else ctx.fresh.addNonNullFacts(ifFalse)
+      case select: Select =>
+        val lhs = select.qualifier
+        val op = select.name
+        if (op == nme.ZAND || op == nme.ZOR) {
+          val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(lhs)
+          if (op == nme.ZAND) ctx.fresh.addNonNullFacts(ifTrue)
+          else ctx.fresh.addNonNullFacts(ifFalse)
+        } else {
+          ctx
+        }
       case _ => ctx
     }
   }
