@@ -1,5 +1,7 @@
 package scala
 
+import scala.reflect.ClassTag
+
 object ExplicitNulls {
   implicit class NonNull[T](x: T|Null) extends AnyVal {
     def nn: T = if (x == null) {
@@ -9,7 +11,7 @@ object ExplicitNulls {
     }
   }
 
-  object ArrayConversions {
+  object ArrayUtils {
     // In the conversion methods below, the type arguments need to be reference types, since
     // otherwise `Array[T]` and `Array[T|Null]` will have different erasures.
 
@@ -19,6 +21,16 @@ object ExplicitNulls {
 
     implicit class FromNullable1[T <: AnyRef](arr: Array[T|Null]) extends AnyVal {
       def withNonNullElems: Array[T] = arr.asInstanceOf[Array[T]]
+    }
+
+    implicit class Factory(arr: Array.type) extends AnyVal {
+      def ofNulls[T >: Null](dim: Int)(implicit classTag: ClassTag[T]): Array[T] = {
+        Array.ofDim(dim)
+      }
+
+      def ofZeros[T <: AnyVal](dim: Int)(implicit classTag: ClassTag[T]): Array[T] = {
+        Array.ofDim(dim)
+      }
     }
   }
 }

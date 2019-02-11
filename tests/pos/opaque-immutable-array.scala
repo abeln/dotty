@@ -13,7 +13,7 @@ object ia {
 
     // return a sorted copy of the array
     def sorted[A <: AnyRef : math.Ordering](ia: IArray[A]): IArray[A] = {
-      import scala.ExplicitNulls.ArrayConversions._
+      import scala.ExplicitNulls.ArrayUtils._
       val arr: Array[A] = Arrays.copyOf(ia.withNullElems, ia.length).nn.withNonNullElems
       scala.util.Sorting.quickSort(arr)
       arr
