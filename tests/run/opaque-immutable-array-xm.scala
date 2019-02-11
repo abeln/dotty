@@ -2,7 +2,7 @@ import scala.reflect.ClassTag
 object Test extends App {
 
   import java.util.Arrays
-  import scala.ExplicitNulls.ArrayConversions._
+  import scala.ExplicitNulls.ArrayUtils._
 
   opaque type IArray[A1] = Array[A1]
 
