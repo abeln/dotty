@@ -5,9 +5,16 @@ import dotty.tools.dotc.core.Flags.JavaDefined
 import dotty.tools.dotc.core.StdNames.{jnme, nme}
 import dotty.tools.dotc.core.Symbols.{Symbol, defn, _}
 import dotty.tools.dotc.core.Types.{AndType, AppliedType, LambdaType, MethodType, OrType, PolyType, Type, TypeAlias, TypeMap, TypeParamRef, TypeRef}
+import dotty.tools.dotc.transform.GenericSignatures
+
+import scala.io.Source._
+import play.api.libs.json._
 
 /** Transformation from Java (nullable) to Scala (non-nullable) types */
 object JavaNull {
+
+  // TODO(abeln): do we need this to be multithread-safe?
+  private lazy val nullStats: Map[String, ClassStats] = readNullStats()
 
   /** Adds nullability annotations to a Java-defined member.
    *  `tp` is the member type. The type inside `sym` shouldn't be used (might not be even set).
@@ -21,9 +28,11 @@ object JavaNull {
       // The `TYPE` field in every class.
       FieldP(_.name == nme.TYPE_),
       // The `toString` method.
-      MethodP(_.name == nme.toString_),
+      MethodP(_.name == nme.toString_, Seq.empty, nnRes = true),
+//      stdLibP(sym, tp),
       // Constructors: params are nullified, but the result type isn't.
-      paramsOnlyP(_.isConstructor)
+      paramsOnlyP(_.isConstructor),
+//    )
     ) ++ Seq(
       // Methods in `java.lang.String`.
       paramsOnlyP(_.name == nme.concat),
@@ -43,7 +52,6 @@ object JavaNull {
       paramsOnlyP(_.name == jnme.ForName),
     ).map(WithinSym(_, defn.ClassClass))
 
-
     val (fromWhitelistTp, handled) = whitelist.foldLeft((tp, false)) {
       case (res@(_, true), _) => res
       case ((_, false), pol) =>
@@ -59,12 +67,71 @@ object JavaNull {
     }
   }
 
+  private case class ClassStats(name: String, fields: Seq[FieldStats], methods: Seq[MethodStats]) {
+    private def find(sym: Symbol, tp: Type, nameToDesc: Seq[(String, String)])(implicit ctx: Context): Option[Int] = {
+      val name = sym.name.show
+      val descOpt = GenericSignatures.javaDescriptor(sym, tp)
+      descOpt match {
+        case Some(desc) =>
+          nameToDesc.indexOf((name, desc)) match {
+            case -1 => None
+            case idx => Some(idx)
+          }
+        case None => None
+      }
+    }
+
+    def getField(sym: Symbol, tp: Type)(implicit ctx: Context): Option[FieldStats] = {
+      find(sym, tp, fields.map(fs => (fs.name, fs.desc))) match {
+        case Some(idx) => Some(fields(idx))
+        case None => None
+      }
+    }
+
+    def getMethod(sym: Symbol, tp: Type)(implicit ctx: Context): Option[MethodStats] = {
+      find(sym, tp, methods.map(ms => (ms.name, ms.desc))) match {
+        case Some(idx) => Some(methods(idx))
+        case None => None
+      }
+    }
+  }
+
+  private case class FieldStats(name: String, desc: String, nnTpe: Boolean)
+  private case class MethodStats(name: String, desc: String, numParams: Int, nnParams: Seq[Int], nnRet: Boolean)
+
+  private def readNullStats(): Map[String, ClassStats] = {
+    implicit val fieldReads: Reads[FieldStats] = Json.reads[FieldStats]
+    implicit val methodReads: Reads[MethodStats] = Json.reads[MethodStats]
+    implicit val classReads: Reads[ClassStats] = Json.reads[ClassStats]
+
+    val source = fromFile("explicit-nulls-stdlib.json")
+    // TODO(abeln): don't read the entire file at once, if possible
+    val fileContents = try source.getLines.mkString finally source.close()
+    Json.fromJson[Seq[ClassStats]](Json.parse(fileContents)) match {
+      case JsSuccess(stats: Seq[ClassStats], _) =>
+        stats.map(cs => (cs.name, cs)).toMap
+      case JsError(e) =>
+        // TODO(abeln): issue a warning instead of failing
+        sys.error(s"can't load nullability info about the java standard library: $e")
+    }
+  }
+
   /** A policy that special cases the handling of some symbol or class of symbols. */
   private sealed trait NullifyPolicy {
     /** Whether the policy applies to `sym`. */
     def isApplicable(sym: Symbol): Boolean
     /** Nullifies `tp` according to the policy. Should call `isApplicable` first. */
     def apply(tp: Type): Type
+  }
+
+  /** A policy that's never applicable. */
+  private case object FalseP extends NullifyPolicy {
+    override def isApplicable(sym: Symbol): Boolean = false
+
+    def apply(tp: Type): Type = {
+      assert(false, "false nullify policy should never be applied")
+      tp
+    }
   }
 
   /** A policy that avoids modifying a field. */
@@ -76,11 +143,8 @@ object JavaNull {
     }
   }
 
-  /** A policy for handling a method or poly. Can indicate whether the argument or return types should be nullified. */
-  private case class MethodP(trigger: Symbol => Boolean,
-                     nlfyParams: Boolean = false,
-                     nlfyRes: Boolean = false)
-                    (implicit ctx: Context) extends TypeMap with NullifyPolicy {
+  /** A policy for handling a method or poly. */
+  private case class MethodP(trigger: Symbol => Boolean, nnParams: Seq[Int], nnRes: Boolean = false)(implicit ctx: Context) extends TypeMap with NullifyPolicy {
     override def isApplicable(sym: Symbol): Boolean = trigger(sym)
 
     override def apply(tp: Type): Type = {
@@ -88,8 +152,13 @@ object JavaNull {
         case ptp: PolyType =>
           derivedLambdaType(ptp)(ptp.paramInfos, this(ptp.resType))
         case mtp: MethodType =>
-          val paramTpes = if (nlfyParams) mtp.paramInfos.mapConserve(nullifyType) else mtp.paramInfos
-          val resTpe = if (nlfyRes) nullifyType(mtp.resType) else mtp.resType
+          val paramTpes = mtp.paramInfos.zipWithIndex.map {
+            case (paramInfo, index) =>
+              // TODO(abeln): the sequence lookup can be optimized, because the indices
+              // in it appear in increasing order.
+              if (nnParams.contains(index)) paramInfo else nullifyType(paramInfo)
+          }
+          val resTpe = if (nnRes) mtp.resType else nullifyType(mtp.resType)
           derivedLambdaType(mtp)(paramTpes, resTpe)
       }
     }
@@ -97,7 +166,26 @@ object JavaNull {
 
   /** A policy that nullifies only method parameters (but not result types). */
   private def paramsOnlyP(trigger: Symbol => Boolean)(implicit ctx: Context): MethodP = {
-    MethodP(trigger, nlfyParams = true, nlfyRes = false)
+    MethodP(trigger, nnParams = Seq.empty, nnRes = true)
+  }
+
+  private def stdLibP(sym: Symbol, tp: Type)(implicit ctx: Context): NullifyPolicy = {
+    val ownerName = sym.owner.showFullName
+    if (!nullStats.contains(ownerName)) return FalseP
+    val stats = nullStats(ownerName)
+    if (tp.isJavaMethod) {
+      stats.getMethod(sym, tp) match {
+        case Some(mstats) =>
+          MethodP(_ == sym, mstats.nnParams, mstats.nnRet)
+        case None => FalseP
+      }
+    } else {
+      stats.getField(sym, tp) match {
+        case Some(fstas) =>
+          FieldP(_ == sym)
+        case None => FalseP
+      }
+    }
   }
 
   /** A wrapper policy that works as `inner` but additionally verifies that the symbol is contained in `owner`. */
