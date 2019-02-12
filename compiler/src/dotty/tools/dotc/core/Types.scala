@@ -928,16 +928,21 @@ object Types {
      *  if `matchLoosely` evaluates to true the types `=> T` and `()T` are seen
      *  as overriding each other.
      */
-    final def overrides(that: Type, matchLoosely: => Boolean)(implicit ctx: Context): Boolean = {
+    final def overrides(that: Type, matchLoosely: => Boolean, ignoreNulls: Boolean = true)(implicit ctx: Context): Boolean = {
       def widenNullary(tp: Type) = tp match {
         case tp @ MethodType(Nil) => tp.resultType
         case _ => tp
       }
-      ((this.widenExpr frozen_<:< that.widenExpr) ||
+      val (this1, that1) = if (ctx.settings.YexplicitNulls.value && ignoreNulls) {
+        (this.stripInnerNulls, that.stripInnerNulls)
+      } else {
+        (this, that)
+      }
+      ((this1.widenExpr frozen_<:< that1.widenExpr) ||
         matchLoosely && {
-          val this1 = widenNullary(this)
-          val that1 = widenNullary(that)
-          ((this1 `ne` this) || (that1 `ne` that)) && this1.overrides(that1, matchLoosely = false)
+          val this2 = widenNullary(this1)
+          val that2 = widenNullary(that1)
+          ((this2 `ne` this1) || (that2 `ne` that1)) && this2.overrides(that2, matchLoosely = false)
         }
       )
     }
@@ -959,7 +964,12 @@ object Types {
      *      parameter types.
      */
     def matches(that: Type)(implicit ctx: Context): Boolean = track("matches") {
-      ctx.typeComparer.matchesType(this, that, relaxed = !ctx.phase.erasedTypes)
+      val (this1, that1) = if (!ctx.settings.YexplicitNulls.value) {
+        (this, that)
+      } else {
+        (this.stripInnerNulls, that.stripInnerNulls)
+      }
+      ctx.typeComparer.matchesType(this1, that1, relaxed = !ctx.phase.erasedTypes)
     }
 
     /** This is the same as `matches` except that it also matches => T with T and
@@ -1053,6 +1063,23 @@ object Types {
       }
       val (tp, changed) = strip(this.widenDealias.normNullableUnion, false)
       if (changed) tp else this
+    }
+
+    /** Collapses all nullable unions within this type, and not just the outermost ones (as `stripNull` does).
+     *  e.g. (Array[String|Null]|Null).stripNull => Array[String|Null]
+     *       (Array[String|Null]|Null).stripInnerNulls => Array[String]
+     */
+    def stripInnerNulls(implicit ctx: Context): Type = {
+      assert(ctx.settings.YexplicitNulls.value)
+
+      object RemoveNulls extends TypeMap {
+        override def apply(tp: Type): Type = tp match {
+          case tp: OrType if tp.isNullableUnion => mapOver(tp.stripNull)
+          case _ => mapOver(tp)
+        }
+      }
+
+      RemoveNulls(this)
     }
 
     /** Like `stripNull`, but only removes the outermost direct reference to `JavaNull`.
