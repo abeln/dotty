@@ -267,7 +267,7 @@ object RefChecks {
           (if (otherAccess == "") "public" else "at least " + otherAccess))
       }
 
-      def compatibleTypes(memberTp: Type, otherTp: Type): Boolean =
+      def compatibleTypes(memberTp: Type, otherTp: Type, ignoreNulls: Boolean): Boolean =
         try
           if (member.isType) // intersection of bounds to refined types must be nonempty
             memberTp.bounds.hi.hasSameKindAs(otherTp.bounds.hi) &&
@@ -281,9 +281,10 @@ object RefChecks {
           else
             member.name.is(DefaultGetterName) || // default getters are not checked for compatibility
             memberTp.overrides(otherTp,
-                member.matchNullaryLoosely || other.matchNullaryLoosely ||
+              member.matchNullaryLoosely || other.matchNullaryLoosely ||
                 ctx.testScala2Mode(overrideErrorMsg("no longer has compatible type"),
-                   (if (member.owner == clazz) member else clazz).sourcePos))
+                  (if (member.owner == clazz) member else clazz).sourcePos),
+              ignoreNulls)
         catch {
           case ex: MissingType =>
             // can happen when called with upwardsSelf as qualifier of memberTp and otherTp,
@@ -400,9 +401,22 @@ object RefChecks {
         overrideError("is an inline method, must override at least one concrete method")
       } else if (other.is(Scala2Macro) && !member.is(Scala2Macro)) { // (1.11)
         overrideError("cannot be used here - only Scala-2 macros can override Scala-2 macros")
-      } else if (!compatibleTypes(memberTp(self), otherTp(self)) &&
-                 !compatibleTypes(memberTp(upwardsSelf), otherTp(upwardsSelf))) {
+      } else if (!compatibleTypes(memberTp(self), otherTp(self), ignoreNulls = true) &&
+                 !compatibleTypes(memberTp(upwardsSelf), otherTp(upwardsSelf), ignoreNulls = true)) {
         overrideError("has incompatible type" + err.whyNoMatchStr(memberTp(self), otherTp(self)))
+      } else if (ctx.settings.YexplicitNulls.value &&
+                 !compatibleTypes(memberTp(self), otherTp(self), ignoreNulls = false) &&
+                 !compatibleTypes(memberTp(upwardsSelf), otherTp(upwardsSelf), ignoreNulls = false)) {
+        // TODO(abeln): this warning is inefficient, since it requires making a _second_ override
+        // check. Find a more efficient way to do this (ideally, we'd check whether we had to collapse
+        // any nullable unions when doing the override check in the previous case).
+        ctx.warning(
+          i"""
+             | Potential unsound override:
+             | ${member.show} in ${member.owner.show} with type ${memberTp(self).show} overrides
+             | ${other.show} in ${other.owner.show} with type ${otherTp(self).show}
+             | unsoundly because nullability is ignored in override checks.
+           """.stripMargin, member.sourcePos)
       } else {
         checkOverrideDeprecated()
       }
