@@ -145,7 +145,6 @@ object PatternMatcher {
     case class ReturnPlan(var label: TermSymbol) extends Plan
     case class SeqPlan(var head: Plan, var tail: Plan) extends Plan
     case class ResultPlan(var tree: Tree) extends Plan
-    case object NoOpPlan extends Plan
 
     object TestPlan {
       def apply(test: Test, sym: Symbol, span: Span, ons: Plan): TestPlan =
@@ -336,22 +335,18 @@ object PatternMatcher {
               patternPlan(casted, pat, onSuccess)
             })
         case UnApply(extractor, implicits, args) =>
-          val mt @ MethodType(_) = extractor.tpe.widen
-          var unapp = extractor.appliedTo(ref(scrutinee).ensureConforms(mt.paramInfos.head))
-          if (implicits.nonEmpty) unapp = unapp.appliedToArgs(implicits)
-          val scrutineeTpe = scrutinee.info.widenDealias
-          if (scrutineeTpe.isBottomType || scrutineeTpe.isNullType) {
-            // If the value being matched against has type `Nothing`, then the unapply code
-            // will never execute.
-            // If it has type `Null`, then the `NonNullTest` below guarantees that the unapply code
-            // won't execute either.
-            // So we don't need a plan in this case.
-            NoOpPlan
+          val unappPlan = if (defn.isBottomType(scrutinee.info)) {
+            // Generate a throwaway but type-correct plan.
+            // This plan will never execute because it'll be guarded by a `NonNullTest`.
+            ResultPlan(tpd.Throw(tpd.Literal(Constant(null))))
           } else {
-            val unappPlan = unapplyPlan(unapp, args)
-            if (scrutinee.info.isNotNull || nonNull(scrutinee)) unappPlan
-            else TestPlan(NonNullTest, scrutinee, tree.span, unappPlan)
+            val mt @ MethodType(_) = extractor.tpe.widen
+            var unapp = extractor.appliedTo(ref(scrutinee).ensureConforms(mt.paramInfos.head))
+            if (implicits.nonEmpty) unapp = unapp.appliedToArgs(implicits)
+            unapplyPlan(unapp, args)
           }
+          if (scrutinee.info.isNotNull || nonNull(scrutinee)) unappPlan
+          else TestPlan(NonNullTest, scrutinee, tree.span, unappPlan)
         case Bind(name, body) =>
           if (name == nme.WILDCARD) patternPlan(scrutinee, body, onSuccess)
           else {
@@ -431,7 +426,6 @@ object PatternMatcher {
         case plan: ReturnPlan => apply(plan)
         case plan: SeqPlan => apply(plan)
         case plan: ResultPlan => plan
-        case NoOpPlan => NoOpPlan
       }
     }
 
@@ -708,7 +702,6 @@ object PatternMatcher {
     private def canFallThrough(plan: Plan): Boolean = plan match {
       case _:ReturnPlan | _:ResultPlan => false
       case _:TestPlan | _:LabeledPlan => true
-      case NoOpPlan => true
       case LetPlan(_, body) => canFallThrough(body)
       case SeqPlan(_, tail) => canFallThrough(tail)
     }
@@ -872,9 +865,6 @@ object PatternMatcher {
         case ResultPlan(tree) =>
           if (tree.tpe <:< defn.NothingType) tree // For example MatchError
           else Return(tree, ref(resultLabel))
-        case NoOpPlan =>
-          // TODO(abeln): optimize away
-          Literal(Constant(true))
       }
     }
 
@@ -913,8 +903,6 @@ object PatternMatcher {
               showPlan(tail)
             case ResultPlan(tree) =>
               sb.append(tree.show)
-            case NoOpPlan =>
-              sb.append("NoOp")
           }
         }
       showPlan(plan)
