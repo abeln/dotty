@@ -141,10 +141,10 @@ trait NamerContextOps { this: Context =>
         val make = MethodType.maker(isJava = isJava, isImplicit = isImplicit, isErased = isErased, isContextual = isContextual)
         if (isJava)
           for (param <- params) {
-            val paramInfo = if (!ctx.settings.YexplicitNulls.value) {
-              param.info
-            } else {
+            val paramInfo = if (ctx.settings.YexplicitNulls.value) {
               param.info.stripNull
+            } else {
+              param.info
             }
             if (paramInfo.isDirectRef(defn.ObjectClass)) param.info = defn.AnyType
           }

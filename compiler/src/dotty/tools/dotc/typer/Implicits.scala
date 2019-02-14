@@ -752,13 +752,13 @@ trait Implicits { self: Typer =>
 
     def validEqAnyArgs(tp1: Type, tp2: Type)(implicit ctx: Context) = {
       List(tp1, tp2).foreach(fullyDefinedType(_, "eqAny argument", span))
-      if (!ctx.settings.YexplicitNulls.value) {
-        assumedCanEqual(tp1, tp2) || !hasEq(tp1) && !hasEq(tp2)
-      } else {
+      if (ctx.settings.YexplicitNulls.value) {
         lazy val eitherIsNull = tp1.isRef(defn.NullClass) || tp2.isRef(defn.NullClass)
         // If either of the types is `Null`, then we only want to generate the fallback `Eq`
         // the other type is a reference type.
         assumedCanEqual(tp1, tp2) || !eitherIsNull && !hasEq(tp1) && !hasEq(tp2)
+      } else {
+        assumedCanEqual(tp1, tp2) || !hasEq(tp1) && !hasEq(tp2)
       }
     }
 

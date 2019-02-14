@@ -62,10 +62,10 @@ object Scala2Unpickler {
   def arrayToRepeated(tp: Type)(implicit ctx: Context): Type = tp match {
     case tp: MethodType =>
       val lastArg = tp.paramInfos.last
-      val lastArg1 = if (!ctx.settings.YexplicitNulls.value) {
-        lastArg
-      } else {
+      val lastArg1 = if (ctx.settings.YexplicitNulls.value) {
         lastArg.stripJavaNull
+      } else {
+        lastArg
       }
       assert(lastArg1 isRef defn.ArrayClass)
       val elemtp0 :: Nil = lastArg1.baseType(defn.ArrayClass).argInfos

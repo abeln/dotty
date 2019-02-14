@@ -38,9 +38,7 @@ class ExpandSAMs extends MiniPhase {
         case NoType =>
           tree // it's a plain function
         case SAMType(_) =>
-          val tpe = if (!ctx.settings.YexplicitNulls.value) {
-            tpt.tpe
-          } else {
+          val tpe = if (ctx.settings.YexplicitNulls.value) {
             // If the type is a SAM type, it's also possibly nullable. However, here we're desugaring an
             // expression of the form `def fun() = {...}; closure(fun)`, so the desugaring should use the
             // more precise non-nullable type for the literal.
@@ -49,6 +47,8 @@ class ExpandSAMs extends MiniPhase {
             // In other words, `val x: Int => Int = (x) => x` and `val x: (Int => Int)|Null = (x) => x` both typecheck,
             // but the former uses the platform SAM types, vs the latter which uses an anonymous class.
             tpt.tpe.stripNull
+          } else {
+            tpt.tpe
           }
           if (defn.isImplicitFunctionType(tpe)) {
             tree

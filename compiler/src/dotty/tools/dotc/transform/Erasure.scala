@@ -75,10 +75,10 @@ class Erasure extends Phase with DenotTransformer {
         else oldSymbol
         val oldOwner = ref.owner
         val newOwner = {
-          val shouldBeObject = if (!ctx.settings.YexplicitNulls.value) {
-            oldOwner eq defn.AnyClass
-          } else {
+          val shouldBeObject = if (ctx.settings.YexplicitNulls.value) {
             (oldOwner eq defn.AnyClass) || (oldOwner eq defn.RefEqClass)
+          } else {
+            oldOwner eq defn.AnyClass
           }
           if (shouldBeObject) defn.ObjectClass else oldOwner
         }

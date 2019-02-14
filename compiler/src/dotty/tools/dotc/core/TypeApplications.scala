@@ -456,10 +456,10 @@ class TypeApplications(val self: Type) extends AnyVal {
    */
   def underlyingIfRepeated(isJava: Boolean)(implicit ctx: Context): Type =
     if (self.isRepeatedParam) {
-      val self1 = if (!ctx.settings.YexplicitNulls.value) {
-        self
-      } else {
+      val self1 = if (ctx.settings.YexplicitNulls.value) {
         self.stripJavaNull
+      } else {
+        self
       }
       val seqClass = if (isJava) defn.ArrayClass else defn.SeqClass
       // If `isJava` is set, then we want to turn `RepeatedParam[T]` into `Array[_ <: T]`,

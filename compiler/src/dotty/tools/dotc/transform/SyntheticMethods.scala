@@ -118,10 +118,10 @@ class SyntheticMethods(thisPhase: DenotTransformer) {
       // Second constructor of ioob that takes a String argument
       def filterStringConstructor(s: Symbol): Boolean = s.info match {
         case m: MethodType if s.isConstructor && m.paramInfos.size == 1 =>
-          val pinfo = if (!ctx.settings.YexplicitNulls.value) {
-            m.paramInfos.head
-          } else {
+          val pinfo = if (ctx.settings.YexplicitNulls.value) {
             m.paramInfos.head.stripJavaNull
+          } else {
+            m.paramInfos.head
           }
           pinfo == defn.StringType
         case _ => false

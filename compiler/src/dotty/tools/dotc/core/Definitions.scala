@@ -280,7 +280,11 @@ class Definitions {
   lazy val ObjectClass: ClassSymbol = {
     val cls = ctx.requiredClass("java.lang.Object")
     assert(!cls.isCompleted, "race for completing java.lang.Object")
-    val parents = if (!ctx.settings.YexplicitNulls.value) AnyClass.typeRef :: Nil else AnyClass.typeRef :: RefEqClass.typeRef :: Nil
+    val parents = if (ctx.settings.YexplicitNulls.value) {
+      AnyClass.typeRef :: RefEqClass.typeRef :: Nil
+    } else {
+      AnyClass.typeRef :: Nil
+    }
     cls.info = ClassInfo(cls.owner.thisType, cls, parents, newScope)
     cls.setFlag(NoInits)
 
@@ -299,15 +303,15 @@ class Definitions {
   def AnyRefType: TypeRef = AnyRefAlias.typeRef
 
     // TODO(abeln): modify usage sites to use `RefEq_eq/ne` once we migrate to explicit nulls?
-    lazy val Object_eq: TermSymbol = if (!ctx.settings.YexplicitNulls.value) {
-      enterMethod(ObjectClass, nme.eq, methOfAnyRef(BooleanType), Final)
-    } else {
+    lazy val Object_eq: TermSymbol = if (ctx.settings.YexplicitNulls.value) {
       RefEq_eq
-    }
-    lazy val Object_ne: TermSymbol = if (!ctx.settings.YexplicitNulls.value) {
-      enterMethod(ObjectClass, nme.ne, methOfAnyRef(BooleanType), Final)
     } else {
+      enterMethod(ObjectClass, nme.eq, methOfAnyRef(BooleanType), Final)
+    }
+    lazy val Object_ne: TermSymbol = if (ctx.settings.YexplicitNulls.value) {
       RefEq_ne
+    } else {
+      enterMethod(ObjectClass, nme.ne, methOfAnyRef(BooleanType), Final)
     }
     lazy val Object_synchronized: TermSymbol = enterPolyMethod(ObjectClass, nme.synchronized_, 1,
         pt => MethodType(List(pt.paramRefs(0)), pt.paramRefs(0)), Final)
@@ -340,10 +344,10 @@ class Definitions {
 
   /** Method representing a throw */
   lazy val throwMethod: TermSymbol = {
-    val argTpe = if (!ctx.settings.YexplicitNulls.value) {
-      ThrowableType
-    } else {
+    val argTpe = if (ctx.settings.YexplicitNulls.value) {
       OrType(ThrowableType, NullType)
+    } else {
+      ThrowableType
     }
     enterMethod(OpsPackageClass, nme.THROWkw, MethodType(List(argTpe), NothingType))
   }
@@ -380,10 +384,10 @@ class Definitions {
     }
 
   lazy val NullClass: ClassSymbol = {
-    val parents = if (!ctx.settings.YexplicitNulls.value) {
-      List(ObjectClass.typeRef)
-    } else {
+    val parents = if (ctx.settings.YexplicitNulls.value) {
       List(AnyClass.typeRef, RefEqClass.typeRef)
+    } else {
+      List(ObjectClass.typeRef)
     }
     enterCompleteClassSymbol(ScalaPackageClass, tpnme.Null, AbstractFinal, parents)
   }
@@ -1055,19 +1059,19 @@ class Definitions {
       name.length > prefix.length &&
       name.drop(prefix.length).forall(_.isDigit))
 
-  def isBottomClass(cls: Symbol) = if (!ctx.settings.YexplicitNulls.value) {
+  def isBottomClass(cls: Symbol) = if (ctx.settings.YexplicitNulls.value) {
+    // After erasure, reference types become nullable again.
+    if (ctx.phase.erasedTypes) cls == NothingClass || cls == NullClass
+    else cls == NothingClass
+  } else {
     cls == NothingClass || cls == NullClass
-  } else {
-    // After erasure, reference types become nullable again.
-    if (!ctx.phase.erasedTypes) cls == NothingClass
-    else cls == NothingClass || cls == NullClass
   }
-  def isBottomType(tp: Type) = if (!ctx.settings.YexplicitNulls.value) {
-    tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
-  } else {
+  def isBottomType(tp: Type) = if (ctx.settings.YexplicitNulls.value) {
     // After erasure, reference types become nullable again.
-    if (!ctx.phase.erasedTypes) tp.derivesFrom(NothingClass)
-    else tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
+    if (ctx.phase.erasedTypes) tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
+    else tp.derivesFrom(NothingClass)
+  } else {
+    tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
   }
 
   /** Is a function class.
@@ -1175,10 +1179,10 @@ class Definitions {
 
   lazy val NotRuntimeClasses: Set[Symbol] = {
     val classes: Set[Symbol] = Set(AnyClass, AnyValClass, NullClass, NothingClass)
-    if (!ctx.settings.YexplicitNulls.value) {
-      classes
-    } else {
+    if (ctx.settings.YexplicitNulls.value) {
       classes + RefEqClass
+    } else {
+      classes
     }
   }
 
@@ -1380,10 +1384,10 @@ class Definitions {
         .updated(SingletonClass, ObjectClass)
         .updated(TupleClass, ObjectClass)
         .updated(NonEmptyTupleClass, ProductClass)
-    if (!ctx.settings.YexplicitNulls.value) {
-      idMap
-    } else {
+    if (ctx.settings.YexplicitNulls.value) {
       idMap.updated(RefEqClass, ObjectClass)
+    } else {
+      idMap
     }
   }
 
@@ -1402,10 +1406,10 @@ class Definitions {
       NothingClass,
       SingletonClass,
       EqualsPatternClass)
-    if (!ctx.settings.YexplicitNulls.value) {
-      classes
-    } else {
+    if (ctx.settings.YexplicitNulls.value) {
       classes :+ RefEqClass
+    } else {
+      classes
     }
   }
 
@@ -1416,10 +1420,10 @@ class Definitions {
   /** Lists core methods that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
   lazy val syntheticCoreMethods: List[TermSymbol] = {
     val methods = AnyMethods ++ ObjectMethods ++ List(String_+, throwMethod)
-    if (!ctx.settings.YexplicitNulls.value) {
-      methods
-    } else {
+    if (ctx.settings.YexplicitNulls.value) {
       methods ++ RefEqMethods
+    } else {
+      methods
     }
   }
 

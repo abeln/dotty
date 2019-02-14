@@ -834,10 +834,10 @@ object JavaParsers {
       val superclazz =
         AppliedTypeTree(javaLangDot(tpnme.Enum), List(enumType))
         */
-      val enumName = if (!ctx.settings.YexplicitNulls.value) {
-        null
-      } else {
+      val enumName = if (ctx.settings.YexplicitNulls.value) {
         ""
+      } else {
+        null
       }
       val superclazz = Apply(TypeApply(
         Select(New(javaLangDot(tpnme.Enum)), nme.CONSTRUCTOR), List(enumType)),
