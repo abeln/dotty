@@ -95,13 +95,13 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
    *  we fake it by casting null to string.
    */
   private def asInstanceOfString(tree: Literal): Tree = {
-    if (!ctx.settings.YexplicitNulls.value) {
-      tree
-    } else {
+    if (ctx.settings.YexplicitNulls.value) {
       val tag = tree.const.tag
       assert(tag == Constants.NullTag || tag == Constants.StringTag, s"expected a string literal or null literal, but got ${tree.show}")
       if (tag == Constants.NullTag) TypeApply(Select(tree, nme.asInstanceOf_), _scala_Predef_String)
       else tree
+    } else {
+      tree
     }
   }
 

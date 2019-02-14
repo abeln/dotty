@@ -416,10 +416,10 @@ class Typer extends Namer
       } else
         errorType(new MissingIdent(tree, kind, name.show), tree.sourcePos)
 
-    val ownType1 = if (!ctx.settings.YexplicitNulls.value) {
-      ownType
-    } else {
+    val ownType1 = if (ctx.settings.YexplicitNulls.value) {
       FlowFacts.refineType(ownType)
+    } else {
+      ownType
     }
 
     val tree1 = ownType1 match {
@@ -448,10 +448,10 @@ class Typer extends Namer
 
   private def typedSelect(tree: untpd.Select, pt: Type, qual: Tree)(implicit ctx: Context): Select = {
     val select = assignType(cpy.Select(tree)(qual, tree.name), qual)
-    val select1 = if (!ctx.settings.YexplicitNulls.value) {
-      select
-    } else {
+    val select1 = if (ctx.settings.YexplicitNulls.value) {
       select.withType(FlowFacts.refineType(select.tpe))
+    } else {
+      select
     }
     checkValue(select1, pt)
   }
@@ -761,11 +761,11 @@ class Typer extends Namer
     if (tree.isInline) checkInInlineContext("inline if", tree.posd)
     val cond1 = typed(tree.cond, defn.BooleanType)
 
-    val (thenCtx, elseCtx) = if (!ctx.settings.YexplicitNulls.value) {
-      (ctx, ctx)
-    } else {
+    val (thenCtx, elseCtx) = if (ctx.settings.YexplicitNulls.value) {
       val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(cond1)
       (ctx.fresh.addNonNullFacts(ifTrue), ctx.fresh.addNonNullFacts(ifFalse))
+    } else {
+      (ctx, ctx)
     }
 
     if (tree.elsep.isEmpty) {
@@ -1231,10 +1231,10 @@ class Typer extends Namer
   }
 
   def typedThrow(tree: untpd.Throw)(implicit ctx: Context): Tree = track("typedThrow") {
-    val pt = if (!ctx.settings.YexplicitNulls.value) {
-      defn.ThrowableType
-    } else {
+    val pt = if (ctx.settings.YexplicitNulls.value) {
       OrType(defn.ThrowableType, defn.NullType)
+    } else {
+      defn.ThrowableType
     }
     val expr1 = typed(tree.expr, pt)
     Throw(expr1).withSpan(tree.span)

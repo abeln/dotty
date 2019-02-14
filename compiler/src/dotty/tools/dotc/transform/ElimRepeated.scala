@@ -142,19 +142,19 @@ class ElimRepeated extends MiniPhase with InfoTransformer { thisPhase =>
       val (vrefs :+ varArgRef) :: vrefss1 = vrefss
       // If the varargs comes from Java, it'll have a type of the form `Array[T]|JavaNull`, so to
       // get the element type we need to strip away the nullability.
-      val arrayTpe = if (!ctx.settings.YexplicitNulls.value) {
-        varArgRef.tpe.widen
-      } else {
+      val arrayTpe = if (ctx.settings.YexplicitNulls.value) {
         varArgRef.tpe.widen.stripNull
-      }
-      val varArgArg = if (!ctx.settings.YexplicitNulls.value) {
-        varArgRef
       } else {
+        varArgRef.tpe.widen
+      }
+      val varArgArg = if (ctx.settings.YexplicitNulls.value) {
         // Since we're overriding a Java varargs, the user will pass in a `Array[T]|JavaNull`.
         // But our Scala-defined varargs takes in a `Seq[T]`, so we need to cast away the nullability.
         // This means that if the user passes `null` to the Scala method it'll be allowed by the
         // type system, but will throw at runtime.
         varArgRef.ensureConforms(arrayTpe)
+      } else {
+        varArgRef
       }
       // Can't call `.argTypes` here because the underlying array type is of the
       // form `Array[_ <: SomeType]`, so we need `.argInfos` to get the `TypeBounds`.

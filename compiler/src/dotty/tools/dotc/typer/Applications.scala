@@ -780,13 +780,13 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
 
       /** Type application where arguments come from prototype, and no implicits are inserted */
       def simpleApply(fun1: Tree, proto: FunProto)(implicit ctx: Context): Tree = {
-        val ctx1 = if (!ctx.settings.YexplicitNulls.value) {
-          ctx
-        } else {
+        val ctx1 = if (ctx.settings.YexplicitNulls.value) {
           // TODO(abeln): we're re-doing work here by recomputing what's implies by the lhs of the comparison.
           // e.g. in `A && B && C && D`, we'll recompute the facts implied by `A && B` twice.
           // Find a more-efficient way to do this.
           FlowFacts.propagateWithinCond(fun1)
+        } else {
+          ctx
         }
 
         // Separate into a function so we can pass the updated context.
