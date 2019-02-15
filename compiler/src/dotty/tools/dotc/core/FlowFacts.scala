@@ -2,7 +2,7 @@ package dotty.tools.dotc.core
 
 import dotty.tools.dotc.ast.tpd._
 import StdNames.nme
-import dotty.tools.dotc.ast.Trees.{Apply, Select, TypeApply}
+import dotty.tools.dotc.ast.Trees.{Apply, Block, If, Select, TypeApply}
 import dotty.tools.dotc.ast.tpd
 import dotty.tools.dotc.core.Constants.Constant
 import dotty.tools.dotc.core.Contexts.Context
@@ -107,7 +107,7 @@ object FlowFacts {
           // We could infer "non-null" in that case: e.g. `if (x.isInstanceOf[String]) { // x can't be null }`
           newFact(lhs, isEq = true, nullLit)
         case Select(lhs, op) if op == nme.UNARY_! => recur(lhs).negate
-        case block: Block => recur(block.expr)
+        case Block(_, expr) => recur(expr)
         case inline: Inlined => recur(inline.expansion)
         case typed: Typed => recur(typed.expr) // TODO(abeln): check that the type is `Boolean`?
         case _ => emptyFacts
@@ -162,9 +162,39 @@ object FlowFacts {
     assert(ctx.settings.YexplicitNulls.value)
     cond match {
       case Select(lhs, op) if op == nme.ZAND || op == nme.ZOR =>
-        val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(lhs)
+        val Inferred(ifTrue, ifFalse) = inferNonNull(lhs)
         if (op == nme.ZAND) ctx.fresh.addNonNullFacts(ifTrue)
         else ctx.fresh.addNonNullFacts(ifFalse)
+      case _ => ctx
+    }
+  }
+
+  /** Propagate flow-sensitive type information within a block.
+   *  More precisely, if `s1; s2` are consecutive statements in a block, this returns
+   *  a context with nullability facts that hold once `s1` has executed.
+   *  The new facts can then be used to type `s2`.
+   */
+  def propagateWithinBlock(stat: Tree)(implicit ctx: Context): Context = {
+    def isNonLocal(s: Tree): Boolean = s match {
+      case _: Return => true
+      case Apply(fun, _) =>
+        fun.tpe match {
+          case tref: TermRef if tref.symbol eq ctx.definitions.throwMethod => true
+          case _ => false
+        }
+      case Block(_, expr) => isNonLocal(expr)
+      case _ => false
+    }
+
+    assert(ctx.settings.YexplicitNulls.value)
+    stat match {
+      case If(cond, thenExpr, elseExpr) =>
+        val Inferred(ifTrue, ifFalse) = inferNonNull(cond)
+        val newFacts = if (isNonLocal(thenExpr) && isNonLocal(elseExpr)) ifTrue ++ ifFalse
+        else if (isNonLocal(thenExpr)) ifFalse
+        else if (isNonLocal(elseExpr)) ifTrue
+        else emptyNonNullSet
+        ctx.fresh.addNonNullFacts(newFacts)
       case _ => ctx
     }
   }
