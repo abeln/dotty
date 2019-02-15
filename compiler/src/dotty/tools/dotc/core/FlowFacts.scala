@@ -2,6 +2,7 @@ package dotty.tools.dotc.core
 
 import dotty.tools.dotc.ast.tpd._
 import StdNames.nme
+import dotty.tools.dotc.ast.Trees.{Apply, Select, TypeApply}
 import dotty.tools.dotc.ast.tpd
 import dotty.tools.dotc.core.Constants.Constant
 import dotty.tools.dotc.core.Contexts.Context
@@ -97,32 +98,15 @@ object FlowFacts {
     /** Recurse over a conditional to extract flow facts. */
     def recur(tree: Tree): Inferred = {
       tree match {
-        case app: Apply =>
-          (app.fun, app.args) match {
-            case (select: Select, List(rhs)) =>
-              val lhs = select.qualifier
-              val op = select.name
-              if (op == nme.ZAND || op == nme.ZOR) combine(recur(lhs), op, recur(rhs))
-              else if (op == nme.EQ || op == nme.NE || op == nme.eq || op == nme.ne) newFact(lhs, isEq = (op == nme.EQ || op == nme.eq), rhs)
-              else emptyFacts
-            case _ => emptyFacts
-          }
-        case tApp: TypeApply =>
-          (tApp.fun, tApp.args) match {
-            case (select: Select, List(tArg)) =>
-              val lhs = select.qualifier
-              val op = select.name
-              if (op == nme.isInstanceOf_ && tArg.tpe.isRefToNull) {
-                // TODO(abeln): handle type test with argument that's not a subtype of `Null`.
-                // We could infer "non-null" in that case: e.g. `if (x.isInstanceOf[String]) { // x can't be null }`
-                newFact(lhs, isEq = true, nullLit)
-              } else emptyFacts
-            case _ => emptyFacts
-          }
-        case select: Select =>
-          val lhs = select.qualifier
-          val op = select.name
-          if (op == nme.UNARY_!) recur(lhs).negate else emptyFacts
+        case Apply(Select(lhs, op), List(rhs)) =>
+          if (op == nme.ZAND || op == nme.ZOR) combine(recur(lhs), op, recur(rhs))
+          else if (op == nme.EQ || op == nme.NE || op == nme.eq || op == nme.ne) newFact(lhs, isEq = (op == nme.EQ || op == nme.eq), rhs)
+          else emptyFacts
+        case TypeApply(Select(lhs, op), List(tArg)) if op == nme.isInstanceOf_ && tArg.tpe.isRefToNull =>
+          // TODO(abeln): handle type test with argument that's not a subtype of `Null`.
+          // We could infer "non-null" in that case: e.g. `if (x.isInstanceOf[String]) { // x can't be null }`
+          newFact(lhs, isEq = true, nullLit)
+        case Select(lhs, op) if op == nme.UNARY_! => recur(lhs).negate
         case block: Block => recur(block.expr)
         case inline: Inlined => recur(inline.expansion)
         case typed: Typed => recur(typed.expr) // TODO(abeln): check that the type is `Boolean`?
@@ -177,16 +161,10 @@ object FlowFacts {
   def propagateWithinCond(cond: Tree)(implicit ctx: Context): Context = {
     assert(ctx.settings.YexplicitNulls.value)
     cond match {
-      case select: Select =>
-        val lhs = select.qualifier
-        val op = select.name
-        if (op == nme.ZAND || op == nme.ZOR) {
-          val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(lhs)
-          if (op == nme.ZAND) ctx.fresh.addNonNullFacts(ifTrue)
-          else ctx.fresh.addNonNullFacts(ifFalse)
-        } else {
-          ctx
-        }
+      case Select(lhs, op) if op == nme.ZAND || op == nme.ZOR =>
+        val Inferred(ifTrue, ifFalse) = FlowFacts.inferNonNull(lhs)
+        if (op == nme.ZAND) ctx.fresh.addNonNullFacts(ifTrue)
+        else ctx.fresh.addNonNullFacts(ifFalse)
       case _ => ctx
     }
   }
