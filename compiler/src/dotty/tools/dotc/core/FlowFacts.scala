@@ -177,23 +177,22 @@ object FlowFacts {
   def propagateWithinBlock(stat: Tree)(implicit ctx: Context): Context = {
     def isNonLocal(s: Tree): Boolean = s match {
       case _: Return => true
-      case Apply(fun, _) =>
-        fun.tpe match {
-          case tref: TermRef if tref.symbol eq ctx.definitions.throwMethod => true
-          case _ => false
-        }
       case Block(_, expr) => isNonLocal(expr)
-      case _ => false
+      case _ =>
+        // If the type is bottom (like the result of a `throw`), then we assume the statement
+        // won't finish executing.
+        s.tpe.isBottomType
     }
 
     assert(ctx.settings.YexplicitNulls.value)
     stat match {
       case If(cond, thenExpr, elseExpr) =>
         val Inferred(ifTrue, ifFalse) = inferNonNull(cond)
-        val newFacts = if (isNonLocal(thenExpr) && isNonLocal(elseExpr)) ifTrue ++ ifFalse
-        else if (isNonLocal(thenExpr)) ifFalse
-        else if (isNonLocal(elseExpr)) ifTrue
-        else emptyNonNullSet
+        val newFacts =
+          if (isNonLocal(thenExpr) && isNonLocal(elseExpr)) ifTrue ++ ifFalse
+          else if (isNonLocal(thenExpr)) ifFalse
+          else if (isNonLocal(elseExpr)) ifTrue
+          else emptyNonNullSet
         ctx.fresh.addNonNullFacts(newFacts)
       case _ => ctx
     }
