@@ -11,9 +11,11 @@ t3486
 t3612.scala
 typelevel0.scala
 reference
+# Re-enable once TASTY supports flow inference
 Transactions.scala
 explicit-null-flow.scala
 explicit-null-flow2.scala
 explicit-null-flow3.scala
 explicit-null-flow4.scala
 t1107a.scala
+rbtree.scala
