@@ -8,5 +8,6 @@
 	branch = dotty-library2.12
 [submodule "collection-strawman"]
 	path = collection-strawman
-	url = https://github.com/dotty-staging/collection-strawman.git
-	branch = dotty
+	#url = https://github.com/dotty-staging/collection-strawman.git
+	url = https://github.com/abeln/collection-strawman.git
+	branch = explicit-null
