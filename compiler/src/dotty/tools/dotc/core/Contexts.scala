@@ -613,7 +613,7 @@ object Contexts {
     typeComparer = new TypeComparer(this)
     searchHistory = new SearchRoot
     gadt = EmptyGADTMap
-    nonNullFacts = FlowFacts.emptyNonNullSet
+    nonNullFacts = FlowFacts.emptyNonNullFacts
   }
 
   @sharable object NoContext extends Context {

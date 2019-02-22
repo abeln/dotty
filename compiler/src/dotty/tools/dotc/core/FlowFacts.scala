@@ -18,7 +18,7 @@ object FlowFacts {
   type NonNullFacts = Set[TermRef]
 
   /** The initial state where no `TermRef`s are known to be non-null */
-  @sharable val emptyNonNullSet = Set.empty[TermRef]
+  @sharable val emptyNonNullFacts = Set.empty[TermRef]
 
   /** Try to improve the precision of `tpe` using flow-sensitive type information. */
   def refineType(tpe: Type)(implicit ctx: Context): Type = {
@@ -62,8 +62,8 @@ object FlowFacts {
   object Inferred {
     /** Create a singleton inferred fact containing `tref`. */
     def apply(tref: TermRef, ifTrue: Boolean): Inferred = {
-      if (ifTrue) Inferred(Set(tref), emptyNonNullSet)
-      else Inferred(emptyNonNullSet, Set(tref))
+      if (ifTrue) Inferred(Set(tref), emptyNonNullFacts)
+      else Inferred(emptyNonNullFacts, Set(tref))
     }
   }
 
@@ -92,7 +92,7 @@ object FlowFacts {
       }
     }
 
-    val emptyFacts = Inferred(emptyNonNullSet, emptyNonNullSet)
+    val emptyFacts = Inferred(emptyNonNullFacts, emptyNonNullFacts)
     val nullLit = tpd.Literal(Constant(null))
 
     /** Recurse over a conditional to extract flow facts. */
@@ -147,10 +147,11 @@ object FlowFacts {
     recur(cond)
   }
 
-  /** Propagate flow-sensitive type information inside a condition.
+  /** Infer flow-sensitive type information inside a condition.
+   *
    *  Specifically, if `cond` is of the form `lhs &&` or `lhs ||`, where the lhs has already been typed
-   *  (and the rhs hasn't been typed yet), compute the non-nullability info we get from lhs and
-   *  return a new context with it. The new context can then be used to type the rhs.
+   *  (and the rhs hasn't been typed yet), compute the non-null facts that must hold so that the rhs can
+   *  execute. These facts can then be soundly assumed when typing the rhs.
    *
    *  This is useful in e.g.
    *  ```
@@ -158,14 +159,14 @@ object FlowFacts {
    *  if (x != null && x.length > 0) ...
    *  ```
    */
-  def propagateWithinCond(cond: Tree)(implicit ctx: Context): Context = {
+  def inferWithinCond(cond: Tree)(implicit ctx: Context): NonNullFacts = {
     assert(ctx.settings.YexplicitNulls.value)
     cond match {
       case Select(lhs, op) if op == nme.ZAND || op == nme.ZOR =>
         val Inferred(ifTrue, ifFalse) = inferNonNull(lhs)
-        if (op == nme.ZAND) ctx.fresh.addNonNullFacts(ifTrue)
-        else ctx.fresh.addNonNullFacts(ifFalse)
-      case _ => ctx
+        if (op == nme.ZAND) ifTrue
+        else ifFalse
+      case _ => emptyNonNullFacts
     }
   }
 
@@ -192,7 +193,7 @@ object FlowFacts {
           if (isNonLocal(thenExpr) && isNonLocal(elseExpr)) ifTrue ++ ifFalse
           else if (isNonLocal(thenExpr)) ifFalse
           else if (isNonLocal(elseExpr)) ifTrue
-          else emptyNonNullSet
+          else emptyNonNullFacts
         ctx.fresh.addNonNullFacts(newFacts)
       case _ => ctx
     }
