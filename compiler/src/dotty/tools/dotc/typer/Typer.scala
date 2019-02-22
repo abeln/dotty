@@ -2157,7 +2157,7 @@ class Typer extends Namer
         checkStatementPurity(stat1)(stat, exprOwner)
         buf += stat1
         val ctx1 = if (ctx.settings.YexplicitNulls.value) {
-          FlowFacts.propagateWithinBlock(stat1)
+          ctx.fresh.addNonNullFacts(FlowFacts.inferWithinBlock(stat1))
         } else {
           ctx
         }

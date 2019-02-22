@@ -170,12 +170,20 @@ object FlowFacts {
     }
   }
 
-  /** Propagate flow-sensitive type information within a block.
+  /** Infer flow-sensitive type information within a block.
+   *
    *  More precisely, if `s1; s2` are consecutive statements in a block, this returns
    *  a context with nullability facts that hold once `s1` has executed.
    *  The new facts can then be used to type `s2`.
+   *
+   *  This is useful for e.g.
+   *  ```
+   *  val x: String|Null = ???
+   *  if (x == null) return "foo"
+   *  val y = x.length // x: String inferred
+   *  ```
    */
-  def propagateWithinBlock(stat: Tree)(implicit ctx: Context): Context = {
+  def inferWithinBlock(stat: Tree)(implicit ctx: Context): NonNullFacts = {
     def isNonLocal(s: Tree): Boolean = s match {
       case _: Return => true
       case Block(_, expr) => isNonLocal(expr)
@@ -189,13 +197,11 @@ object FlowFacts {
     stat match {
       case If(cond, thenExpr, elseExpr) =>
         val Inferred(ifTrue, ifFalse) = inferNonNull(cond)
-        val newFacts =
-          if (isNonLocal(thenExpr) && isNonLocal(elseExpr)) ifTrue ++ ifFalse
-          else if (isNonLocal(thenExpr)) ifFalse
-          else if (isNonLocal(elseExpr)) ifTrue
-          else emptyNonNullFacts
-        ctx.fresh.addNonNullFacts(newFacts)
-      case _ => ctx
+        if (isNonLocal(thenExpr) && isNonLocal(elseExpr)) ifTrue ++ ifFalse
+        else if (isNonLocal(thenExpr)) ifFalse
+        else if (isNonLocal(elseExpr)) ifTrue
+        else emptyNonNullFacts
+      case _ => emptyNonNullFacts
     }
   }
 }
