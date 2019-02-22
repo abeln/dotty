@@ -86,17 +86,13 @@ object RedBlackTree {
   def smallest[A, B](tree: Tree[A, B]): Tree[A, B] = {
     if (tree eq null) throw new NoSuchElementException("empty map")
     var result: NETree[A, B] = tree
-    while (result.left ne null) {
-      result = result.left.nn
-    }
+    while (result.left ne null) result = result.left.nn
     result
   }
   def greatest[A, B](tree: Tree[A, B]): Tree[A, B] = {
     if (tree eq null) throw new NoSuchElementException("empty map")
     var result: NETree[A, B] = tree
-    while (result.right ne null) {
-      result = result.right.nn
-    }
+    while (result.right ne null) result = result.right.nn
     result
   }
 
