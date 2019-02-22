@@ -15,7 +15,7 @@ import scala.annotation.internal.sharable
 object FlowFacts {
 
   /** A set of `TermRef`s known to be non-null at the current program point */
-  type NonNullSet = Set[TermRef]
+  type NonNullFacts = Set[TermRef]
 
   /** The initial state where no `TermRef`s are known to be non-null */
   @sharable val emptyNonNullSet = Set.empty[TermRef]
@@ -31,15 +31,15 @@ object FlowFacts {
   }
 
   /** Is `tref` non-null (even if its info says it isn't)? */
-  private def isNonNull(nnSet: NonNullSet, tref: TermRef): Boolean = {
-    nnSet.contains(tref)
+  private def isNonNull(nnFacts: NonNullFacts, tref: TermRef): Boolean = {
+    nnFacts.contains(tref)
   }
 
   /** Nullability facts inferred from a condition.
    *  @param ifTrue are the terms known to be non-null if the condition is true.
    *  @param ifFalse are the terms known to be non-null if the condition is false.
    */
-  case class Inferred(ifTrue: NonNullSet, ifFalse: NonNullSet) {
+  case class Inferred(ifTrue: NonNullFacts, ifFalse: NonNullFacts) {
     // Let `NN(e, true/false)` be the set of terms that are non-null if `e` evaluates to `true/false`.
     // We can use De Morgan's laws to underapproximate `NN` via `Inferred`.
     // e.g. say `e = e1 && e2`. Then if `e` is `false`, we know that either `!e1` or `!e2`.

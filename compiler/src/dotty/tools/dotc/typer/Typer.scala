@@ -36,7 +36,7 @@ import util.Stats.{record, track}
 import config.Printers.{gadts, typr}
 import rewrites.Rewrites.patch
 import NavigateAST._
-import dotty.tools.dotc.core.FlowFacts.{Inferred, NonNullSet}
+import dotty.tools.dotc.core.FlowFacts.{Inferred, NonNullFacts}
 import transform.SymUtils._
 import transform.TypeUtils._
 import reporting.trace
