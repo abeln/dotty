@@ -379,7 +379,9 @@ class Namer { typer: Typer =>
 
         val completer = tree match {
           case tree: TypeDef => new TypeDefCompleter(tree)(cctx)
-          case tree: ValDef if ctx.owner.is(Method) && !tree.mods.is(Lazy | Implicit) => new ValDefInBlockCompleter(tree)(cctx)
+          case tree: ValDef if ctx.owner.is(Method) && !tree.mods.is(Lazy | Implicit) =>
+            if (ctx.settings.YexplicitNulls.value) new ValDefInBlockCompleter(tree)(cctx)
+            else new Completer(tree)(cctx)
           case _ => new Completer(tree)(cctx)
         }
         val info = adjustIfModule(completer, tree)
@@ -898,6 +900,8 @@ class Namer { typer: Typer =>
   }
 
   class ValDefInBlockCompleter(original: ValDef)(ctx: Context) extends Completer(original)(ctx) {
+    assert(ctx.settings.YexplicitNulls.value)
+
     override def typingContext(owner: Symbol, completionCtx: Context): FreshContext = {
       completionCtx.fresh.setOwner(owner).setTree(original)
     }
