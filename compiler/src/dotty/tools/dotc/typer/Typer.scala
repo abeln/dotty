@@ -2119,7 +2119,8 @@ class Typer extends Namer
             import untpd.modsDeco
             val ctx1 = if (ctx.settings.YexplicitNulls.value) {
               mdef match {
-                case mdef: untpd.ValDef if !mdef.mods.is(Lazy) && !mdef.mods.is(Implicit) => ctx.fresh.addNonNullFacts(facts)
+                case mdef: untpd.ValDef if ctx.owner.is(Method) && !mdef.mods.is(Lazy) && !mdef.mods.is(Implicit) =>
+                  ctx.fresh.addNonNullFacts(facts)
                 case _ => ctx
               }
             } else {

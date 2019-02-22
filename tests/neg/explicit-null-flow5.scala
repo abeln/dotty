@@ -5,7 +5,7 @@ class Foo(x: String|Null) {
 
   // Test within constructor
   if (x == null) throw new NullPointerException()
-  val x2: String = x // ok: x == null case handled by throwing
+  val x2: String = x // error: flow inference for blocks doesn't work inside constructors
 
   def foo(): Unit = {
     val y: String|Null = ???
