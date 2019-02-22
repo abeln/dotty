@@ -711,9 +711,9 @@ class Typer extends Namer
 
   def typedBlockStats(stats: List[untpd.Tree])(implicit ctx: Context): (Context, List[tpd.Tree]) = {
     val ctx1 = index(stats)
-    val (stats1, ctxWithFlowFacts) = typedStatsAndGetContext(stats, ctx.owner)
+    val (stats1, facts) = typedStatsAndGetFacts(stats, ctx.owner)
     val ctx2 = if (ctx.settings.YexplicitNulls.value) {
-      ctx1.fresh.addNonNullFacts(ctxWithFlowFacts.nonNullFacts)
+      ctx1.fresh.addNonNullFacts(facts)
     } else {
       ctx1
     }
@@ -2115,31 +2115,39 @@ class Typer extends Namer
     trees mapconserve (typed(_))
 
   def typedStats(stats: List[untpd.Tree], exprOwner: Symbol)(implicit ctx: Context): List[Tree] = {
-    val (stats1, _) = typedStatsAndGetContext(stats, exprOwner)
+    val (stats1, _) = typedStatsAndGetFacts(stats, exprOwner)
     stats1
   }
 
-  def typedStatsAndGetContext(stats: List[untpd.Tree], exprOwner: Symbol)(implicit ctx: Context): (List[Tree], Context) = {
+  def typedStatsAndGetFacts(stats: List[untpd.Tree], exprOwner: Symbol)(implicit ctx: Context): (List[Tree], NonNullFacts) = {
     val buf = new mutable.ListBuffer[Tree]
     val enumContexts = new mutable.HashMap[Symbol, Context]
       // A map from `enum` symbols to the contexts enclosing their definitions
-    @tailrec def traverse(stats: List[untpd.Tree])(implicit ctx: Context): (List[Tree], Context) = stats match {
+    @tailrec def traverse(stats: List[untpd.Tree], facts: NonNullFacts)(implicit ctx: Context): (List[Tree], NonNullFacts) = stats match {
       case (imp: untpd.Import) :: rest =>
         val imp1 = typed(imp)
         buf += imp1
-        traverse(rest)(ctx.importContext(imp, imp1.symbol))
+        traverse(rest, facts)(ctx.importContext(imp, imp1.symbol))
       case (mdef: untpd.DefTree) :: rest =>
         mdef.removeAttachment(ExpandedTree) match {
           case Some(xtree) =>
-            traverse(xtree :: rest)
+            traverse(xtree :: rest, facts)
           case none =>
-            typed(mdef) match {
+            import untpd.modsDeco
+            val ctx1 = if (ctx.settings.YexplicitNulls.value) {
+              mdef match {
+                case mdef: untpd.ValDef if !mdef.mods.is(Lazy) && !mdef.mods.is(Implicit) => ctx.fresh.addNonNullFacts(facts)
+                case _ => ctx
+              }
+            } else {
+              ctx
+            }
+            typed(mdef)(ctx1) match {
               case mdef1: DefDef if Inliner.hasBodyToInline(mdef1.symbol) =>
                 buf += inlineExpansion(mdef1)
                   // replace body with expansion, because it will be used as inlined body
                   // from separately compiled files - the original BodyAnnotation is not kept.
               case mdef1 =>
-                import untpd.modsDeco
                 mdef match {
                   case mdef: untpd.TypeDef if mdef.mods.isEnumClass =>
                     enumContexts(mdef1.symbol) = ctx
@@ -2148,22 +2156,27 @@ class Typer extends Namer
                 if (!mdef1.isEmpty) // clashing synthetic case methods are converted to empty trees
                   buf += mdef1
             }
-            traverse(rest)
+            traverse(rest, facts)
         }
       case Thicket(stats) :: rest =>
-        traverse(stats ++ rest)
+        traverse(stats ++ rest, facts)
       case stat :: rest =>
-        val stat1 = typed(stat)(ctx.exprContext(stat, exprOwner))
-        checkStatementPurity(stat1)(stat, exprOwner)
-        buf += stat1
-        val ctx1 = if (ctx.settings.YexplicitNulls.value) {
-          ctx.fresh.addNonNullFacts(FlowFacts.inferWithinBlock(stat1))
+        val ctx1 = if (ctx.settings.YexplicitNulls.value && facts.nonEmpty) {
+          ctx.fresh.addNonNullFacts(facts)
         } else {
           ctx
         }
-        traverse(rest)(ctx1)
+        val stat1 = typed(stat)(ctx1.exprContext(stat, exprOwner))
+        checkStatementPurity(stat1)(stat, exprOwner)(ctx1)
+        buf += stat1
+        val newFacts = if (ctx.settings.YexplicitNulls.value) {
+          facts ++ FlowFacts.inferWithinBlock(stat1)(ctx1)
+        } else {
+          facts
+        }
+        traverse(rest, newFacts)(ctx)
       case nil =>
-        (buf.toList, ctx)
+        (buf.toList, facts)
     }
     val localCtx = {
       val exprOwnerOpt = if (exprOwner == ctx.owner) None else Some(exprOwner)
@@ -2180,7 +2193,7 @@ class Typer extends Namer
       case _ =>
         stat
     }
-    val (stats1, ctx1) = traverse(stats)(localCtx)
+    val (stats1, ctx1) = traverse(stats, FlowFacts.emptyNonNullFacts)(localCtx)
     (stats1.mapConserve(finalize), ctx1)
   }
 

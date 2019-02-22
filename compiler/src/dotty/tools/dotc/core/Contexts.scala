@@ -529,8 +529,16 @@ object Contexts {
     def setImportInfo(importInfo: ImportInfo): this.type = { this.importInfo = importInfo; this }
     def setGadt(gadt: GADTMap): this.type = { this.gadt = gadt; this }
     def setFreshGADTBounds: this.type = setGadt(gadt.fresh)
-    def setNonNullFacts(facts: NonNullFacts): this.type = { this.nonNullFacts = facts; this }
-    def addNonNullFacts(facts: NonNullFacts): this.type = { setNonNullFacts(this.nonNullFacts ++ facts); this }
+    def setNonNullFacts(facts: NonNullFacts): this.type = {
+      assert(settings.YexplicitNulls.value)
+      this.nonNullFacts = facts
+      this
+    }
+    def addNonNullFacts(facts: NonNullFacts): this.type = {
+      assert(settings.YexplicitNulls.value)
+      setNonNullFacts(this.nonNullFacts ++ facts)
+      this
+    }
     def setSearchHistory(searchHistory: SearchHistory): this.type = { this.searchHistory = searchHistory; this }
     def setSource(source: SourceFile): this.type = { this.source = source; this }
     def setTypeComparerFn(tcfn: Context => TypeComparer): this.type = { this.typeComparer = tcfn(this); this }
