@@ -790,7 +790,7 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
           // TODO(abeln): we're re-doing work here by recomputing what's implies by the lhs of the comparison.
           // e.g. in `A && B && C && D`, we'll recompute the facts implied by `A && B` twice.
           // Find a more-efficient way to do this.
-          FlowFacts.propagateWithinCond(fun1)
+          ctx.fresh.addNonNullFacts(FlowFacts.inferWithinCond(fun1))
         } else {
           ctx
         }
