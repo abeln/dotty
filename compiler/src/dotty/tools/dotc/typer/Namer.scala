@@ -379,6 +379,7 @@ class Namer { typer: Typer =>
 
         val completer = tree match {
           case tree: TypeDef => new TypeDefCompleter(tree)(cctx)
+          case tree: ValDef if ctx.owner.is(Method) && !tree.mods.is(Lazy | Implicit) => new ValDefInBlockCompleter(tree)(cctx)
           case _ => new Completer(tree)(cctx)
         }
         val info = adjustIfModule(completer, tree)
@@ -762,18 +763,22 @@ class Namer { typer: Typer =>
 
     protected def localContext(owner: Symbol): FreshContext = ctx.fresh.setOwner(owner).setTree(original)
 
+    protected def typingContext(owner: Symbol, completionCtx: Context): FreshContext = {
+      localContext(owner)
+    }
+
     /** The context with which this completer was created */
     def creationContext: Context = ctx
     ctx.typerState.markShared()
 
-    protected def typeSig(sym: Symbol): Type = original match {
+    protected def typeSig(sym: Symbol, completionCtx: Context): Type = original match {
       case original: ValDef =>
         if (sym is Module) moduleValSig(sym)
-        else valOrDefDefSig(original, sym, Nil, Nil, identity)(localContext(sym).setNewScope)
+        else valOrDefDefSig(original, sym, Nil, Nil, identity)(typingContext(sym, completionCtx).setNewScope)
       case original: DefDef =>
         val typer1 = ctx.typer.newLikeThis
         nestedTyper(sym) = typer1
-        typer1.defDefSig(original, sym)(localContext(sym).setTyper(typer1))
+        typer1.defDefSig(original, sym)(typingContext(sym, completionCtx).setTyper(typer1))
       case imp: Import =>
         try {
           val expr1 = typedAheadExpr(imp.expr, AnySelectionProto)
@@ -799,7 +804,7 @@ class Namer { typer: Typer =>
         denot.info = UnspecifiedErrorType
       }
       else {
-        completeInCreationContext(denot)
+        completeInContext(denot, ctx)
         if (denot.isCompleted) registerIfChild(denot)
       }
     }
@@ -881,14 +886,20 @@ class Namer { typer: Typer =>
     /** Intentionally left without `implicit ctx` parameter. We need
      *  to pick up the context at the point where the completer was created.
      */
-    def completeInCreationContext(denot: SymDenotation): Unit = {
+    def completeInContext(denot: SymDenotation, completionCtx: Context): Unit = {
       val sym = denot.symbol
       addAnnotations(sym)
       addInlineInfo(sym)
-      denot.info = typeSig(sym)
+      denot.info = typeSig(sym, completionCtx)
       invalidateIfClashingSynthetic(denot)
       Checking.checkWellFormed(sym)
       denot.info = avoidPrivateLeaks(sym, sym.sourcePos)
+    }
+  }
+
+  class ValDefInBlockCompleter(original: ValDef)(ctx: Context) extends Completer(original)(ctx) {
+    override def typingContext(owner: Symbol, completionCtx: Context): FreshContext = {
+      completionCtx.fresh.setOwner(owner).setTree(original)
     }
   }
 
@@ -920,7 +931,7 @@ class Namer { typer: Typer =>
       myTypeParams
     }
 
-    override protected def typeSig(sym: Symbol): Type =
+    override protected def typeSig(sym: Symbol, completionCtx: Context): Type =
       typeDefSig(original, sym, completerTypeParams(sym)(ictx))(nestedCtx)
   }
 
@@ -940,7 +951,7 @@ class Namer { typer: Typer =>
     def init(): Context = index(params)
 
     /** The type signature of a ClassDef with given symbol */
-    override def completeInCreationContext(denot: SymDenotation): Unit = {
+    override def completeInContext(denot: SymDenotation, completionCtx: Context): Unit = {
       val parents = impl.parents
 
       /* The type of a parent constructor. Types constructor arguments
