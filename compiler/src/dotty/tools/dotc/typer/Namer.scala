@@ -899,7 +899,7 @@ class Namer { typer: Typer =>
     }
   }
 
-  class ValDefInBlockCompleter(original: ValDef)(ctx: Context) extends Completer(original)(ctx) {
+  class ValDefInBlockCompleter(original: ValDef)(implicit ctx: Context) extends Completer(original)(ctx) {
     assert(ctx.settings.YexplicitNulls.value)
 
     override def typingContext(owner: Symbol, completionCtx: Context): FreshContext = {
