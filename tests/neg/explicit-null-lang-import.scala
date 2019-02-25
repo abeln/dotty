@@ -27,6 +27,6 @@ class Foo {
     null          // error
   }
 
-  val xx: (String, String) = null // error: we only cast at the outermost level
+  val xx: (String, String) = ("hello", null) // error: we only cast at the outermost level
   val nullList: Array[String] = (??? : Array[String|Null]) // error: array is invariant and we only cast at the outermost level
 }
