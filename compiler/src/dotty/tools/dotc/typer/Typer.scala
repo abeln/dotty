@@ -2923,7 +2923,7 @@ class Typer extends Namer
     def shouldAdaptImplicitNulls(treeTpe: Type, pt: Type)(implicit ctx: Context): Boolean = {
       assert(ctx.settings.YexplicitNulls.value)
       ctx.featureEnabled(defn.LanguageModuleClass, nme.implicitNulls) && pt.derivesFrom(defn.ObjectClass) && {
-        treeTpe.isRefToNull || treeTpe.isNullableUnion && ctx.typeComparer.inFrozenConstraint(treeTpe.stripNull.=:=(pt))
+        treeTpe.isRefToNull || treeTpe.isNullableUnion && treeTpe.stripNull.frozen_<:<(pt)
       }
     }
 
