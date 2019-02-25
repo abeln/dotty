@@ -2835,8 +2835,9 @@ class Typer extends Namer
     /** If the right language import is present, should we treat a tree with type `treeTpe` as if it were
      *  really of type `tp`, by making types be implicitly nullable.
      *  This handles two cases:
-     *    1) tree = null, pt = String => tree.asInstanceOf[String]
-     *    2) treeTpe = String|Null, pt = String => tree.asInstanceOf[String]
+     *    1) tree = null, pt = T => tree.asInstanceOf[T]
+     *    2) treeTpe = T|Null, pt = T => tree.asInstanceOf[T]
+     *  where `T` is any reference type.
      */
     def shouldAdaptImplicitNulls(treeTpe: Type, pt: Type)(implicit ctx: Context): Boolean = {
       assert(ctx.settings.YexplicitNulls.value)
