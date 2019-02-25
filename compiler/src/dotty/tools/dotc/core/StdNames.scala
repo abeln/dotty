@@ -447,6 +447,7 @@ object StdNames {
     val higherKinds: N          = "higherKinds"
     val identity: N             = "identity"
     val implicitConversions: N  = "implicitConversions"
+    val implicitNulls: N        = "implicitNulls"
     val implicitly: N           = "implicitly"
     val in: N                   = "in"
     val inline: N               = "inline"
