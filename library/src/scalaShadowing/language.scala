@@ -198,4 +198,9 @@ object language {
 
   /* Where imported loose equality using eqAny is disabled */
   object strictEquality
+
+  /** Where imported reference types are treated as implicitly nullable in certain cases.
+   *  This is to ease the transition into explicit nulls.
+   */
+  object implicitNulls
 }

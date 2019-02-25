@@ -2341,6 +2341,11 @@ class Typer extends Namer
    *  (12) When in mode EXPRmode, convert E to { E; () } if expected type is scala.Unit.
    *  (13) When in mode EXPRmode, apply AnnotationChecker conversion if expected type is annotated.
    *  (14) When in mode EXPRmode, apply a view
+   *
+   *  (15) If scala.lang.implicitNulls is enabled, treat reference types as implicitly nullable
+   *  (15.1) if `pt` is a reference type and `tree` has type `Null`, cast `tree` to `pt`
+   *  (15.2) if `pt` is a reference type `T`, and `tree` has type `T|Null`, cast `tree` to `pt`
+   *
    *  If all this fails, error
    *  Parameters as for `typedUnadapted`.
    */
@@ -2827,6 +2832,19 @@ class Typer extends Namer
       case _ =>
     }
 
+    /** If the right language import is present, should we treat a tree with type `treeTpe` as if it were
+     *  really of type `tp`, by making types be implicitly nullable.
+     *  This handles two cases:
+     *    1) tree = null, pt = String => tree.asInstanceOf[String]
+     *    2) treeTpe = String|Null, pt = String => tree.asInstanceOf[String]
+     */
+    def shouldAdaptImplicitNulls(treeTpe: Type, pt: Type)(implicit ctx: Context): Boolean = {
+      assert(ctx.settings.YexplicitNulls.value)
+      ctx.featureEnabled(defn.LanguageModuleClass, nme.implicitNulls) && pt.derivesFrom(defn.ObjectClass) && {
+        treeTpe.isRefToNull || treeTpe.isNullableUnion && ctx.typeComparer.inFrozenConstraint(treeTpe.stripNull.=:=(pt))
+      }
+    }
+
     tree match {
       case _: MemberDef | _: PackageDef | _: Import | _: WithoutTypeOrPos[_] => tree
       case _ => tree.tpe.widen match {
@@ -2864,7 +2882,11 @@ class Typer extends Namer
                 case _ =>  tryInsertApplyOrImplicit(tree, pt, locked)(tree) // error will be reported in typedTypeApply
               }
             case _ =>
-              if (ctx.mode is Mode.Type) adaptType(tree.tpe)
+              if (ctx.settings.YexplicitNulls.value && shouldAdaptImplicitNulls(wtp, pt)) {
+                // This is unsound, but the cast will succeed at runtime, since the `null` literal can be cast
+                // to any reference type, and `T|Null` is erased to `T` if `T` denotes a reference.
+                tree.ensureConforms(pt)
+              } else if (ctx.mode is Mode.Type) adaptType(tree.tpe)
               else adaptNoArgs(wtp)
           }
       }
