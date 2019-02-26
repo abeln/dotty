@@ -23,13 +23,25 @@ object ExplicitNulls {
       def withNonNullElems: Array[T] = arr.asInstanceOf[Array[T]]
     }
 
-    implicit class Factory(arr: Array.type) extends AnyVal {
+    /** Extension methods for the `Array` companion object.
+     *  TODO(abeln): move to `Array` object in the standard library.
+     */
+    implicit class ArrayExtensions(arr: Array.type) extends AnyVal {
       def ofNulls[T >: Null](dim: Int)(implicit classTag: ClassTag[T]): Array[T] = {
         Array.ofDim(dim)
       }
 
       def ofZeros[T <: AnyVal](dim: Int)(implicit classTag: ClassTag[T]): Array[T] = {
         Array.ofDim(dim)
+      }
+
+      /** A Scala version of j.u.Arrays.copyOf, that copies arrays of non-nullable elements.
+       *  e.g. we can pass `Array[String]` and get back `Array[String]` to and from this method,
+       *  but can't do the same with the Java one (because it only accepts and returns arrays of
+       *  nullable elements).
+       */
+      def copyOf[T <: AnyRef|Null](original: Array[T], newLength: Int): Array[T] = {
+        java.util.Arrays.copyOf(original.asInstanceOf[Array[T|Null]], newLength).nn.asInstanceOf[Array[T]]
       }
     }
   }
