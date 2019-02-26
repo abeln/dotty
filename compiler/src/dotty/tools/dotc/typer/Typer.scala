@@ -2777,6 +2777,25 @@ class Typer extends Namer
           }
         case _ =>
       }
+      if (ctx.settings.YexplicitNulls.value && ctx.featureEnabled(defn.LanguageModuleClass, nme.implicitNulls)) {
+        // If `pt` is a reference type, try to adapt `wtp` to `pt` by treating `wtp` as implicitly nullable.
+        // There are two cases:
+        //   - if `wtp` is `Null`, then it's safe to do `tree.asInstanceOf[pt]`
+        //   - if `wtp` is a nullable union (e.g. `String|Null`), then it's safe to strip the null (`tree.asInstanceOf[String]`)
+        // By "safe" we mean that the cast will succeed at runtime (because types are nullable in the JVM), but
+        // the cast might still be unsound.
+        lazy val caseNullLit = wtp.isRefToNull
+        lazy val caseDowncast = wtp.isNullableUnion && wtp.stripNull.frozen_<:<(pt)
+        if (pt.isValueType &&  pt.frozen_<:<(defn.ObjectType) && (caseNullLit || caseDowncast)) {
+          val pt1 = pt match {
+            case tvar: TypeVar => ctx.typeComparer.bounds(tvar.origin).hi
+            case tparam: TypeParamRef => ctx.typeComparer.bounds(tparam).hi
+            case _ => pt
+          }
+          return tree.ensureConforms(pt1)
+        }
+        // fall-through
+      }
       // try an implicit conversion
       val prevConstraint = ctx.typerState.constraint
       def recover(failure: SearchFailureType) =
@@ -2832,20 +2851,6 @@ class Typer extends Namer
       case _ =>
     }
 
-    /** If the right language import is present, should we treat a tree with type `treeTpe` as if it were
-     *  really of type `tp`, by making types be implicitly nullable.
-     *  This handles two cases:
-     *    1) tree = null, pt = T => tree.asInstanceOf[T]
-     *    2) treeTpe = T|Null, pt = T => tree.asInstanceOf[T]
-     *  where `T` is any reference type.
-     */
-    def shouldAdaptImplicitNulls(treeTpe: Type, pt: Type)(implicit ctx: Context): Boolean = {
-      assert(ctx.settings.YexplicitNulls.value)
-      ctx.featureEnabled(defn.LanguageModuleClass, nme.implicitNulls) && pt.derivesFrom(defn.ObjectClass) && {
-        treeTpe.isRefToNull || treeTpe.isNullableUnion && treeTpe.stripNull.frozen_<:<(pt)
-      }
-    }
-
     tree match {
       case _: MemberDef | _: PackageDef | _: Import | _: WithoutTypeOrPos[_] => tree
       case _ => tree.tpe.widen match {
@@ -2883,11 +2888,7 @@ class Typer extends Namer
                 case _ =>  tryInsertApplyOrImplicit(tree, pt, locked)(tree) // error will be reported in typedTypeApply
               }
             case _ =>
-              if (ctx.settings.YexplicitNulls.value && shouldAdaptImplicitNulls(wtp, pt)) {
-                // This is unsound, but the cast will succeed at runtime, since the `null` literal can be cast
-                // to any reference type, and `T|Null` is erased to `T` if `T` denotes a reference.
-                tree.ensureConforms(pt)
-              } else if (ctx.mode is Mode.Type) adaptType(tree.tpe)
+              if (ctx.mode is Mode.Type) adaptType(tree.tpe)
               else adaptNoArgs(wtp)
           }
       }
