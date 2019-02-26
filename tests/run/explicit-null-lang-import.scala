@@ -27,3 +27,9 @@ class Foo {
 object Lib {
   def foo(): String|Null = "hello"
 }
+
+object Test {
+  def main(args: Array[String]): Unit = {
+    val foo = new Foo()
+  }
+}
