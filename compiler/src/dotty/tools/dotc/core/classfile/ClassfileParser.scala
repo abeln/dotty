@@ -213,13 +213,13 @@ class ClassfileParser(
       if (method) Flags.Method | methodTranslation.flags(jflags)
       else fieldTranslation.flags(jflags)
     val name = pool.getName(in.nextChar)
+    val desc = pool.getName(in.nextChar) // jvm descriptor (JVMS §4.3)
     if (!(sflags is Flags.Private) || name == nme.CONSTRUCTOR) {
       val member = ctx.newSymbol(
-        getOwner(jflags), name, sflags, memberCompleter, coord = start)
+        getOwner(jflags), name, sflags, memberCompleter, coord = start, descriptor = Some(desc))
       getScope(jflags).enter(member)
     }
     // skip rest of member for now
-    in.nextChar // info
     skipAttributes()
   }
 

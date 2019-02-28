@@ -5,7 +5,6 @@ import dotty.tools.dotc.core.Flags.JavaDefined
 import dotty.tools.dotc.core.StdNames.{jnme, nme}
 import dotty.tools.dotc.core.Symbols.{Symbol, defn, _}
 import dotty.tools.dotc.core.Types.{AndType, AppliedType, LambdaType, MethodType, OrType, PolyType, Type, TypeAlias, TypeMap, TypeParamRef, TypeRef}
-import dotty.tools.dotc.transform.GenericSignatures
 
 import scala.io.Source._
 import play.api.libs.json._
@@ -28,29 +27,15 @@ object JavaNull {
       // The `TYPE` field in every class.
       FieldP(_.name == nme.TYPE_),
       // The `toString` method.
-      MethodP(_.name == nme.toString_, Seq.empty, nnRes = true),
+      MethodP(_.name == nme.toString_, Seq.empty, nnRes = true, nnShallow = true),
       // Constructors: params are nullified, but the result type isn't.
-      paramsOnlyP(_.isConstructor),
-//      stdLibP(sym, tp)
-//    )
+      paramsOnlyP(_.isConstructor)
     ) ++ Seq(
       // Methods in `java.lang.String`.
-      paramsOnlyP(_.name == nme.concat),
-      paramsOnlyP(_.name == nme.replace),
-      paramsOnlyP(_.name == nme.replaceFirst),
-      paramsOnlyP(_.name == nme.replaceAll),
-      paramsOnlyP(_.name == nme.split),
-      paramsOnlyP(_.name == nme.toLowerCase),
-      paramsOnlyP(_.name == nme.toUpperCase),
-      paramsOnlyP(_.name == nme.trim),
-      paramsOnlyP(_.name == nme.toCharArray),
-      paramsOnlyP(_.name == nme.substring)
+      paramsOnlyP(_.name == nme.split)
     ).map(WithinSym(_, defn.StringClass)) ++ Seq(
-      // Methods in `java.lang.Class`
-      paramsOnlyP(_.name == nme.newInstance),
-      paramsOnlyP(_.name == nme.asSubclass),
-      paramsOnlyP(_.name == jnme.ForName)
-    ).map(WithinSym(_, defn.ClassClass))
+      stdLibP(sym, tp)
+    )
 
     val (fromWhitelistTp, handled) = whitelist.foldLeft((tp, false)) {
       case (res@(_, true), _) => res
@@ -70,10 +55,9 @@ object JavaNull {
   private case class ClassStats(name: String, fields: Seq[FieldStats], methods: Seq[MethodStats]) {
     private def find(sym: Symbol, tp: Type, nameToDesc: Seq[(String, String)])(implicit ctx: Context): Option[Int] = {
       val name = sym.name.show
-      val descOpt: Option[String] = None
-      descOpt match {
+      sym.descriptor match {
         case Some(desc) =>
-          nameToDesc.indexOf((name, desc)) match {
+          nameToDesc.indexOf((name, desc.mangledString)) match {
             case -1 => None
             case idx => Some(idx)
           }
@@ -144,8 +128,16 @@ object JavaNull {
   }
 
   /** A policy for handling a method or poly. */
-  private case class MethodP(trigger: Symbol => Boolean, nnParams: Seq[Int], nnRes: Boolean = false)(implicit ctx: Context) extends TypeMap with NullifyPolicy {
+  private case class MethodP(trigger: Symbol => Boolean,
+                             nnParams: Seq[Int],
+                             nnRes: Boolean,
+                             nnShallow: Boolean)(implicit ctx: Context) extends TypeMap with NullifyPolicy {
     override def isApplicable(sym: Symbol): Boolean = trigger(sym)
+
+    private def spare(tp: Type): Type = {
+      if (nnShallow) nullifyType(tp).stripNull
+      else tp
+    }
 
     override def apply(tp: Type): Type = {
       tp match {
@@ -156,11 +148,9 @@ object JavaNull {
             case (paramInfo, index) =>
               // TODO(abeln): the sequence lookup can be optimized, because the indices
               // in it appear in increasing order.
-              val nullTpe = nullifyType(paramInfo)
-              if (nnParams.contains(index)) nullTpe.stripNull else nullTpe
+              if (nnParams.contains(index)) spare(paramInfo) else nullifyType(paramInfo)
           }
-          val nullRes = nullifyType(mtp.resType)
-          val resTpe = if (nnRes) nullRes.stripNull else nullRes
+          val resTpe = if (nnRes) spare(mtp.resType) else nullifyType(mtp.resType)
           derivedLambdaType(mtp)(paramTpes, resTpe)
       }
     }
@@ -168,7 +158,7 @@ object JavaNull {
 
   /** A policy that nullifies only method parameters (but not result types). */
   private def paramsOnlyP(trigger: Symbol => Boolean)(implicit ctx: Context): MethodP = {
-    MethodP(trigger, nnParams = Seq.empty, nnRes = true)
+    MethodP(trigger, nnParams = Seq.empty, nnRes = true, nnShallow = false)
   }
 
   private def stdLibP(sym: Symbol, tp: Type)(implicit ctx: Context): NullifyPolicy = {
@@ -178,7 +168,7 @@ object JavaNull {
     if (tp.isJavaMethod) {
       stats.getMethod(sym, tp) match {
         case Some(mstats) =>
-          MethodP(_ == sym, mstats.nnParams, mstats.nnRet)
+          MethodP(_ == sym, /*mstats.nnParams*/ Seq.empty, mstats.nnRet, nnShallow = true)
         case None => FalseP
       }
     } else {

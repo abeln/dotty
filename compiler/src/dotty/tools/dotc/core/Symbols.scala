@@ -42,8 +42,8 @@ trait Symbols { this: Context =>
    *  Note this uses a cast instead of a direct type refinement because
    *  it's debug-friendlier not to create an anonymous class here.
    */
-  def newNakedSymbol[N <: Name](coord: Coord = NoCoord)(implicit ctx: Context): Symbol { type ThisName = N } =
-    new Symbol(coord, ctx.nextSymId).asInstanceOf[Symbol { type ThisName = N }]
+  def newNakedSymbol[N <: Name](coord: Coord = NoCoord, descriptor: Option[SimpleName] = None)(implicit ctx: Context): Symbol { type ThisName = N } =
+    new Symbol(coord, descriptor, ctx.nextSymId).asInstanceOf[Symbol { type ThisName = N }]
 
   /** Create a class symbol without a denotation. */
   def newNakedClassSymbol(coord: Coord = NoCoord, assocFile: AbstractFile = null)(implicit ctx: Context): ClassSymbol =
@@ -58,8 +58,9 @@ trait Symbols { this: Context =>
       flags: FlagSet,
       info: Type,
       privateWithin: Symbol = NoSymbol,
-      coord: Coord = NoCoord): Symbol { type ThisName = N } = {
-    val sym = newNakedSymbol[N](coord)
+      coord: Coord = NoCoord,
+      descriptor: Option[SimpleName] = None): Symbol { type ThisName = N } = {
+    val sym = newNakedSymbol[N](coord, descriptor)
     val denot = SymDenotation(sym, owner, name, flags, info, privateWithin)
     sym.denot = denot
     sym
@@ -415,7 +416,7 @@ object Symbols {
    *  @param coord  The coordinates of the symbol (a position or an index)
    *  @param id     A unique identifier of the symbol (unique per ContextBase)
    */
-  class Symbol private[Symbols] (private[this] var myCoord: Coord, val id: Int)
+  class Symbol private[Symbols] (private[this] var myCoord: Coord, val descriptor: Option[SimpleName], val id: Int)
     extends Designator with ParamInfo with printing.Showable {
 
     type ThisName <: Name
@@ -697,7 +698,7 @@ object Symbols {
   type TypeSymbol = Symbol { type ThisName = TypeName }
 
   class ClassSymbol private[Symbols] (coord: Coord, val assocFile: AbstractFile, id: Int)
-    extends Symbol(coord, id) {
+    extends Symbol(coord, None, id) {
 
     type ThisName = TypeName
 
@@ -789,7 +790,7 @@ object Symbols {
     override protected def prefixString: String = "ClassSymbol"
   }
 
-  @sharable object NoSymbol extends Symbol(NoCoord, 0) {
+  @sharable object NoSymbol extends Symbol(NoCoord, None,0) {
     override def associatedFile(implicit ctx: Context): AbstractFile = NoSource.file
     override def recomputeDenot(lastd: SymDenotation)(implicit ctx: Context): SymDenotation = NoDenotation
   }
