@@ -29,9 +29,9 @@ object JavaNull {
       FieldP(_.name == nme.TYPE_),
       // The `toString` method.
       MethodP(_.name == nme.toString_, Seq.empty, nnRes = true),
-//      stdLibP(sym, tp),
       // Constructors: params are nullified, but the result type isn't.
       paramsOnlyP(_.isConstructor),
+//      stdLibP(sym, tp)
 //    )
     ) ++ Seq(
       // Methods in `java.lang.String`.
@@ -49,7 +49,7 @@ object JavaNull {
       // Methods in `java.lang.Class`
       paramsOnlyP(_.name == nme.newInstance),
       paramsOnlyP(_.name == nme.asSubclass),
-      paramsOnlyP(_.name == jnme.ForName),
+      paramsOnlyP(_.name == jnme.ForName)
     ).map(WithinSym(_, defn.ClassClass))
 
     val (fromWhitelistTp, handled) = whitelist.foldLeft((tp, false)) {
@@ -70,7 +70,7 @@ object JavaNull {
   private case class ClassStats(name: String, fields: Seq[FieldStats], methods: Seq[MethodStats]) {
     private def find(sym: Symbol, tp: Type, nameToDesc: Seq[(String, String)])(implicit ctx: Context): Option[Int] = {
       val name = sym.name.show
-      val descOpt = GenericSignatures.javaDescriptor(sym, tp)
+      val descOpt: Option[String] = None
       descOpt match {
         case Some(desc) =>
           nameToDesc.indexOf((name, desc)) match {
@@ -156,9 +156,11 @@ object JavaNull {
             case (paramInfo, index) =>
               // TODO(abeln): the sequence lookup can be optimized, because the indices
               // in it appear in increasing order.
-              if (nnParams.contains(index)) paramInfo else nullifyType(paramInfo)
+              val nullTpe = nullifyType(paramInfo)
+              if (nnParams.contains(index)) nullTpe.stripNull else nullTpe
           }
-          val resTpe = if (nnRes) mtp.resType else nullifyType(mtp.resType)
+          val nullRes = nullifyType(mtp.resType)
+          val resTpe = if (nnRes) nullRes.stripNull else nullRes
           derivedLambdaType(mtp)(paramTpes, resTpe)
       }
     }
