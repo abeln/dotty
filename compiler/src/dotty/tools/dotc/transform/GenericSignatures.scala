@@ -32,21 +32,11 @@ object GenericSignatures {
   def javaSig(sym0: Symbol, info: Type)(implicit ctx: Context): Option[String] = {
     // Avoid generating a signature for local symbols.
     if (sym0.isLocal) None
-    else javaSig0(sym0, info, descriptor = false)(ctx.withPhase(ctx.erasurePhase))
-  }
-
-  def javaDescriptor(sym0: Symbol, info: Type)(implicit ctx: Context): Option[String] = {
-    // Avoid generating a signature for local symbols.
-    if (sym0.isLocal) None
-    else {
-      ctx.atPhase(ctx.erasurePhase) { implicit ctx =>
-        javaSig0(sym0, info, descriptor = true)
-      }
-    }
+    else javaSig0(sym0, info)(ctx.withPhase(ctx.erasurePhase))
   }
 
   @noinline
-  private final def javaSig0(sym0: Symbol, info: Type, descriptor: Boolean)(implicit ctx: Context): Option[String] = {
+  private final def javaSig0(sym0: Symbol, info: Type)(implicit ctx: Context): Option[String] = {
     val builder = new StringBuilder(64)
     val isTraitSignature = sym0.enclosingClass.is(Trait)
 
@@ -305,7 +295,7 @@ object GenericSignatures {
       }
     }
     val throwsArgs = sym0.annotations flatMap ThrownException.unapply
-    if (descriptor || needsJavaSig(info, throwsArgs)) {
+    if (needsJavaSig(info, throwsArgs)) {
       try {
         jsig(info, toplevel = true)
         throwsArgs.foreach { t =>
