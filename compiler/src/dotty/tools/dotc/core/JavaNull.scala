@@ -165,7 +165,7 @@ object JavaNull {
     val ownerName = sym.owner.showFullName
     if (!nullStats.contains(ownerName)) return FalseP
     val stats = nullStats(ownerName)
-    if (tp.isJavaMethod) {
+    if (sym.is(Flags.Method)) {
       stats.getMethod(sym, tp) match {
         case Some(mstats) =>
           MethodP(_ == sym, /*mstats.nnParams*/ Seq.empty, mstats.nnRet, nnShallow = true)
