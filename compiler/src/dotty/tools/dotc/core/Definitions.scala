@@ -657,12 +657,16 @@ class Definitions {
   lazy val BoxedNumberClass: ClassSymbol          = ctx.requiredClass("java.lang.Number")
   lazy val ClassCastExceptionClass: ClassSymbol   = ctx.requiredClass("java.lang.ClassCastException")
     lazy val ClassCastExceptionClass_stringConstructor: TermSymbol  = ClassCastExceptionClass.info.member(nme.CONSTRUCTOR).suchThat(_.info.firstParamTypes match {
-      case List(pt) => (pt isRef StringClass)
+      case List(pt) =>
+        val pt1 = if (ctx.settings.YexplicitNulls.value) pt.stripNull else pt
+        pt1.stripNull isRef StringClass
       case _ => false
     }).symbol.asTerm
   lazy val ArithmeticExceptionClass: ClassSymbol  = ctx.requiredClass("java.lang.ArithmeticException")
     lazy val ArithmeticExceptionClass_stringConstructor: TermSymbol  = ArithmeticExceptionClass.info.member(nme.CONSTRUCTOR).suchThat(_.info.firstParamTypes match {
-      case List(pt) => (pt isRef StringClass)
+      case List(pt) =>
+        val pt1 = if (ctx.settings.YexplicitNulls.value) pt.stripNull else pt
+        pt1.stripNull isRef StringClass
       case _ => false
     }).symbol.asTerm
 
@@ -1437,7 +1441,6 @@ class Definitions {
   lazy val syntheticScalaClasses: List[TypeSymbol] = {
     val classes = List(
       AnyClass,
-      RefEqClass,
       AnyRefAlias,
       AnyKindClass,
       andType,
