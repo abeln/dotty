@@ -1089,18 +1089,21 @@ class Definitions {
       name.length > prefix.length &&
       name.drop(prefix.length).forall(_.isDigit))
 
-  def isBottomClass(cls: Symbol) = if (ctx.settings.YexplicitNulls.value) {
-    // After erasure, reference types become nullable again.
-    if (ctx.phase.erasedTypes) cls == NothingClass || cls == NullClass
-    else cls == NothingClass
-  } else {
+  def isBottomClass(cls: Symbol): Boolean = {
+    if (ctx.settings.YexplicitNulls.value && !ctx.phase.erasedTypes) cls == NothingClass
+    else isBottomClassAfterErasure(cls)
+  }
+
+  def isBottomClassAfterErasure(cls: Symbol): Boolean = {
     cls == NothingClass || cls == NullClass
   }
-  def isBottomType(tp: Type) = if (ctx.settings.YexplicitNulls.value) {
-    // After erasure, reference types become nullable again.
-    if (ctx.phase.erasedTypes) tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
-    else tp.derivesFrom(NothingClass)
-  } else {
+
+  def isBottomType(tp: Type): Boolean = {
+    if (ctx.settings.YexplicitNulls.value && !ctx.phase.erasedTypes) tp.derivesFrom(NothingClass)
+    else isBottomTypeAfterErasure(tp)
+  }
+
+  def isBottomTypeAfterErasure(tp: Type): Boolean = {
     tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
   }
 
