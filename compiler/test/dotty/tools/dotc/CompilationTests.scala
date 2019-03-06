@@ -34,7 +34,7 @@ class CompilationTests extends ParallelTesting {
   @Test
   def compileCollectionsStrawman: Unit = {
     implicit val testGroup: TestGroup = TestGroup("compileCollectionsStrawman")
-    compileDir("collection-strawman/collections/src/main", defaultOptions.and("-Yno-imports"))
+    compileDir("collection-strawman/collections/src/main", defaultOptions)
   }.checkCompile()
 
   // @Test  // enable to test compileStdLib separately with detailed stats
