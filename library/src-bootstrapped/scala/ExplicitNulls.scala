@@ -3,6 +3,13 @@ package scala
 import scala.reflect.ClassTag
 
 object ExplicitNulls {
+  // An alias for what it means to be a nullable type.
+  // This is defined as an alias instead of directly as a union type
+  // so that we can bootstrap the compiler.
+  // There's an alternative definition in src-non-bootstrapped
+  // that doesn't use union types.
+  type Nullable[T] = T|Null
+
   implicit class NonNull[T](x: T|Null) extends AnyVal {
     def nn: T = if (x == null) {
       throw new NullPointerException("tried to cast away nullability, but value is null")
