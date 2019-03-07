@@ -7,7 +7,6 @@ import dotty.tools.dotc.core.Symbols.{Symbol, defn, _}
 import dotty.tools.dotc.core.Types.{AndType, AppliedType, LambdaType, MethodType, OrType, PolyType, Type, TypeAlias, TypeMap, TypeParamRef, TypeRef}
 
 import scala.io.Source._
-import play.api.libs.json._
 
 /** Transformation from Java (nullable) to Scala (non-nullable) types */
 object JavaNull {
@@ -81,23 +80,39 @@ object JavaNull {
   }
 
   private case class FieldStats(name: String, desc: String, nnTpe: Boolean)
-  private case class MethodStats(name: String, desc: String, numParams: Int, nnParams: Seq[Int], nnRet: Boolean)
+  private case class MethodStats(name: String, desc: String, nnParams: Seq[Int], nnRet: Boolean)
 
+  // TODO(abeln): add better error handling when reading stats
   private def readNullStats(): Map[String, ClassStats] = {
-    implicit val fieldReads: Reads[FieldStats] = Json.reads[FieldStats]
-    implicit val methodReads: Reads[MethodStats] = Json.reads[MethodStats]
-    implicit val classReads: Reads[ClassStats] = Json.reads[ClassStats]
-
-    val source = fromFile("explicit-nulls-stdlib.json")
-    // TODO(abeln): don't read the entire file at once, if possible
-    val fileContents = try source.getLines.mkString finally source.close()
-    Json.fromJson[Seq[ClassStats]](Json.parse(fileContents)) match {
-      case JsSuccess(stats: Seq[ClassStats], _) =>
-        stats.map(cs => (cs.name, cs)).toMap
-      case JsError(e) =>
-        // TODO(abeln): issue a warning instead of failing
-        sys.error(s"can't load nullability info about the java standard library: $e")
+    def text(node: xml.Node, name: String): String = {
+      (node \ name).head.text
     }
+
+    def toField(node: xml.Node): FieldStats = {
+      FieldStats(
+        text(node, "name"),
+        text(node, "desc"),
+        text(node, "ret").toBoolean)
+    }
+
+    def toMethod(node: xml.Node): MethodStats = {
+      val params = ((node \ "params").head \ "param").map(p => p.text.toInt)
+      MethodStats(
+        text(node, "name"),
+        text(node, "desc"),
+        params,
+        text(node, "ret").toBoolean)
+    }
+
+    def toClazz(node: xml.Node): (String, ClassStats) = {
+      val name = text(node, "name")
+      val fields = ((node \ "fields").head \ "field").map(toField)
+      val methods = ((node \ "methods").head \ "method").map(toMethod)
+      (name, ClassStats(name, fields, methods))
+    }
+
+    val stats = scala.xml.XML.loadFile("explicit-nulls-stdlib.xml")
+    (stats \ "class").map(toClazz).toMap
   }
 
   /** A policy that special cases the handling of some symbol or class of symbols. */
