@@ -1,5 +1,7 @@
 package dotty.tools.dotc.util
 
+import scala.ExplicitNulls._
+
 /** A class inheriting from Attachment.Container supports
  *  adding, removing and lookup of attachments. Attachments are typed key/value pairs.
  *
@@ -13,7 +15,7 @@ object Attachment {
    *  Clients should inherit from Container instead.
    */
   trait LinkSource {
-    private[Attachment] var next: Link[_]
+    private[Attachment] var next: Nullable[Link[_]]
 
     /** Optionally get attachment corresponding to `key` */
     final def getAttachment[V](key: Key[V]): Option[V] = {
@@ -84,19 +86,19 @@ object Attachment {
 
   /** A private, concrete implementation class linking attachments.
    */
-  private[Attachment] class Link[+V](val key: Key[V], val value: V, var next: Link[_])
+  private[Attachment] class Link[+V](val key: Key[V], val value: V, var next: Nullable[Link[_]])
       extends LinkSource
 
   /** A trait for objects that can contain attachments */
   trait Container extends LinkSource {
-    private[Attachment] var next: Link[_] = null
+    private[Attachment] var next: Nullable[Link[_]] = null
 
     /** Copy the sticky attachments from `container` to this container. */
     final def withAttachmentsFrom(container: Container): this.type = {
-      var current: Link[_] = container.next
+      var current: Nullable[Link[_]] = container.next
       while (current != null) {
-        if (current.key.isInstanceOf[StickyKey[_]]) pushAttachment(current.key, current.value)
-        current = current.next
+        if (current.nn.key.isInstanceOf[StickyKey[_]]) pushAttachment(current.nn.key, current.nn.value)
+        current = current.nn.next
       }
       this
     }

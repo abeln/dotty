@@ -6,6 +6,7 @@ import java.lang.ref.{ReferenceQueue, WeakReference}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.ExplicitNulls._
 
 /**
  * A HashSet where the elements are stored weakly. Elements in this set are eligible for GC if no other
@@ -17,7 +18,7 @@ import scala.collection.mutable
  * This set implementation is not in general thread safe without external concurrency control. However it behaves
  * properly when GC concurrently collects elements in this set.
  */
-final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) extends mutable.Set[A] {
+final class WeakHashSet[A >: Null <: Nullable[AnyRef]](initialCapacity: Int, loadFactor: Double) extends mutable.Set[A] {
 
   import WeakHashSet._
 
@@ -53,7 +54,7 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
   /**
    * the underlying table of entries which is an array of Entry linked lists
    */
-  private[this] var table = new Array[Entry[A]](computeCapacity)
+  private[this] var table = new Array[Nullable[Entry[A]]](computeCapacity)
 
   /**
    * the limit at which we'll increase the size of the hash table
@@ -86,10 +87,10 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
   /**
    * remove a single entry from a linked list in a given bucket
    */
-  private[this] def remove(bucket: Int, prevEntry: Entry[A], entry: Entry[A]): Unit = {
+  private[this] def remove(bucket: Int, prevEntry: Nullable[Entry[A]], entry: Nullable[Entry[A]]): Unit = {
     prevEntry match {
-      case null => table(bucket) = entry.tail
-      case _ => prevEntry.tail = entry.tail
+      case null => table(bucket) = entry.nn.tail
+      case _ => prevEntry.nn.tail = entry.nn.tail
     }
     count -= 1
   }
@@ -107,7 +108,7 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
         val bucket = bucketFor(stale.hash)
 
         @tailrec
-        def linkedListLoop(prevEntry: Entry[A], entry: Entry[A]): Unit = if (stale eq entry) remove(bucket, prevEntry, entry)
+        def linkedListLoop(prevEntry: Nullable[Entry[A]], entry: Nullable[Entry[A]]): Unit = if (stale eq entry) remove(bucket, prevEntry, entry)
         else if (entry != null) linkedListLoop(entry, entry.tail)
 
         linkedListLoop(null, table(bucket))
@@ -124,18 +125,18 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
    */
   private[this] def resize(): Unit = {
     val oldTable = table
-    table = new Array[Entry[A]](oldTable.size * 2)
+    table = new Array[Nullable[Entry[A]]](oldTable.size * 2)
     threshold = computeThreshold
 
     @tailrec
     def tableLoop(oldBucket: Int): Unit = if (oldBucket < oldTable.size) {
       @tailrec
-      def linkedListLoop(entry: Entry[A]): Unit = entry match {
+      def linkedListLoop(entry: Nullable[Entry[A]]): Unit = entry match {
         case null => ()
         case _ => {
-          val bucket = bucketFor(entry.hash)
-          val oldNext = entry.tail
-          entry.tail = table(bucket)
+          val bucket = bucketFor(entry.nn.hash)
+          val oldNext = entry.nn.tail
+          entry.nn.tail = table(bucket)
           table(bucket) = entry
           linkedListLoop(oldNext)
         }
@@ -158,12 +159,12 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
       val bucket = bucketFor(hash)
 
       @tailrec
-      def linkedListLoop(entry: Entry[A]): A = entry match {
+      def linkedListLoop(entry: Nullable[Entry[A]]): A = entry match {
         case null                    => null.asInstanceOf[A]
         case _                       => {
-          val entryElem = entry.get
+          val entryElem = entry.nn.get
           if (elem.equals(entryElem)) entryElem
-          else linkedListLoop(entry.tail)
+          else linkedListLoop(entry.nn.tail)
         }
       }
 
@@ -187,12 +188,12 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
       }
 
       @tailrec
-      def linkedListLoop(entry: Entry[A]): A = entry match {
+      def linkedListLoop(entry: Nullable[Entry[A]]): A = entry match {
         case null                    => add()
         case _                       => {
-          val entryElem = entry.get
+          val entryElem = entry.nn.get
           if (elem.equals(entryElem)) entryElem
-          else linkedListLoop(entry.tail)
+          else linkedListLoop(entry.nn.tail)
         }
       }
 
@@ -216,10 +217,10 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
       }
 
       @tailrec
-      def linkedListLoop(entry: Entry[A]): Unit = entry match {
+      def linkedListLoop(entry: Nullable[Entry[A]]): Unit = entry match {
         case null                        => add()
-        case _ if elem.equals(entry.get) => ()
-        case _                           => linkedListLoop(entry.tail)
+        case _ if elem.equals(entry.nn.get) => ()
+        case _                           => linkedListLoop(entry.nn.tail)
       }
 
       linkedListLoop(oldHead)
@@ -237,10 +238,10 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
 
 
       @tailrec
-      def linkedListLoop(prevEntry: Entry[A], entry: Entry[A]): Unit = entry match {
+      def linkedListLoop(prevEntry: Nullable[Entry[A]], entry: Nullable[Entry[A]]): Unit = entry match {
         case null => ()
-        case _ if elem.equals(entry.get) => remove(bucket, prevEntry, entry)
-        case _ => linkedListLoop(entry, entry.tail)
+        case _ if elem.equals(entry.nn.get) => remove(bucket, prevEntry, entry)
+        case _ => linkedListLoop(entry, entry.nn.tail)
       }
 
       linkedListLoop(null, table(bucket))
@@ -250,7 +251,7 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
 
   // empty this set
   override def clear(): Unit = {
-    table = new Array[Entry[A]](table.size)
+    table = new Array[Nullable[Entry[A]]](table.size)
     threshold = computeThreshold
     count = 0
 
@@ -288,7 +289,7 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
       /**
        * the entry that was last examined
        */
-      private[this] var entry: Entry[A] = null
+      private[this] var entry: Nullable[Entry[A]] = null
 
       /**
        * the element that will be the result of the next call to next()
@@ -304,10 +305,10 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
 
         if (entry == null) false
         else {
-          lookaheadelement = entry.get
+          lookaheadelement = entry.nn.get
           if (lookaheadelement == null) {
             // element null means the weakref has been cleared since we last did a removeStaleEntries(), move to the next entry
-            entry = entry.tail
+            entry = entry.nn.tail
             hasNext
           } else {
             true
@@ -320,7 +321,7 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
       else {
         val result = lookaheadelement
         lookaheadelement = null.asInstanceOf[A]
-        entry = entry.tail
+        entry = entry.nn.tail
         result
       }
     }
@@ -343,15 +344,15 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
       while (bucket < table.size) {
         var entry = table(bucket)
         while (entry != null) {
-          assert(entry.get != null, s"$entry had a null value indicated that gc activity was happening during diagnostic validation or that a null value was inserted")
+          assert(entry.nn.get != null, s"$entry had a null value indicated that gc activity was happening during diagnostic validation or that a null value was inserted")
           computedCount += 1
-          val cachedHash = entry.hash
-          val realHash = entry.get.hashCode
+          val cachedHash = entry.nn.hash
+          val realHash = entry.nn.get.nn.hashCode
           assert(cachedHash == realHash, s"for $entry cached hash was $cachedHash but should have been $realHash")
           val computedBucket = bucketFor(realHash)
           assert(computedBucket == bucket, s"for $entry the computed bucket was $computedBucket but should have been $bucket")
 
-          entry = entry.tail
+          entry = entry.nn.tail
         }
 
         bucket += 1
@@ -363,7 +364,7 @@ final class WeakHashSet[A <: AnyRef](initialCapacity: Int, loadFactor: Double) e
     /**
      *  Produces a diagnostic dump of the table that underlies this hash set.
      */
-    def dump: String = java.util.Arrays.toString(table.asInstanceOf[Array[AnyRef]])
+    def dump: String = java.util.Arrays.toString(table.asInstanceOf[Array[Nullable[AnyRef]]])
 
     /**
      * Number of buckets that hold collisions. Useful for diagnosing performance issues.
@@ -394,11 +395,11 @@ object WeakHashSet {
    * A single entry in a WeakHashSet. It's a WeakReference plus a cached hash code and
    * a link to the next Entry in the same bucket
    */
-  private class Entry[A](element: A, val hash:Int, var tail: Entry[A], queue: ReferenceQueue[A]) extends WeakReference[A](element, queue)
+  private class Entry[A](element: A, val hash:Int, var tail: Nullable[Entry[A]], queue: ReferenceQueue[A]) extends WeakReference[A](element, queue)
 
   private final val defaultInitialCapacity = 16
   private final val defaultLoadFactor = .75
 
-  def apply[A <: AnyRef](initialCapacity: Int = defaultInitialCapacity, loadFactor: Double = defaultLoadFactor): WeakHashSet[A] =
+  def apply[A >: Null <: Nullable[AnyRef]](initialCapacity: Int = defaultInitialCapacity, loadFactor: Double = defaultLoadFactor): WeakHashSet[A] =
     new WeakHashSet(initialCapacity, loadFactor)
 }

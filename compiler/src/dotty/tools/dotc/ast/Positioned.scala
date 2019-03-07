@@ -11,6 +11,8 @@ import core.StdNames.nme
 import annotation.constructorOnly
 import annotation.internal.sharable
 
+import scala.ExplicitNulls._
+
 /** A base class for things that have positions (currently: modifiers and trees)
  */
 abstract class Positioned(implicit @constructorOnly src: SourceFile) extends Product with Cloneable {
@@ -147,7 +149,7 @@ abstract class Positioned(implicit @constructorOnly src: SourceFile) extends Pro
    */
   def checkPos(nonOverlapping: Boolean)(implicit ctx: Context): Unit = try {
     import untpd._
-    var lastPositioned: Positioned = null
+    var lastPositioned: Nullable[Positioned] = null
     var lastSpan = NoSpan
     def check(p: Any): Unit = p match {
       case p: Positioned =>

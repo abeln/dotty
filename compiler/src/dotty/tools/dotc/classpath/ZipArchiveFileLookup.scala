@@ -10,6 +10,8 @@ import dotty.tools.io.{ AbstractFile, FileZipArchive }
 import FileUtils.AbstractFileOps
 import dotty.tools.io.{ClassPath, ClassRepresentation}
 
+import scala.ExplicitNulls._
+
 /**
  * A trait allowing to look for classpath entries of given type in zip and jar files.
  * It provides common logic for classes handling class and source files.
@@ -20,10 +22,10 @@ trait ZipArchiveFileLookup[FileEntryType <: ClassRepresentation] extends ClassPa
 
   assert(zipFile != null, "Zip file in ZipArchiveFileLookup cannot be null")
 
-  override def asURLs: Seq[URL] = Seq(zipFile.toURI.toURL)
+  override def asURLs: Seq[URL] = Seq(zipFile.toURI.toURL.nn)
   override def asClassPathStrings: Seq[String] = Seq(zipFile.getPath)
 
-  private val archive = new FileZipArchive(zipFile.toPath)
+  private val archive = new FileZipArchive(zipFile.toPath.nn)
 
   override private[dotty] def packages(inPackage: String): Seq[PackageEntry] = {
     val prefix = PackageNameUtils.packagePrefix(inPackage)
@@ -42,7 +44,7 @@ trait ZipArchiveFileLookup[FileEntryType <: ClassRepresentation] extends ClassPa
   protected def file(inPackage: String, name: String): Option[FileEntryType] =
     for {
       dirEntry <- findDirEntry(inPackage)
-      entry <- Option(dirEntry.lookupName(name, directory = false))
+      entry <- Option(dirEntry.lookupName(name, directory = false).asInstanceOf[FileZipArchive#Entry])
       if isRequiredFileType(entry)
     } yield createFileEntry(entry)
 

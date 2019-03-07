@@ -12,6 +12,8 @@ import Symbols._, Contexts._
 import util.Spans._
 import Parsers.Parser
 
+import scala.ExplicitNulls._
+
 /** This class builds instance of `Tree` that represent XML.
  *
  *  Note from martin: This needs to have its position info reworked. I don't
@@ -111,8 +113,8 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
     isPattern: Boolean,
     pre: Tree,
     label: Tree,
-    attrs: Tree,
-    scope: Tree,
+    attrs: Nullable[Tree],
+    scope: Nullable[Tree],
     empty: Boolean,
     children: Seq[Tree]): Tree =
   {
@@ -121,7 +123,14 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
       else List(Typed(makeXMLseq(span, children), wildStar))
 
     def pat    = Apply(_scala_xml__Elem, List(pre, label, wild, wild) ::: convertToTextPat(children))
-    def nonpat = New(_scala_xml_Elem, List(List(pre, label, attrs, scope, if (empty) Literal(Constant(true)) else Literal(Constant(false))) ::: starArgs))
+    // TODO(abeln): `attrs` and `scopre` are nullable, but if we propagate the nullability we
+    // end up making `Apply` (in `Trees.scala`) take a list of nullable trees, which produces the
+    // following error:
+    // [error] /Users/abeln/src/dotty2/dotty/compiler/src/dotty/tools/dotc/ast/Trees.scala:432:63:
+    // contravariant type T occurs in invariant position in type => List[ExplicitNulls.Nullable[dotty.tools.dotc.ast.Trees.Tree[T]]]
+    // of value args
+    // So for now just be unsound and cast the type without a null check.
+    def nonpat = New(_scala_xml_Elem, List(List(pre, label, attrs.asInstanceOf[Tree], scope.asInstanceOf[Tree], if (empty) Literal(Constant(true)) else Literal(Constant(false))) ::: starArgs))
 
     atSpan(span) { if (isPattern) pat else nonpat }
   }
@@ -199,7 +208,7 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
     atSpan(span)( New(_scala_xml_Unparsed, LL(asInstanceOfString(const(str)))) )
 
   def element(span: Span, qname: String, attrMap: mutable.Map[String, Tree], empty: Boolean, args: Seq[Tree]): Tree = {
-    def handleNamespaceBinding(pre: String, z: String): Tree = {
+    def handleNamespaceBinding(pre: Nullable[String], z: String): Tree = {
       def mkAssign(t: Tree): Tree = Assign(
         Ident(_tmpscope),
         New(_scala_xml_NamespaceBinding, LL(asInstanceOfString(const(pre)), t, Ident(_tmpscope)))
@@ -229,7 +238,7 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
       case (None, x)    => (null, x)
     }
 
-    def mkAttributeTree(pre: String, key: String, value: Tree) = atSpan(span.toSynthetic) {
+    def mkAttributeTree(pre: Nullable[String], key: String, value: Tree) = atSpan(span.toSynthetic) {
       // XXX this is where we'd like to put Select(value, nme.toString_) for #1787
       // after we resolve the Some(foo) situation.
       val baseArgs = List(asInstanceOfString(const(key)), value, Ident(_md))

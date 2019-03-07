@@ -12,9 +12,11 @@ import reflect.ClassTag
 import annotation.tailrec
 import annotation.internal.sharable
 
+import scala.ExplicitNulls._
+
 object OrderingConstraint {
 
-  type ArrayValuedMap[T] = SimpleIdentityMap[TypeLambda, Array[T]]
+  type ArrayValuedMap[T] = SimpleIdentityMap[TypeLambda, Nullable[Array[T]]]
 
   /** The type of `OrderingConstraint#boundsMap` */
   type ParamBounds = ArrayValuedMap[Type]
@@ -82,7 +84,7 @@ object OrderingConstraint {
 
   val boundsLens: ConstraintLens[Type] = new ConstraintLens[Type] {
     def entries(c: OrderingConstraint, poly: TypeLambda): Array[Type] =
-      c.boundsMap(poly)
+      c.boundsMap(poly).nn
     def updateEntries(c: OrderingConstraint, poly: TypeLambda, entries: Array[Type])(implicit ctx: Context): OrderingConstraint =
       newConstraint(c.boundsMap.updated(poly, entries), c.lowerMap, c.upperMap)
     def initial = NoType
@@ -90,7 +92,7 @@ object OrderingConstraint {
 
   val lowerLens: ConstraintLens[List[TypeParamRef]] = new ConstraintLens[List[TypeParamRef]] {
     def entries(c: OrderingConstraint, poly: TypeLambda): Array[List[TypeParamRef]] =
-      c.lowerMap(poly)
+      c.lowerMap(poly).nn
     def updateEntries(c: OrderingConstraint, poly: TypeLambda, entries: Array[List[TypeParamRef]])(implicit ctx: Context): OrderingConstraint =
       newConstraint(c.boundsMap, c.lowerMap.updated(poly, entries), c.upperMap)
     def initial = Nil
@@ -98,7 +100,7 @@ object OrderingConstraint {
 
   val upperLens: ConstraintLens[List[TypeParamRef]] = new ConstraintLens[List[TypeParamRef]] {
     def entries(c: OrderingConstraint, poly: TypeLambda): Array[List[TypeParamRef]] =
-      c.upperMap(poly)
+      c.upperMap(poly).nn
     def updateEntries(c: OrderingConstraint, poly: TypeLambda, entries: Array[List[TypeParamRef]])(implicit ctx: Context): OrderingConstraint =
       newConstraint(c.boundsMap, c.lowerMap, c.upperMap.updated(poly, entries))
     def initial = Nil
@@ -448,9 +450,10 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
 
   def remove(pt: TypeLambda)(implicit ctx: Context): This = {
     def removeFromOrdering(po: ParamOrdering) = {
-      def removeFromBoundss(key: TypeLambda, bndss: Array[List[TypeParamRef]]): Array[List[TypeParamRef]] = {
-        val bndss1 = bndss.map(_.filterConserve(_.binder ne pt))
-        if (bndss.corresponds(bndss1)(_ eq _)) bndss else bndss1
+      def removeFromBoundss(key: TypeLambda, bndss: Nullable[Array[List[TypeParamRef]]]): Array[List[TypeParamRef]] = {
+        val bndss0 = bndss.nn
+        val bndss1 = bndss0.map(_.filterConserve(_.binder ne pt))
+        if (bndss0.corresponds(bndss1)(_ eq _)) bndss0 else bndss1
       }
       po.remove(pt).mapValuesNow(removeFromBoundss)
     }
@@ -461,11 +464,11 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
     val entries = boundsMap(pt)
     @tailrec def allRemovable(last: Int): Boolean =
       if (last < 0) true
-      else typeVar(entries, last) match {
+      else typeVar(entries.nn, last) match {
         case tv: TypeVar => tv.inst.exists && allRemovable(last - 1)
         case _ => false
       }
-    allRemovable(paramCount(entries) - 1)
+    allRemovable(paramCount(entries.nn) - 1)
   }
 
 // ---------- Exploration --------------------------------------------------------
@@ -475,14 +478,14 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
   def domainParams: List[TypeParamRef] =
     for {
       (poly, entries) <- boundsMap.toList
-      n <- 0 until paramCount(entries)
-      if entries(n).exists
+      n <- 0 until paramCount(entries.nn)
+      if entries.nn(n).exists
     } yield poly.paramRefs(n)
 
   def forallParams(p: TypeParamRef => Boolean): Boolean = {
     boundsMap.foreachBinding { (poly, entries) =>
-      for (i <- 0 until paramCount(entries))
-        if (isBounds(entries(i)) && !p(poly.paramRefs(i))) return false
+      for (i <- 0 until paramCount(entries.nn))
+        if (isBounds(entries.nn(i)) && !p(poly.paramRefs(i))) return false
     }
     true
   }
@@ -494,8 +497,8 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
 
   def foreachTypeVar(op: TypeVar => Unit): Unit =
     boundsMap.foreachBinding { (poly, entries) =>
-      for (i <- 0 until paramCount(entries)) {
-        typeVar(entries, i) match {
+      for (i <- 0 until paramCount(entries.nn)) {
+        typeVar(entries.nn, i) match {
           case tv: TypeVar if !tv.inst.exists => op(tv)
           case _ =>
         }
@@ -512,7 +515,7 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
       }
       m2.foreachBinding { (poly, xs2) =>
         merged = merged.updated(poly,
-            if (m1.contains(poly)) mergeArrays(m1(poly), xs2) else xs2)
+            if (m1.contains(poly)) mergeArrays(m1(poly).nn, xs2.nn) else xs2)
       }
       merged
     }
@@ -550,9 +553,9 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
     def checkClosedType(tp: Type, where: String) =
       if (tp != null)
         assert(!tp.existsPart(isFreeTypeParamRef), i"unclosed constraint: $this refers to $tp in $where")
-    boundsMap.foreachBinding((_, tps) => tps.foreach(checkClosedType(_, "bounds")))
-    lowerMap.foreachBinding((_, paramss) => paramss.foreach(_.foreach(checkClosedType(_, "lower"))))
-    upperMap.foreachBinding((_, paramss) => paramss.foreach(_.foreach(checkClosedType(_, "upper"))))
+    boundsMap.foreachBinding((_, tps) => tps.nn.foreach(checkClosedType(_, "bounds")))
+    lowerMap.foreachBinding((_, paramss) => paramss.nn.foreach(_.foreach(checkClosedType(_, "lower"))))
+    upperMap.foreachBinding((_, paramss) => paramss.nn.foreach(_.foreach(checkClosedType(_, "upper"))))
   }
 
   private[this] var myUninstVars: mutable.ArrayBuffer[TypeVar] = _
@@ -562,9 +565,9 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
     if (myUninstVars == null || myUninstVars.exists(_.inst.exists)) {
       myUninstVars = new mutable.ArrayBuffer[TypeVar]
       boundsMap.foreachBinding { (poly, entries) =>
-        for (i <- 0 until paramCount(entries)) {
-          typeVar(entries, i) match {
-            case tv: TypeVar if !tv.inst.exists && isBounds(entries(i)) => myUninstVars += tv
+        for (i <- 0 until paramCount(entries.nn)) {
+          typeVar(entries.nn, i) match {
+            case tv: TypeVar if !tv.inst.exists && isBounds(entries.nn(i)) => myUninstVars += tv
             case _ =>
           }
         }

@@ -10,6 +10,8 @@ import collection.mutable
 import Denotations.SingleDenotation
 import util.SimpleIdentityMap
 
+import scala.ExplicitNulls._
+
 object Definitions {
 
   /** The maximum number of elements in a tuple or product.
@@ -768,6 +770,9 @@ class Definitions {
   lazy val MirrorType: TypeRef                 = ctx.requiredClassRef("scala.reflect.Mirror")
   lazy val GenericClassType: TypeRef           = ctx.requiredClassRef("scala.reflect.GenericClass")
 
+  lazy val ExplicitNullsLanguageModuleRef: TermSymbol = ctx.requiredModule("scala.ExplicitNullsLanguage")
+  def ExplicitNullsLanguageModuleClass(implicit ctx: Context): ClassSymbol = ExplicitNullsLanguageModuleRef.moduleClass.asClass
+
   lazy val LanguageModuleRef: TermSymbol = ctx.requiredModule("scala.language")
   def LanguageModuleClass(implicit ctx: Context): ClassSymbol = LanguageModuleRef.moduleClass.asClass
   lazy val NonLocalReturnControlType: TypeRef   = ctx.requiredClassRef("scala.runtime.NonLocalReturnControl")
@@ -1420,7 +1425,7 @@ class Definitions {
   def isValueSubClass(sym1: Symbol, sym2: Symbol): Boolean =
     valueTypeEnc(sym2.asClass.name) % valueTypeEnc(sym1.asClass.name) == 0
 
-  lazy val specialErasure: SimpleIdentityMap[Symbol, ClassSymbol] = {
+  lazy val specialErasure: SimpleIdentityMap[Symbol, Nullable[ClassSymbol]] = {
     val idMap =
       SimpleIdentityMap.Empty[Symbol]
         .updated(AnyClass, ObjectClass)

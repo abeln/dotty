@@ -15,6 +15,8 @@ import ast.Trees._
 import util.Spans.Span
 import config.Printers.transforms
 
+import scala.ExplicitNulls._
+
 /** A utility class for generating access proxies. Currently used for
  *  inline accessors and protected accessors.
  */
@@ -112,7 +114,7 @@ abstract class AccessProxies {
             MethodType(getterInfo :: Nil, defn.UnitType)
         }
         val setterInfo = toSetterInfo(getter.info.widenExpr)
-        val setter = accessorSymbol(getter.owner, setterName, setterInfo, accessed)
+        val setter = accessorSymbol(getter.owner, setterName, setterInfo, accessed.nn)
         rewire(getterRef, setter)
       case Apply(fn, args) =>
         cpy.Apply(getterRef)(useSetter(fn), args)

@@ -24,6 +24,7 @@ import xsbti.api.DependencyContext._
 
 import scala.collection.{Set, mutable}
 
+import scala.ExplicitNulls._
 
 /** This phase sends information on classes' dependencies to sbt via callbacks.
  *
@@ -70,10 +71,10 @@ class ExtractDependencies extends Phase {
     if (ctx.settings.YdumpSbtInc.value) {
       val deps = collector.dependencies.map(_.toString).toArray[Object]
       val names = collector.usedNames.map { case (clazz, names) => s"$clazz: $names" }.toArray[Object]
-      Arrays.sort(deps)
-      Arrays.sort(names)
+      Arrays.sort(deps.asInstanceOf[Array[Nullable[Object]]])
+      Arrays.sort(names.asInstanceOf[Array[Nullable[Object]]])
 
-      val pw = io.File(unit.source.file.jpath).changeExtension("inc").toFile.printWriter()
+      val pw = io.File(unit.source.file.jpath.nn).changeExtension("inc").toFile.printWriter()
       // val pw = Console.out
       try {
         pw.println("Used Names:")
@@ -118,7 +119,7 @@ class ExtractDependencies extends Phase {
 
       depFile match {
         case ze: ZipArchive#Entry => // The dependency comes from a JAR
-          for (zip <- ze.underlyingSource; zipFile <- Option(zip.file)) {
+          for (zip <- ze.underlyingSource; zipFile <- Option(zip.file.nn)) {
             val classSegments = io.File(ze.path).segments
             binaryDependency(zipFile, binaryClassName(classSegments))
           }
@@ -136,7 +137,7 @@ class ExtractDependencies extends Phase {
           // from the modulepath. For now this isn't a big deal since we only
           // support having the standard Java library on the modulepath.
           if (pf.file != null)
-            binaryDependency(pf.file, binaryClassName(classSegments))
+            binaryDependency(pf.file.nn, binaryClassName(classSegments))
 
         case _ =>
           ctx.warning(s"sbt-deps: Ignoring dependency $depFile of class ${depFile.getClass}}")

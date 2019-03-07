@@ -17,6 +17,8 @@ import config.Printers.patmatch
 import reporting.diagnostic.messages._
 import dotty.tools.dotc.ast._
 
+import scala.ExplicitNulls._
+
 /** The pattern matching transform.
  *  After this phase, the only Match nodes remaining in the code are simple switches
  *  where every pattern is an integer constant
@@ -406,7 +408,7 @@ object PatternMatcher {
       }
       def apply(plan: LetPlan): Plan = {
         plan.body = apply(plan.body)
-        initializer(plan.sym) = apply(initializer(plan.sym))
+        initializer(plan.sym) = apply(initializer(plan.sym).nn)
         plan
       }
       def apply(plan: LabeledPlan): Plan = {
@@ -466,7 +468,7 @@ object PatternMatcher {
         override def apply(plan: LetPlan): Plan = {
           apply(plan.body)
           if (count(plan.sym) != 0 || !isPatmatGenerated(plan.sym))
-            apply(initializer(plan.sym))
+            apply(initializer(plan.sym).nn)
           plan
         }
         override def apply(plan: SeqPlan): Plan = {
@@ -551,7 +553,7 @@ object PatternMatcher {
                   transferNonPatmatGenedLets(plan2, testPlan2.onSuccess))
                 Some(plan1) // that's the original plan1, on purpose
 
-              case (letPlan1: LetPlan, letPlan2: LetPlan) if initializer(letPlan1.sym) === initializer(letPlan2.sym) =>
+              case (letPlan1: LetPlan, letPlan2: LetPlan) if initializer(letPlan1.sym).nn === initializer(letPlan2.sym).nn =>
                 // By construction, letPlan1.sym and letPlan2.sym are patmat-generated
                 val newPlan2Body = new SubstituteIdent(letPlan2.sym, letPlan1.sym)(letPlan2.body)
                 letPlan1.body = SeqPlan(letPlan1.body,
@@ -603,7 +605,7 @@ object PatternMatcher {
           override def transform(tree: Tree)(implicit ctx: Context) = tree match {
             case tree: Ident =>
               val sym = tree.symbol
-              if (toDrop(sym)) transform(initializer(sym))
+              if (toDrop(sym)) transform(initializer(sym).nn)
               else tree
             case _ =>
               super.transform(tree)
@@ -612,7 +614,7 @@ object PatternMatcher {
         override def apply(plan: LetPlan): Plan = {
           if (toDrop(plan.sym)) apply(plan.body)
           else {
-            initializer(plan.sym) = apply(initializer(plan.sym))
+            initializer(plan.sym) = apply(initializer(plan.sym).nn)
             plan.body = apply(plan.body)
             plan
           }
@@ -840,7 +842,7 @@ object PatternMatcher {
           }
           emitWithMashedConditions(plan :: Nil)
         case LetPlan(sym, body) =>
-          seq(ValDef(sym, initializer(sym).ensureConforms(sym.info)) :: Nil, emit(body))
+          seq(ValDef(sym, initializer(sym).nn.ensureConforms(sym.info)) :: Nil, emit(body))
         case LabeledPlan(label, expr) =>
           Labeled(label, emit(expr))
         case ReturnPlan(label) =>

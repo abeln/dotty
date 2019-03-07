@@ -11,6 +11,8 @@ import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.tasty.{TastyUnpickler, TreePickler}
 import dotty.tools.dotc.core.StdNames.nme.EMPTY_PACKAGE
 
+import scala.ExplicitNulls._
+
 object TastyFileUtil {
 
   /** Get the class path and the class name including packages
@@ -25,7 +27,7 @@ object TastyFileUtil {
   def getClassName(path: Path): Option[(String, String)] = {
     assert(path.toString.endsWith(".tasty"))
     assert(Files.exists(path))
-    val bytes = Files.readAllBytes(path)
+    val bytes = Files.readAllBytes(path).nn
     val names = new core.tasty.TastyClassName(bytes).readName()
     names.map { case (packageName, className) =>
       val fullName = packageName match {

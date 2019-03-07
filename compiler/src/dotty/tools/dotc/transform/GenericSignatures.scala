@@ -17,6 +17,8 @@ import SymUtils._
 import TypeUtils._
 import java.lang.StringBuilder
 
+import scala.ExplicitNulls._
+
 /** Helper object to generate generic java signatures, as defined in
  *  the Java Virtual Machine Specification, §4.3.4
  */
@@ -202,7 +204,7 @@ object GenericSignatures {
             typeParamSig(sym.name.lastPart)
           }
           else if (defn.specialErasure.contains(sym))
-            jsig(defn.specialErasure(sym).typeRef)
+            jsig(defn.specialErasure(sym).nn.typeRef)
           else if (sym == defn.UnitClass || sym == defn.BoxedUnitModule)
             jsig(defn.BoxedUnitType)
           else if (sym == defn.NothingClass)

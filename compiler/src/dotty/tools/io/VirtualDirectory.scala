@@ -6,6 +6,8 @@ package dotty.tools.io
 
 import scala.collection.mutable
 import java.io.{InputStream, OutputStream}
+import scala.ExplicitNulls._
+
 /**
  * An in-memory directory.
  *
@@ -28,7 +30,7 @@ extends AbstractFile {
   override def isVirtual: Boolean = true
   val lastModified: Long = System.currentTimeMillis
 
-  override def jpath: JPath = null
+  override def jpath: Nullable[JPath] = null
   override def input: InputStream = sys.error("directories cannot be read")
   override def output: OutputStream = sys.error("directories cannot be written")
 
@@ -49,18 +51,18 @@ extends AbstractFile {
   // modified while its elements are iterated
   def iterator(): Iterator[AbstractFile] = files.values.toList.iterator
 
-  override def lookupName(name: String, directory: Boolean): AbstractFile =
+  override def lookupName(name: String, directory: Boolean): Nullable[AbstractFile] =
     (files get name filter (_.isDirectory == directory)).orNull
 
   override def fileNamed(name: String): AbstractFile =
-    Option(lookupName(name, directory = false)) getOrElse {
+    Option(lookupName(name, directory = false).asInstanceOf[AbstractFile]) getOrElse {
       val newFile = new VirtualFile(name, path+'/'+name)
       files(name) = newFile
       newFile
     }
 
   override def subdirectoryNamed(name: String): AbstractFile =
-    Option(lookupName(name, directory = true)) getOrElse {
+    Option(lookupName(name, directory = true).asInstanceOf[AbstractFile]) getOrElse {
       val dir = new VirtualDirectory(name, Some(this))
       files(name) = dir
       dir

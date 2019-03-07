@@ -7,6 +7,8 @@ import collection.mutable
 import collection.immutable.BitSet
 import scala.annotation.tailrec
 
+import scala.ExplicitNulls._
+
 /** A module that can produce a kind of iterator (`Cursor`),
  *  which yields all pairs of overriding/overridden symbols
  *  that are visible in some baseclass, unless there's a parent class
@@ -51,9 +53,9 @@ object OverridingPairs {
           fillDecls(bcs1, deferred)
           var e = bc.info.decls.lastEntry
           while (e != null) {
-            if (e.sym.is(Deferred) == deferred && !exclude(e.sym))
-              decls.enter(e.sym)
-            e = e.prev
+            if (e.nn.sym.is(Deferred) == deferred && !exclude(e.nn.sym))
+              decls.enter(e.nn.sym)
+            e = e.nn.prev
           }
         case nil =>
       }
@@ -72,7 +74,7 @@ object OverridingPairs {
     }
 
     private def hasCommonParentAsSubclass(cls1: Symbol, cls2: Symbol): Boolean =
-      (subParents(cls1) intersect subParents(cls2)).nonEmpty
+      (subParents(cls1).nn intersect subParents(cls2).nn).nonEmpty
 
     /** The scope entries that have already been visited as overridden
      *  (maybe excluded because of hasCommonParentAsSubclass).
@@ -104,9 +106,9 @@ object OverridingPairs {
     private def nextOverriding(): Unit = {
       @tailrec def loop(): Unit =
         if (curEntry ne null) {
-          overriding = curEntry.sym
+          overriding = curEntry.nn.sym
           if (visited.contains(overriding)) {
-            curEntry = curEntry.prev
+            curEntry = curEntry.nn.prev
             loop()
           }
         }
@@ -121,10 +123,10 @@ object OverridingPairs {
      */
     @tailrec final def next(): Unit =
       if (nextEntry ne null) {
-        nextEntry = decls.lookupNextEntry(nextEntry)
+        nextEntry = decls.lookupNextEntry(nextEntry.nn)
         if (nextEntry ne null) {
           try {
-            overridden = nextEntry.sym
+            overridden = nextEntry.nn.sym
             if (overriding.owner != overridden.owner && matches(overriding, overridden)) {
               visited += overridden
               if (!hasCommonParentAsSubclass(overriding.owner, overridden.owner)) return
@@ -137,7 +139,7 @@ object OverridingPairs {
               ctx.error(ex.toMessage, base.sourcePos)
           }
         } else {
-          curEntry = curEntry.prev
+          curEntry = curEntry.nn.prev
           nextOverriding()
         }
         next()

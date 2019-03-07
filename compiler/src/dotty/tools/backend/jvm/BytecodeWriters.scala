@@ -7,6 +7,8 @@ import dotty.tools.io._
 import java.util.jar.Attributes.Name
 import scala.language.postfixOps
 
+import scala.ExplicitNulls._
+
 /** Can't output a file due to the state of the file system. */
 class FileConflictException(msg: String, val file: AbstractFile) extends IOException(msg)
 
@@ -45,16 +47,16 @@ trait BytecodeWriters {
   }
 
   trait BytecodeWriter {
-    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit
+    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit
     def close(): Unit = ()
   }
 
   class DirectToJarfileWriter(jfile: JFile) extends BytecodeWriter {
-    val jarMainAttrs = mainClass.map(nm => List(Name.MAIN_CLASS -> nm)).getOrElse(Nil)
+    val jarMainAttrs = mainClass.map(nm => List(Name.MAIN_CLASS.nn -> nm)).getOrElse(Nil)
 
     val writer = new Jar(jfile).jarWriter(jarMainAttrs: _*)
 
-    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       assert(outfile == null,
              "The outfile formal param is there just because ClassBytecodeWriter overrides this method and uses it.")
       val path = jclassName + ".class"
@@ -94,7 +96,7 @@ trait BytecodeWriters {
       finally pw.close()
     }
 
-    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       super.writeClass(label, jclassName, jclassBytes, outfile)
 
       val segments = jclassName.split("[./]")
@@ -106,10 +108,10 @@ trait BytecodeWriters {
   }
 
   trait ClassBytecodeWriter extends BytecodeWriter {
-    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       assert(outfile != null,
              "Precisely this override requires its invoker to hand out a non-null AbstractFile.")
-      val outstream = new DataOutputStream(outfile.bufferedOutput)
+      val outstream = new DataOutputStream(outfile.nn.bufferedOutput)
 
       try outstream.write(jclassBytes, 0, jclassBytes.length)
       finally outstream.close()
@@ -120,7 +122,7 @@ trait BytecodeWriters {
   trait DumpBytecodeWriter extends BytecodeWriter {
     val baseDir = Directory(int.dumpClasses.get).createDirectory()
 
-    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       super.writeClass(label, jclassName, jclassBytes, outfile)
 
       val pathName = jclassName

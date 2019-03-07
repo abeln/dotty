@@ -17,6 +17,8 @@ import printing.Texts._
 import util.SourceFile
 import annotation.constructorOnly
 
+import scala.ExplicitNulls._
+
 object TreePickler {
 
   val sectionName = "ASTs"
@@ -695,7 +697,7 @@ class TreePickler(pickler: TastyPickler) {
     buf.compactify()
 
     def updateMapWithDeltas(mp: MutableSymbolMap[Addr]) =
-      for (key <- mp.keysIterator.toBuffer[Symbol]) mp(key) = adjusted(mp(key))
+      for (key <- mp.keysIterator.toBuffer[Symbol]) mp(key) = adjusted(mp(key).nn)
 
     updateMapWithDeltas(symRefs)
   }

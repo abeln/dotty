@@ -6,6 +6,7 @@ import scala.tools.asm.tree.{AbstractInsnNode, ClassNode, MethodNode}
 import java.io.PrintWriter
 import scala.tools.asm.util.{TraceClassVisitor, TraceMethodVisitor, Textifier}
 import scala.tools.asm.ClassReader
+import scala.ExplicitNulls._
 
 object AsmUtils {
 
@@ -58,6 +59,6 @@ object AsmUtils {
 
   def instructionString(instruction: AbstractInsnNode): String = instruction.getOpcode match {
     case -1 => instruction.toString
-    case op => scala.tools.asm.util.Printer.OPCODES(op)
+    case op => scala.tools.asm.util.Printer.OPCODES(op).nn
   }
 }

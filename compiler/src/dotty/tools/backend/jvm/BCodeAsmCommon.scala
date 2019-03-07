@@ -85,8 +85,9 @@ import interface._
       debuglog(s"enclosing method for $classSym is $methodOpt (in ${methodOpt.map(_.enclClass)})")
       Some(EnclosingMethodEntry(
         classDesc(enclosingClassForEnclosingMethodAttribute(classSym)),
-        methodOpt.map(_.javaSimpleName.toString).orNull,
-        methodOpt.map(methodDesc).orNull))
+        // TODO(abeln): remove AIO after we fix `Option`
+        methodOpt.map(_.javaSimpleName.toString).orNull.asInstanceOf[String],
+        methodOpt.map(methodDesc).orNull.asInstanceOf[String]))
     } else {
       None
     }

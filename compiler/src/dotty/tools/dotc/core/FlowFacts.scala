@@ -25,6 +25,7 @@ object FlowFacts {
     assert(ctx.settings.YexplicitNulls.value)
     tpe match {
       case tref: TermRef if isNonNull(ctx.nonNullFacts, tref) =>
+//        println(s">>> tpe = ${tpe.show}")
         NonNullTermRef.fromTermRef(tref)
       case _ => tpe
     }

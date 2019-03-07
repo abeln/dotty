@@ -8,6 +8,8 @@ import java.net.URL
 import scala.collection.mutable.ArrayBuffer
 import dotty.tools.io.{ AbstractFile, ClassPath, ClassRepresentation }
 
+import scala.ExplicitNulls._
+
 /**
  * A classpath unifying multiple class- and sourcepath entries.
  * The Classpath can obtain entries for classes and sources independently
@@ -72,7 +74,7 @@ case class AggregateClassPath(aggregates: Seq[ClassPath]) extends ClassPath {
         cp.list(inPackage).toTuple
       } catch {
         case ex: java.io.IOException =>
-          val e = new FatalError(ex.getMessage)
+          val e = new FatalError(ex.getMessage.nn)
           e.initCause(ex)
           throw e
       }

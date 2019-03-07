@@ -16,6 +16,7 @@ import annotation.unchecked.uncheckedVariance
 import annotation.constructorOnly
 import Decorators._
 import dotty.tools.dotc.core.tasty.TreePickler.Hole
+import scala.ExplicitNulls._
 
 object Trees {
 
@@ -25,7 +26,7 @@ object Trees {
   // of type Tree[Nothing]; type inference will treat the Nothing as an uninstantiated
   // value and will not infer Nothing as the type parameter for Select.
   // We should come back to this issue once type inference is changed.
-  type Untyped = Null
+  type Untyped = Types.Untyped
 
   /** The total number of created tree nodes, maintained if Stats.enabled */
   @sharable var ntrees: Int = 0
@@ -317,10 +318,10 @@ object Trees {
   abstract class MemberDef[-T >: Untyped](implicit @constructorOnly src: SourceFile) extends NameTree[T] with DefTree[T] {
     type ThisTree[-T >: Untyped] <: MemberDef[T]
 
-    private[this] var myMods: untpd.Modifiers = null
+    private[this] var myMods: Nullable[untpd.Modifiers] = null
 
     private[dotc] def rawMods: untpd.Modifiers =
-      if (myMods == null) untpd.EmptyModifiers else myMods
+      if (myMods == null) untpd.EmptyModifiers else myMods.nn
 
     def rawComment: Option[Comment] = getAttachment(DocComment)
 
@@ -826,7 +827,7 @@ object Trees {
   def genericEmptyTree[T >: Untyped]: Thicket[T]        = theEmptyTree.asInstanceOf[Thicket[T]]
 
   def flatten[T >: Untyped](trees: List[Tree[T]]): List[Tree[T]] = {
-    def recur(buf: ListBuffer[Tree[T]], remaining: List[Tree[T]]): ListBuffer[Tree[T]] =
+    def recur(buf: Nullable[ListBuffer[Tree[T]]], remaining: List[Tree[T]]): Nullable[ListBuffer[Tree[T]]] =
       remaining match {
         case Thicket(elems) :: remaining1 =>
           var buf1 = buf
@@ -834,7 +835,7 @@ object Trees {
             buf1 = new ListBuffer[Tree[T]]
             var scanned = trees
             while (scanned `ne` remaining) {
-              buf1 += scanned.head
+              buf1.nn += scanned.head
               scanned = scanned.tail
             }
           }
@@ -864,7 +865,8 @@ object Trees {
         val x = lzy.complete
         force(x)
         x
-      case x: T @ unchecked => x
+//      case x: T @ unchecked => x
+      case x => x.asInstanceOf[T]
     }
   }
 

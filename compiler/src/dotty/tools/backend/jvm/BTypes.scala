@@ -4,6 +4,8 @@ package jvm
 
 import scala.tools.asm
 
+import scala.ExplicitNulls._
+
 /**
  * The BTypes component defines The BType class hierarchy. BTypes encapsulates all type information
  * that is required after building the ASM nodes. This includes optimizations, geneartion of
@@ -223,18 +225,18 @@ abstract class BTypes {
      *  - for an ARRAY type, the full descriptor is part of the range
      */
     def toASMType: asm.Type = this match {
-      case UNIT   => asm.Type.VOID_TYPE
-      case BOOL   => asm.Type.BOOLEAN_TYPE
-      case CHAR   => asm.Type.CHAR_TYPE
-      case BYTE   => asm.Type.BYTE_TYPE
-      case SHORT  => asm.Type.SHORT_TYPE
-      case INT    => asm.Type.INT_TYPE
-      case FLOAT  => asm.Type.FLOAT_TYPE
-      case LONG   => asm.Type.LONG_TYPE
-      case DOUBLE => asm.Type.DOUBLE_TYPE
-      case ClassBType(internalName) => asm.Type.getObjectType(internalName) // see (*) above
-      case a: ArrayBType            => asm.Type.getObjectType(a.descriptor)
-      case m: MethodBType           => asm.Type.getMethodType(m.descriptor)
+      case UNIT   => asm.Type.VOID_TYPE.nn
+      case BOOL   => asm.Type.BOOLEAN_TYPE.nn
+      case CHAR   => asm.Type.CHAR_TYPE.nn
+      case BYTE   => asm.Type.BYTE_TYPE.nn
+      case SHORT  => asm.Type.SHORT_TYPE.nn
+      case INT    => asm.Type.INT_TYPE.nn
+      case FLOAT  => asm.Type.FLOAT_TYPE.nn
+      case LONG   => asm.Type.LONG_TYPE.nn
+      case DOUBLE => asm.Type.DOUBLE_TYPE.nn
+      case ClassBType(internalName) => asm.Type.getObjectType(internalName).nn // see (*) above
+      case a: ArrayBType            => asm.Type.getObjectType(a.descriptor).nn
+      case m: MethodBType           => asm.Type.getMethodType(m.descriptor).nn
     }
 
     def asRefBType       : RefBType       = this.asInstanceOf[RefBType]
@@ -584,16 +586,16 @@ abstract class BTypes {
      *   B.info.nestedInfo.outerClass == A
      *   A.info.memberClasses contains B
      */
-    private var _info: ClassInfo = null
+    private var _info: Nullable[ClassInfo] = null
 
     def info: ClassInfo = {
       assert(_info != null, s"ClassBType.info not yet assigned: $this")
-      _info
+      _info.nn
     }
 
     def info_=(i: ClassInfo): Unit = {
       assert(_info == null, s"Cannot set ClassBType.info multiple times: $this")
-      _info = i
+      _info = i.nn
       checkInfoConsistency()
     }
 
@@ -718,7 +720,7 @@ abstract class BTypes {
     private def firstCommonSuffix(as: List[ClassBType], bs: List[ClassBType]): ClassBType = {
       var chainA = as
       var chainB = bs
-      var fcs: ClassBType = null
+      var fcs: Nullable[ClassBType] = null
       do {
         if      (chainB contains chainA.head) fcs = chainA.head
         else if (chainA contains chainB.head) fcs = chainB.head
@@ -727,7 +729,7 @@ abstract class BTypes {
           chainB = chainB.tail
         }
       } while (fcs == null)
-      fcs
+      fcs.nn
     }
 
     /**
@@ -829,7 +831,7 @@ abstract class BTypes {
    * @param innerName The simple name of the inner class, may be null.
    * @param flags     The flags for this class in the InnerClass entry.
    */
-  case class InnerClassEntry(name: String, outerName: String, innerName: String, flags: Int)
+  case class InnerClassEntry(name: String, outerName: Nullable[String], innerName: Nullable[String], flags: Int)
 
   case class ArrayBType(componentType: BType) extends RefBType {
     def dimension: Int = componentType match {

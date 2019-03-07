@@ -11,6 +11,7 @@ import Constants._
 import Names._
 import StdNames._
 import Contexts._
+import scala.ExplicitNulls._
 
 object ConstFold {
 
@@ -48,18 +49,21 @@ object ConstFold {
       }
     }
 
-  @forceInline private def finish[T <: Tree](tree: T)(compX: => Constant)(implicit ctx: Context): T =
+
+  @forceInline private def finish[T <: Tree](tree: T)(compX: => Nullable[Constant])(implicit ctx: Context): T = {
     try {
       val x = compX
-      if (x ne null) tree.withType(ConstantType(x)).asInstanceOf[T]
+      // TODO(abeln): find out why flow-sensitive inference doesn't work in this method
+      if (x ne null) tree.withType(ConstantType(x.nn)).asInstanceOf[T]
       else tree
     } catch {
-      case _: ArithmeticException => tree   // the code will crash at runtime,
-                                            // but that is better than the
-                                            // compiler itself crashing
+      case _: ArithmeticException => tree // the code will crash at runtime,
+      // but that is better than the
+      // compiler itself crashing
     }
+  }
 
-  private def foldUnop(op: Name, x: Constant): Constant = (op, x.tag) match {
+  private def foldUnop(op: Name, x: Constant): Nullable[Constant] = (op, x.tag) match {
     case (nme.UNARY_!, BooleanTag) => Constant(!x.booleanValue)
 
     case (nme.UNARY_~ , IntTag    ) => Constant(~x.intValue)
@@ -81,7 +85,7 @@ object ConstFold {
   /** These are local helpers to keep foldBinop from overly taxing the
    *  optimizer.
    */
-  private def foldBooleanOp(op: Name, x: Constant, y: Constant): Constant = op match {
+  private def foldBooleanOp(op: Name, x: Constant, y: Constant): Nullable[Constant] = op match {
     case nme.ZOR  => Constant(x.booleanValue | y.booleanValue)
     case nme.OR   => Constant(x.booleanValue | y.booleanValue)
     case nme.XOR  => Constant(x.booleanValue ^ y.booleanValue)
@@ -91,7 +95,7 @@ object ConstFold {
     case nme.NE   => Constant(x.booleanValue != y.booleanValue)
     case _ => null
   }
-  private def foldSubrangeOp(op: Name, x: Constant, y: Constant): Constant = op match {
+  private def foldSubrangeOp(op: Name, x: Constant, y: Constant): Nullable[Constant] = op match {
     case nme.OR  => Constant(x.intValue | y.intValue)
     case nme.XOR => Constant(x.intValue ^ y.intValue)
     case nme.AND => Constant(x.intValue & y.intValue)
@@ -111,7 +115,7 @@ object ConstFold {
     case nme.MOD => Constant(x.intValue % y.intValue)
     case _ => null
   }
-  private def foldLongOp(op: Name, x: Constant, y: Constant): Constant = op match {
+  private def foldLongOp(op: Name, x: Constant, y: Constant): Nullable[Constant] = op match {
     case nme.OR  => Constant(x.longValue | y.longValue)
     case nme.XOR => Constant(x.longValue ^ y.longValue)
     case nme.AND => Constant(x.longValue & y.longValue)
@@ -131,7 +135,7 @@ object ConstFold {
     case nme.MOD => Constant(x.longValue % y.longValue)
     case _ => null
   }
-  private def foldFloatOp(op: Name, x: Constant, y: Constant): Constant = op match {
+  private def foldFloatOp(op: Name, x: Constant, y: Constant): Nullable[Constant] = op match {
     case nme.EQ  => Constant(x.floatValue == y.floatValue)
     case nme.NE  => Constant(x.floatValue != y.floatValue)
     case nme.LT  => Constant(x.floatValue < y.floatValue)
@@ -145,7 +149,7 @@ object ConstFold {
     case nme.MOD => Constant(x.floatValue % y.floatValue)
     case _ => null
   }
-  private def foldDoubleOp(op: Name, x: Constant, y: Constant): Constant = op match {
+  private def foldDoubleOp(op: Name, x: Constant, y: Constant): Nullable[Constant] = op match {
     case nme.EQ  => Constant(x.doubleValue == y.doubleValue)
     case nme.NE  => Constant(x.doubleValue != y.doubleValue)
     case nme.LT  => Constant(x.doubleValue < y.doubleValue)
@@ -160,7 +164,7 @@ object ConstFold {
     case _ => null
   }
 
-  private def foldBinop(op: Name, x: Constant, y: Constant): Constant = {
+  private def foldBinop(op: Name, x: Constant, y: Constant): Nullable[Constant] = {
     val optag =
       if (x.tag == y.tag) x.tag
       else if (x.isNumeric && y.isNumeric) math.max(x.tag, y.tag)

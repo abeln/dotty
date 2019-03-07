@@ -11,6 +11,8 @@ import ast.tpd._
 import scala.language.implicitConversions
 import printing.Formatting._
 
+import scala.ExplicitNulls._
+
 /** This object provides useful implicit decorators for types defined elsewhere */
 object Decorators {
 
@@ -53,10 +55,13 @@ object Decorators {
 
     final def mapconserve[U](f: T => U): List[U] = {
       @tailrec
-      def loop(mapped: ListBuffer[U], unchanged: List[U], pending: List[T]): List[U] =
+      def loop(mapped: Nullable[ListBuffer[U]], unchanged: List[U], pending: List[T]): List[U] =
         if (pending.isEmpty) {
           if (mapped eq null) unchanged
-          else mapped.prependToList(unchanged)
+          else {
+            // TODO(abeln): flow inference causes a crash here without the `nn`.
+            mapped.nn.prependToList(unchanged)
+          }
         } else {
           val head0 = pending.head
           val head1 = f(head0)
@@ -207,7 +212,7 @@ object Decorators {
   }
 
   implicit class ArrayInterpolator[T <: AnyRef](val arr: Array[T]) extends AnyVal {
-    def binarySearch(x: T): Int = java.util.Arrays.binarySearch(arr.asInstanceOf[Array[Object]], x)
+    def binarySearch(x: T): Int = java.util.Arrays.binarySearch(arr.asInstanceOf[Array[Nullable[Object]]], x)
   }
 }
 

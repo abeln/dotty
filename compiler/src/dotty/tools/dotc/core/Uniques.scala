@@ -5,6 +5,7 @@ import Types._, Contexts._, util.Stats._, Hashable._, Names._
 import config.Config
 import Decorators._
 import util.HashSet
+import scala.ExplicitNulls._
 
 /** Defines operation `unique` for hash-consing types.
  *  Also defines specialized hash sets for hash consing uniques of a specific type.
@@ -41,19 +42,19 @@ object Uniques {
   )
  */
 
-  final class NamedTypeUniques extends HashSet[NamedType](Config.initialUniquesCapacity) with Hashable {
-    override def hash(x: NamedType): Int = x.hash
+  final class NamedTypeUniques extends HashSet[Nullable[NamedType]](Config.initialUniquesCapacity) with Hashable {
+    override def hash(x: Nullable[NamedType]): Int = x.nn.hash
 
-    private def findPrevious(h: Int, prefix: Type, designator: Designator): NamedType = {
+    private def findPrevious(h: Int, prefix: Type, designator: Designator): Nullable[NamedType] = {
       var e = findEntryByHash(h)
       while (e != null) {
-        if ((e.prefix eq prefix) && (e.designator eq designator)) return e
+        if ((e.nn.prefix eq prefix) && (e.nn.designator eq designator)) return e
         e = nextEntryByHash(h)
       }
       e
     }
 
-    def enterIfNew(prefix: Type, designator: Designator, isTerm: Boolean)(implicit ctx: Context): NamedType = {
+    def enterIfNew(prefix: Type, designator: Designator, isTerm: Boolean)(implicit ctx: Context): Nullable[NamedType] = {
       val h = doHash(null, designator, prefix)
       if (monitored) recordCaching(h, classOf[NamedType])
       def newType =
@@ -62,24 +63,24 @@ object Uniques {
       if (h == NotCached) newType
       else {
         val r = findPrevious(h, prefix, designator)
-        if ((r ne null) && (r.isTerm == isTerm)) r else addEntryAfterScan(newType)
+        if ((r ne null) && (r.nn.isTerm == isTerm)) r.nn else addEntryAfterScan(newType)
       }
     }
   }
 
-  final class AppliedUniques extends HashSet[AppliedType](Config.initialUniquesCapacity) with Hashable {
-    override def hash(x: AppliedType): Int = x.hash
+  final class AppliedUniques extends HashSet[Nullable[AppliedType]](Config.initialUniquesCapacity) with Hashable {
+    override def hash(x: Nullable[AppliedType]): Int = x.nn.hash
 
-    private def findPrevious(h: Int, tycon: Type, args: List[Type]): AppliedType = {
+    private def findPrevious(h: Int, tycon: Type, args: List[Type]): Nullable[AppliedType] = {
       var e = findEntryByHash(h)
       while (e != null) {
-        if ((e.tycon eq tycon) && e.args.eqElements(args)) return e
+        if ((e.nn.tycon eq tycon) && e.nn.args.eqElements(args)) return e
         e = nextEntryByHash(h)
       }
       e
     }
 
-    def enterIfNew(tycon: Type, args: List[Type]): AppliedType = {
+    def enterIfNew(tycon: Type, args: List[Type]): Nullable[AppliedType] = {
       val h = doHash(null, tycon, args)
       def newType = new CachedAppliedType(tycon, args, h)
       if (monitored) recordCaching(h, classOf[CachedAppliedType])

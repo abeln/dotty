@@ -19,6 +19,8 @@ import scala.quoted.Types._
 import scala.quoted.Exprs._
 import scala.reflect.ClassTag
 
+import scala.ExplicitNulls._
+
 object PickledQuotes {
   import tpd._
 
@@ -162,10 +164,10 @@ object PickledQuotes {
       else if (clazz == classOf[Double]) defn.DoubleType
       else defn.UnitType
     } else if (clazz.isArray) {
-      defn.ArrayType.appliedTo(classToType(clazz.getComponentType))
+      defn.ArrayType.appliedTo(classToType(clazz.getComponentType.nn))
     } else if (clazz.isMemberClass) {
       val name = clazz.getSimpleName.toTypeName
-      val enclosing = classToType(clazz.getEnclosingClass)
+      val enclosing = classToType(clazz.getEnclosingClass.nn)
       if (enclosing.member(name).exists) enclosing.select(name)
       else {
         enclosing.classSymbol.companionModule.termRef.select(name)

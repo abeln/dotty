@@ -10,6 +10,7 @@ import dotty.tools.dotc.transform.SymUtils._
 import scala.collection.mutable
 
 import java.util.IdentityHashMap
+import scala.ExplicitNulls._
 
 object CollectNullableFields {
   val name: String = "collectNullableFields"
@@ -103,7 +104,7 @@ class CollectNullableFields extends MiniPhase {
     nullability.forEach {
       case (sym, Nullable(from)) =>
         val bldr = result.computeIfAbsent(from, _ => new mutable.ListBuffer)
-        bldr += sym
+        bldr += sym.nn
       case _ =>
     }
 

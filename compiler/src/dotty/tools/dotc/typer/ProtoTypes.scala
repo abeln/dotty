@@ -16,6 +16,8 @@ import util.SourceFile
 
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNulls._
+
 object ProtoTypes {
 
   import tpd._
@@ -190,7 +192,7 @@ object ProtoTypes {
 
     override def deepenProto(implicit ctx: Context): SelectionProto = derivedSelectionProto(name, memberProto.deepenProto, compat)
 
-    override def computeHash(bs: Hashable.Binders): Int = {
+    override def computeHash(bs: Nullable[Hashable.Binders]): Int = {
       val delta = (if (compat eq NoViewsAllowed) 1 else 0) | (if (privateOK) 2 else 0)
       addDelta(doHash(bs, name, memberProto), delta)
     }
@@ -238,10 +240,10 @@ object ProtoTypes {
     var typedArgs: List[Tree] = Nil
 
     /** A map in which typed arguments can be stored to be later integrated in `typedArgs`. */
-    var typedArg: SimpleIdentityMap[untpd.Tree, Tree] = SimpleIdentityMap.Empty
+    var typedArg: SimpleIdentityMap[untpd.Tree, Nullable[Tree]] = SimpleIdentityMap.Empty
 
     /** A map recording the typer states and constraints in which arguments stored in myTypedArg were typed */
-    var evalState: SimpleIdentityMap[untpd.Tree, (TyperState, Constraint)] = SimpleIdentityMap.Empty
+    var evalState: SimpleIdentityMap[untpd.Tree, Nullable[(TyperState, Constraint)]] = SimpleIdentityMap.Empty
 
     /** The tupled version of this prototype, if it has been computed */
     var tupled: Type = NoType
@@ -282,7 +284,8 @@ object ProtoTypes {
      *  @return True if all arguments have types (in particular, no types were forgotten).
      */
     def allArgTypesAreCurrent()(implicit ctx: Context): Boolean = {
-      state.evalState foreachBinding { (arg, tstateConstr) =>
+      state.evalState foreachBinding { (arg, tstateConstr1) =>
+        val tstateConstr = tstateConstr1.nn
         if ((tstateConstr._1.uncommittedAncestor.constraint `ne` ctx.typerState.constraint) ||
             tstateConstr._2.isRetracted) {
           typr.println(i"need to invalidate $arg / ${state.typedArg(arg)}, ${tstateConstr._2}, current = ${ctx.typerState.constraint}")
@@ -313,7 +316,7 @@ object ProtoTypes {
           }
         }
       }
-      targ
+      targ.nn
     }
 
     /** The typed arguments. This takes any arguments already typed using
@@ -435,7 +438,7 @@ object ProtoTypes {
   }
 
   class CachedViewProto(argType: Type, resultType: Type) extends ViewProto(argType, resultType) {
-    override def computeHash(bs: Hashable.Binders): Int = doHash(bs, argType, resultType)
+    override def computeHash(bs: Nullable[Hashable.Binders]): Int = doHash(bs, argType, resultType)
   }
 
   object ViewProto {
@@ -605,7 +608,7 @@ object ProtoTypes {
   /** Approximate occurrences of parameter types and uninstantiated typevars
    *  by wildcard types.
    */
-  private def wildApprox(tp: Type, theMap: WildApproxMap, seen: Set[TypeParamRef])(implicit ctx: Context): Type = tp match {
+  private def wildApprox(tp: Type, theMap: Nullable[WildApproxMap], seen: Set[TypeParamRef])(implicit ctx: Context): Type = tp match {
     case tp: NamedType => // default case, inlined for speed
       val isPatternBoundTypeRef = tp.isInstanceOf[TypeRef] && tp.symbol.is(Flags.Case) && !tp.symbol.isClass
       if (isPatternBoundTypeRef) WildcardType(tp.underlying.bounds)

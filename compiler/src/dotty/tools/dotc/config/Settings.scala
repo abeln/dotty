@@ -8,6 +8,8 @@ import core.Contexts._
 import scala.annotation.tailrec
 import dotty.tools.io.{ AbstractFile, Directory, JarArchive, PlainDirectory }
 
+import scala.ExplicitNulls._
+
 // import annotation.unchecked
   // Dotty deviation: Imports take precedence over definitions in enclosing package
   // (Note that @unchecked is in scala, not annotation, so annotation.unchecked gives
@@ -168,7 +170,7 @@ object Settings {
         case (VersionTag, _) =>
           ScalaVersion.parse(argRest) match {
             case Success(v) => update(v, args)
-            case Failure(ex) => fail(ex.getMessage, args)
+            case Failure(ex) => fail(ex.getMessage.nn, args)
           }
         case (_, Nil) =>
           missingArg

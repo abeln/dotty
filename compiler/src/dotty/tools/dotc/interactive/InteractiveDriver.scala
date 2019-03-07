@@ -20,6 +20,8 @@ import classpath._
 import reporting._, reporting.diagnostic.MessageContainer
 import util._
 
+import scala.ExplicitNulls._
+
 /** A Driver subclass designed to be used from IDEs */
 class InteractiveDriver(val settings: List[String]) extends Driver {
   import tpd._
@@ -106,9 +108,9 @@ class InteractiveDriver(val settings: List[String]) extends Driver {
       val classNames = new mutable.ListBuffer[TypeName]
       val output = ctx.settings.outputDir.value
       if (output.isDirectory) {
-        classesFromDir(output.jpath, classNames)
+        classesFromDir(output.jpath.nn, classNames)
       } else {
-        classesFromZip(output.file, classNames)
+        classesFromZip(output.file.nn, classNames)
       }
       classNames.flatMap { cls =>
         treesFromClassName(cls, id)
@@ -156,7 +158,7 @@ class InteractiveDriver(val settings: List[String]) extends Driver {
 
       run.compileSources(List(source))
       run.printSummary()
-      val unit = ctx.run.units.head
+      val unit = ctx.run.units.nn.head
       val t = unit.tpdTree
       cleanup(t)
       myOpenedTrees(uri) = topLevelTrees(t, source)
@@ -203,7 +205,7 @@ class InteractiveDriver(val settings: List[String]) extends Driver {
   private def dirClassPathClasses: Seq[TypeName] = {
     val names = new mutable.ListBuffer[TypeName]
     dirClassPaths.foreach { dirCp =>
-      val root = dirCp.dir.toPath
+      val root = dirCp.dir.toPath.nn
       classesFromDir(root, names)
     }
     names
@@ -330,7 +332,7 @@ object InteractiveDriver {
         // TODO: To avoid these round trip conversions, we could add an
         // AbstractFile#toUri method and implement it by returning a constant
         // passed as a parameter to a constructor of VirtualFile
-        Some(Paths.get(file.path).toUri)
+        Some(Paths.get(file.path).toUri.nn)
       } catch {
         case e: InvalidPathException =>
           None

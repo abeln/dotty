@@ -14,6 +14,8 @@ import java.util.regex.PatternSyntaxException
 import File.pathSeparator
 import Jar.isJarOrZip
 
+import scala.ExplicitNulls._
+
 /**
   * A representation of the compiler's class- or sourcepath.
   */
@@ -135,7 +137,7 @@ object ClassPath {
   def expandDir(extdir: String): List[String] = {
     AbstractFile getDirectory extdir match {
       case null => Nil
-      case dir  => dir.filter(_.isClassContainer).map(x => new java.io.File(dir.file, x.name).getPath).toList
+      case dir: AbstractFile => dir.filter(_.isClassContainer).map(x => new java.io.File(dir.file, x.name).getPath).toList
     }
   }
 

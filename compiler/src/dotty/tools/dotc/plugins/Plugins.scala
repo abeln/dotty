@@ -8,6 +8,7 @@ import dotty.tools.io._
 import Phases._
 import config.Printers.plugins.{ println => debug }
 
+import scala.ExplicitNulls._
 
 /** Support for run-time loading of compiler plugins.
  *
@@ -36,7 +37,7 @@ trait Plugins {
     errors foreach (_.recover[Any] {
       // legacy behavior ignores altogether, so at least warn devs
       case e: MissingPluginException => warning(e.getMessage)
-      case e: Exception              => inform(e.getMessage)
+      case e: Exception              => inform(e.getMessage.nn)
     })
 
     goods map (_.get)

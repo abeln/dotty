@@ -24,6 +24,8 @@ import dotty.tools.dotc.util.SourceFile
 import util.Spans._
 import scala.collection.mutable.ListBuffer
 
+import scala.ExplicitNulls._
+
 object JavaParsers {
 
   import ast.untpd._
@@ -204,7 +206,7 @@ object JavaParsers {
       if (in.token == IDENTIFIER) {
         val name = in.name
         in.nextToken()
-        name
+        name.nn
       } else {
         accept(IDENTIFIER)
         nme.ERROR

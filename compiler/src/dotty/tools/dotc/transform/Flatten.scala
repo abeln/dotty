@@ -10,6 +10,8 @@ import collection.mutable
 import MegaPhase.MiniPhase
 import util.Store
 
+import scala.ExplicitNulls._
+
 /** Lift nested classes to toplevel */
 class Flatten extends MiniPhase with SymTransformer {
   import ast.tpd._
@@ -26,7 +28,7 @@ class Flatten extends MiniPhase with SymTransformer {
   private def liftedDefs(implicit ctx: Context) = ctx.store(LiftedDefs)
 
   override def initContext(ctx: FreshContext): Unit =
-    LiftedDefs = ctx.addLocation[mutable.ListBuffer[Tree]](null)
+    LiftedDefs = ctx.addLocation[mutable.ListBuffer[Tree]](null.asInstanceOf[mutable.ListBuffer[Tree]]) // TODO(abeln): this is hack
 
   def transformSym(ref: SymDenotation)(implicit ctx: Context): SymDenotation = {
     if (ref.isClass && !ref.is(Package) && !ref.owner.is(Package)) {

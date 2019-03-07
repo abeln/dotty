@@ -38,6 +38,9 @@ import scala.quoted.Exprs.TastyTreeExpr
 import scala.annotation.constructorOnly
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNulls._
+
+
 /** Unpickler for typed trees
  *  @param reader              the reader from which to unpickle
  *  @param posUnpicklerOpt     the unpickler for positions, if it exists
@@ -71,7 +74,7 @@ class TreeUnpickler(reader: TastyReader,
   /** The root symbol denotation which are defined by the Tasty file associated with this
    *  TreeUnpickler. Set by `enterTopLevel`.
    */
-  private[this] var roots: Set[SymDenotation] = null
+  private[this] var roots: Nullable[Set[SymDenotation]] = null
 
   /** The root symbols that are defined in this Tasty file. This
    *  is a subset of `roots.map(_.symbol)`.
@@ -543,7 +546,7 @@ class TreeUnpickler(reader: TastyReader,
         if (flags is Module) ctx.adjustModuleCompleter(completer, name) else completer
       val coord = coordAt(start)
       val sym =
-        roots.find(root => (root.owner eq ctx.owner) && root.name == name) match {
+        roots.nn.find(root => (root.owner eq ctx.owner) && root.name == name) match {
           case Some(rootd) =>
             pickling.println(i"overwriting ${rootd.symbol} # ${rootd.hashCode}")
             rootd.symbol.coord = coord
@@ -813,7 +816,7 @@ class TreeUnpickler(reader: TastyReader,
             // The only case to check here is if `sym` is a root. In this case
             // `companion` might have been entered by the environment but it might
             // be missing from the Tasty file. So we check explicitly for that.
-            def isCodefined = roots.contains(companion.denot) == seenRoots.contains(companion)
+            def isCodefined = roots.nn.contains(companion.denot) == seenRoots.contains(companion)
 
             if (companion.exists && isCodefined) sym.registerCompanion(companion)
             TypeDef(readTemplate(localCtx))
@@ -1378,7 +1381,7 @@ class TreeUnpickler(reader: TastyReader,
    */
   class OwnerTree(val addr: Addr, tag: Int, reader: TreeReader, val end: Addr) {
 
-    private var myChildren: List[OwnerTree] = null
+    private var myChildren: Nullable[List[OwnerTree]] = null
 
     /** All definitions that have the definition at `addr` as closest enclosing definition */
     def children: List[OwnerTree] = {
@@ -1387,7 +1390,7 @@ class TreeUnpickler(reader: TastyReader,
         reader.scanTrees(buf, end, if (tag == TEMPLATE) NoMemberDefs else AllDefs)
         buf.toList
       }
-      myChildren
+      myChildren.nn
     }
 
     /** Find the owner of definition at `addr` */
@@ -1420,7 +1423,7 @@ class TreeUnpickler(reader: TastyReader,
     }
 
     override def toString: String =
-      s"OwnerTree(${addr.index}, ${end.index}, ${if (myChildren == null) "?" else myChildren.mkString(" ")})"
+      s"OwnerTree(${addr.index}, ${end.index}, ${if (myChildren == null) "?" else myChildren.nn.mkString(" ")})"
   }
 }
 

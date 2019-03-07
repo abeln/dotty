@@ -1,5 +1,7 @@
 package dotty.tools.dotc.tastyreflect
 
+import scala.ExplicitNulls._
+
 trait PositionOpsImpl extends scala.tasty.reflect.PositionOps with CoreImpl {
 
   def PositionDeco(pos: Position): PositionAPI = new PositionAPI {
@@ -8,7 +10,7 @@ trait PositionOpsImpl extends scala.tasty.reflect.PositionOps with CoreImpl {
 
     def exists: Boolean = pos.exists
 
-    def sourceFile: java.nio.file.Path = pos.source.file.jpath
+    def sourceFile: java.nio.file.Path = pos.source.file.jpath.nn
 
     def startLine: Int = pos.startLine
     def endLine: Int = pos.endLine

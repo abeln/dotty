@@ -25,6 +25,8 @@ import dotty.tools.dotc.transform.TreeMapWithStages._
 import dotty.tools.dotc.typer.Inliner
 import dotty.tools.dotc.util.SourcePosition
 
+import scala.ExplicitNulls._
+
 import scala.annotation.constructorOnly
 
 
@@ -102,7 +104,7 @@ class ReifyQuotes extends MacroTransform {
    *                     This transformation is only applied to definitions at staging level 1.
    *                     See `isCaptured`.
    */
-  private class QuoteReifier(outer: QuoteReifier, capturers: mutable.HashMap[Symbol, Tree => Tree],
+  private class QuoteReifier(outer: Nullable[QuoteReifier], capturers: mutable.HashMap[Symbol, Tree => Tree],
                              val embedded: Embedded, val owner: Symbol)(@constructorOnly ictx: Context) extends TreeMapWithStages(ictx) { self =>
 
     import TreeMapWithStages._
@@ -230,13 +232,13 @@ class ReifyQuotes extends MacroTransform {
       else {
         assert(level == 1, "unexpected top splice outside quote")
         val (body1, quotes) = nested(isQuote = false).splitSplice(splice.qualifier)(spliceContext)
-        val tpe = outer.embedded.getHoleType(splice)
+        val tpe = outer.nn.embedded.getHoleType(splice)
         val hole = makeHole(body1, quotes, tpe).withSpan(splice.span)
         // We do not place add the inline marker for trees that where lifted as they come from the same file as their
         // enclosing quote. Any intemediate splice will add it's own Inlined node and cancel it before splicig the lifted tree.
         // Note that lifted trees are not necessarily expressions and that Inlined nodes are expected to be expressions.
         // For example we can have a lifted tree containing the LHS of an assignment (see tests/run-with-compiler/quote-var.scala).
-        if (splice.isType || outer.embedded.isLiftedSymbol(splice.qualifier.symbol)) hole
+        if (splice.isType || outer.nn.embedded.isLiftedSymbol(splice.qualifier.symbol)) hole
         else Inlined(EmptyTree, Nil, hole).withSpan(splice.span)
       }
     }
@@ -299,7 +301,7 @@ class ReifyQuotes extends MacroTransform {
        * In case the case that level == -1 the code is not in a quote, it is in an inline method,
        * hence we should take that as owner directly.
        */
-      val lambdaOwner = if (level == -1) ctx.owner else outer.owner
+      val lambdaOwner = if (level == -1) ctx.owner else outer.nn.owner
 
       val tpe = MethodType(defn.SeqType.appliedTo(defn.AnyType) :: Nil, tree.tpe.widen)
       val meth = ctx.newSymbol(lambdaOwner, UniqueName.fresh(nme.ANON_FUN), Synthetic | Method, tpe)
@@ -310,10 +312,10 @@ class ReifyQuotes extends MacroTransform {
       val captured = mutable.LinkedHashMap.empty[Symbol, Tree]
       val captured2 = capturer(captured)
 
-      outer.localSymbols.foreach(sym => if (!sym.isInlineMethod) capturers.put(sym, captured2))
+      outer.nn.localSymbols.foreach(sym => if (!sym.isInlineMethod) capturers.put(sym, captured2))
 
       val tree2 = transform(tree)
-      capturers --= outer.localSymbols
+      capturers --= outer.nn.localSymbols
 
       seq(captured.result().valuesIterator.toList, tree2)
     }

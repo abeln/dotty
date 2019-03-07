@@ -25,6 +25,8 @@ import scala.tasty.util.Chars.isIdentifierStart
 import scala.annotation.{tailrec, switch}
 import rewrites.Rewrites.patch
 
+import scala.ExplicitNulls._
+
 object Parsers {
 
   import ast.untpd._
@@ -131,7 +133,7 @@ object Parsers {
       */
     def syntaxError(msg: => Message, offset: Int = in.offset): Unit =
       if (offset > lastErrorOffset) {
-        val length = if (offset == in.offset && in.name != null) in.name.show.length else 0
+        val length = if (offset == in.offset && in.name != null) in.name.nn.show.length else 0
         syntaxError(msg, Span(offset, offset + length))
         lastErrorOffset = in.offset
       }
@@ -181,7 +183,7 @@ object Parsers {
 /* -------------- TOKEN CLASSES ------------------------------------------- */
 
     def isIdent: Boolean = in.token == IDENTIFIER || in.token == BACKQUOTED_IDENT
-    def isIdent(name: Name): Boolean = in.token == IDENTIFIER && in.name == name
+    def isIdent(name: Name): Boolean = in.token == IDENTIFIER && in.name.nn == name
     def isSimpleLiteral: Boolean = simpleLiteralTokens contains in.token
     def isLiteral: Boolean = literalTokens contains in.token
     def isNumericLit: Boolean = numericLitTokens contains in.token
@@ -215,8 +217,8 @@ object Parsers {
      *  in a quoted block '{...'
      */
     def isSplice: Boolean =
-      in.token == IDENTIFIER && in.name(0) == '$' && {
-        if (in.name.length == 1) in.lookaheadIn(BitSet(LBRACE))
+      in.token == IDENTIFIER && in.name.nn(0) == '$' && {
+        if (in.name.nn.length == 1) in.lookaheadIn(BitSet(LBRACE))
         else (staged & StageKind.Quoted) != 0
       }
 
@@ -521,11 +523,11 @@ object Parsers {
 
     var opStack: List[OpInfo] = Nil
 
-    def checkAssoc(offset: Token, op1: Name, op2: Name, op2LeftAssoc: Boolean): Unit =
+    def checkAssoc(offset: Token, op1: Name, op2: Nullable[Name], op2LeftAssoc: Boolean): Unit =
       if (isLeftAssoc(op1) != op2LeftAssoc)
         syntaxError(MixedLeftAndRightAssociativeOps(op1, op2, op2LeftAssoc), offset)
 
-    def reduceStack(base: List[OpInfo], top: Tree, prec: Int, leftAssoc: Boolean, op2: Name, isType: Boolean): Tree = {
+    def reduceStack(base: List[OpInfo], top: Tree, prec: Int, leftAssoc: Boolean, op2: Nullable[Name], isType: Boolean): Tree = {
       if (opStack != base && precedence(opStack.head.operator.name) == prec)
         checkAssoc(opStack.head.offset, opStack.head.operator.name, op2, leftAssoc)
       def recur(top: Tree): Tree = {
@@ -569,7 +571,7 @@ object Parsers {
           if (maybePostfix && !canStartOperand(in.token)) {
             val topInfo = opStack.head
             opStack = opStack.tail
-            val od = reduceStack(base, topInfo.operand, 0, true, in.name, isType)
+            val od = reduceStack(base, topInfo.operand, 0, true, in.name.nn, isType)
             atSpan(startOffset(od), topInfo.offset) {
               PostfixOp(od, topInfo.operator)
             }
@@ -599,7 +601,7 @@ object Parsers {
       if (isIdent) {
         val name = in.name
         in.nextToken()
-        name
+        name.nn
       } else {
         syntaxErrorOrIncomplete(ExpectedTokenButFound(IDENTIFIER, in.token))
         nme.ERROR
@@ -741,13 +743,13 @@ object Parsers {
 
       atSpan(negOffset) {
         if (in.token == QUOTEID) {
-          if ((staged & StageKind.Spliced) != 0 && isIdentifierStart(in.name(0))) {
+          if ((staged & StageKind.Spliced) != 0 && isIdentifierStart(in.name.nn(0))) {
             val t = atSpan(in.offset + 1) {
-              val tok = in.toToken(in.name)
+              val tok = in.toToken(in.name.nn)
               tok match {
                 case TRUE | FALSE | NULL => literalOf(tok)
                 case THIS => This(EmptyTypeIdent)
-                case _ => Ident(in.name)
+                case _ => Ident(in.name.nn)
               }
             }
             in.nextToken()
@@ -761,7 +763,7 @@ object Parsers {
               patch(source, Span(in.offset, in.offset + 1), "Symbol(\"")
               patch(source, Span(in.charOffset - 1), "\")")
             }
-            atSpan(in.skipToken()) { SymbolLit(in.strVal) }
+            atSpan(in.skipToken()) { SymbolLit(in.strVal.nn) }
           }
         }
         else if (in.token == INTERPOLATIONID) interpolatedString(inPattern)
@@ -775,7 +777,7 @@ object Parsers {
 
     private def interpolatedString(inPattern: Boolean = false): Tree = atSpan(in.offset) {
       val segmentBuf = new ListBuffer[Tree]
-      val interpolator = in.name
+      val interpolator = in.name.nn
       in.nextToken()
       while (in.token == STRINGPART) {
         segmentBuf += Thicket(
@@ -935,7 +937,7 @@ object Parsers {
 
     /** Is current ident a `*`, and is it followed by a `)` or `,`? */
     def isPostfixStar: Boolean =
-      in.name == nme.raw.STAR && in.lookaheadIn(BitSet(RPAREN, COMMA))
+      in.name.nn == nme.raw.STAR && in.lookaheadIn(BitSet(RPAREN, COMMA))
 
     def infixTypeRest(t: Tree): Tree =
       infixOps(t, canStartTypeTokens, refinedType, isType = true, isOperator = !isPostfixStar)
@@ -987,12 +989,12 @@ object Parsers {
     def splice(isType: Boolean): Tree =
       atSpan(in.offset) {
         val expr =
-          if (in.name.length == 1) {
+          if (in.name.nn.length == 1) {
             in.nextToken()
             withinStaged(StageKind.Spliced)(stagedBlock())
           }
           else atSpan(in.offset + 1) {
-            val id = Ident(in.name.drop(1))
+            val id = Ident(in.name.nn.drop(1))
             in.nextToken()
             id
           }
@@ -1471,7 +1473,7 @@ object Parsers {
     /** PrefixExpr   ::= [`-' | `+' | `~' | `!'] SimpleExpr
     */
     val prefixExpr: () => Tree = () =>
-      if (isIdent && nme.raw.isUnary(in.name)) {
+      if (isIdent && nme.raw.isUnary(in.name.nn)) {
         val start = in.offset
         val op = termIdent()
         if (op.name == nme.raw.MINUS && isNumericLit)
@@ -1828,7 +1830,7 @@ object Parsers {
     /**  InfixPattern ::= SimplePattern {id [nl] SimplePattern}
      */
     def infixPattern(): Tree =
-      infixOps(simplePattern(), canStartExpressionTokens, simplePattern, isOperator = in.name != nme.raw.BAR)
+      infixOps(simplePattern(), canStartExpressionTokens, simplePattern, isOperator = in.name.nn != nme.raw.BAR)
 
     /** SimplePattern    ::= PatVar
      *                    |  Literal
@@ -1924,7 +1926,7 @@ object Parsers {
 
     private def addModifier(mods: Modifiers): Modifiers = {
       val tok = in.token
-      val name = in.name
+      val name = in.name.nn
       val mod = atSpan(in.skipToken()) { modOfToken(tok, name) }
 
       if (mods is mod.flags) syntaxError(RepeatedModifier(mod.flags.toString))

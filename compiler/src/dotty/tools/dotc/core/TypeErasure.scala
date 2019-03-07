@@ -11,6 +11,7 @@ import transform.TypeUtils._
 import Decorators._
 import Definitions.MaxImplementedFunctionArity
 import scala.annotation.tailrec
+import scala.ExplicitNulls._
 
 /** Erased types are:
  *
@@ -82,7 +83,7 @@ object TypeErasure {
    */
   abstract case class ErasedValueType(tycon: TypeRef, erasedUnderlying: Type)
   extends CachedGroundType with ValueType {
-    override def computeHash(bs: Hashable.Binders): Int = doHash(bs, tycon, erasedUnderlying)
+    override def computeHash(bs: Nullable[Hashable.Binders]): Int = doHash(bs, tycon, erasedUnderlying)
   }
 
   final class CachedErasedValueType(tycon: TypeRef, erasedUnderlying: Type)
@@ -533,7 +534,7 @@ class TypeErasure(isJava: Boolean, semiEraseVCs: Boolean, isConstructor: Boolean
   private def normalizeClass(cls: ClassSymbol)(implicit ctx: Context): ClassSymbol = {
     if (cls.owner == defn.ScalaPackageClass) {
       if (defn.specialErasure.contains(cls))
-        return defn.specialErasure(cls)
+        return defn.specialErasure(cls).nn
       if (cls == defn.UnitClass)
         return defn.BoxedUnitClass
     }

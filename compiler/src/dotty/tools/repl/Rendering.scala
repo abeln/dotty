@@ -12,6 +12,7 @@ import dotc.core.Denotations.Denotation
 import dotc.core.Flags
 import dotc.core.Symbols.Symbol
 import dotc.core.StdNames.str
+import scala.ExplicitNulls._
 
 /** This rendering object uses `ClassLoader`s to accomplish crossing the 4th
  *  wall (i.e. fetching back values from the compiled class files put into a
@@ -53,8 +54,8 @@ private[repl] class Rendering(parentClassLoader: Option[ClassLoader] = None) {
     val resObj: Class[_] = Class.forName(objectName, true, classLoader())
     val value =
       resObj
-        .getDeclaredMethods.find(_.getName == sym.name.encode.toString)
-        .map(_.invoke(null))
+        .getDeclaredMethods.find(_.nn.getName == sym.name.encode.toString)
+        .map(_.nn.invoke(null))
     val string = value.map(ScalaRunTime.replStringOf(_, MaxStringElements).trim)
     if (!sym.is(Flags.Method) && sym.info == defn.UnitType)
       None

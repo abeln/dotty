@@ -10,6 +10,8 @@ import classfile.ClassfileParser
 import Names.SimpleName
 import TreeUnpickler.UnpickleMode
 
+import scala.ExplicitNulls._
+
 object DottyUnpickler {
 
   /** Exception thrown if classfile is corrupted */
@@ -57,7 +59,7 @@ class DottyUnpickler(bytes: Array[Byte], mode: UnpickleMode = UnpickleMode.TopLe
 
   protected def computeRootTrees(implicit ctx: Context): List[Tree] = treeUnpickler.unpickle(mode)
 
-  private[this] var ids: Array[String] = null
+  private[this] var ids: Nullable[Array[String]] = null
 
   override def mightContain(id: String)(implicit ctx: Context): Boolean = {
     if (ids == null)
@@ -65,6 +67,6 @@ class DottyUnpickler(bytes: Array[Byte], mode: UnpickleMode = UnpickleMode.TopLe
         unpickler.nameAtRef.contents.toArray.collect {
           case name: SimpleName => name.toString
         }.sorted
-    ids.binarySearch(id) >= 0
+    ids.nn.binarySearch(id) >= 0
   }
 }

@@ -23,6 +23,8 @@ import xsbti.api.DefinitionType
 
 import scala.collection.mutable
 
+import scala.ExplicitNulls._
+
 /** This phase sends a representation of the API of classes to sbt via callbacks.
  *
  *  This is used by sbt for incremental recompilation.
@@ -68,7 +70,7 @@ class ExtractAPI extends Phase {
 
     if (ctx.settings.YdumpSbtInc.value) {
       // Append to existing file that should have been created by ExtractDependencies
-      val pw = new PrintWriter(File(sourceFile.jpath).changeExtension("inc").toFile
+      val pw = new PrintWriter(File(sourceFile.jpath.nn).changeExtension("inc").toFile
         .bufferedWriter(append = true), true)
       try {
         classes.foreach(source => pw.println(DefaultShowAPI(source)))
@@ -138,7 +140,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
    *  see the comment in the `RefinedType` case in `computeType`
    *  The cache key is (api of RefinedType#parent, api of RefinedType#refinedInfo).
     */
-  private[this] val refinedTypeCache = new mutable.HashMap[(api.Type, api.Definition), api.Structure]
+  private[this] val refinedTypeCache = new mutable.HashMap[(api.Type, Nullable[api.Definition]), api.Structure]
 
   private[this] val allNonLocalClassesInSrc = new mutable.HashSet[xsbti.api.ClassLike]
   private[this] val _mainClasses = new mutable.HashSet[String]
@@ -165,9 +167,9 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
    *  @param marker  A special annotation to differentiate our type
    */
   private def withMarker(tp: api.Type, marker: api.Annotation) =
-    api.Annotated.of(tp, Array(marker))
+    api.Annotated.of(tp, Array(marker)).nn
   private def marker(name: String) =
-    api.Annotation.of(api.Constant.of(Constants.emptyType, name), Array())
+    api.Annotation.of(api.Constant.of(Constants.emptyType, name), Array()).nn
   private val orMarker = marker("Or")
   private val byNameMarker = marker("ByName")
   private val matchMarker = marker("Match")
@@ -225,16 +227,16 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     ).toArray
 
     val cl = api.ClassLike.of(
-      name, acc, modifiers, anns, defType, api.SafeLazy.strict(selfType), api.SafeLazy.strict(structure), Constants.emptyStringArray,
-      childrenOfSealedClass, topLevel, tparams)
+      name, acc, modifiers, anns.asInstanceOf[Array[Nullable[xsbti.api.Annotation]]], defType, api.SafeLazy.strict(selfType), api.SafeLazy.strict(structure), Constants.emptyStringArray.asInstanceOf[Array[Nullable[String]]],
+      childrenOfSealedClass.asInstanceOf[Array[Nullable[xsbti.api.Type]]], topLevel, tparams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]])
 
-    allNonLocalClassesInSrc += cl
+    allNonLocalClassesInSrc += cl.nn
 
     if (sym.isStatic && defType == DefinitionType.Module && ctx.platform.hasMainMethod(sym)) {
       _mainClasses += name
     }
 
-    api.ClassLikeDef.of(name, acc, modifiers, anns, tparams, defType)
+    api.ClassLikeDef.of(name, acc, modifiers, anns.asInstanceOf[Array[Nullable[xsbti.api.Annotation]]], tparams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], defType).nn
   }
 
   private[this] val LegacyAppClass = ctx.requiredClass("dotty.runtime.LegacyApp")
@@ -283,7 +285,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     // this works because of `classLikeCache`
     val apiInherited = lzy(apiDefinitions(inherited).toArray)
 
-    api.Structure.of(api.SafeLazy.strict(apiBases.toArray), api.SafeLazy.strict(apiDecls.toArray), apiInherited)
+    api.Structure.of(api.SafeLazy.strict(apiBases.toArray), api.SafeLazy.strict(apiDecls.toArray), apiInherited.nn).nn
   }
 
   def linearizedAncestorTypes(info: ClassInfo): List[Type] = {
@@ -330,10 +332,10 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
       apiTypeMember(sym.asType)
     } else if (sym.is(Mutable, butNot = Accessor)) {
       api.Var.of(sym.name.toString, apiAccess(sym), apiModifiers(sym),
-        apiAnnotations(sym).toArray, apiType(sym.info))
+        apiAnnotations(sym).toArray, apiType(sym.info)).nn
     } else if (sym.isStableMember && !sym.isRealMethod) {
       api.Val.of(sym.name.toString, apiAccess(sym), apiModifiers(sym),
-        apiAnnotations(sym).toArray, apiType(sym.info))
+        apiAnnotations(sym).toArray, apiType(sym.info)).nn
     } else {
       apiDef(sym.asTerm)
     }
@@ -361,7 +363,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
         val params = (pnames, ptypes, defaults).zipped.map((pname, ptype, isDefault) =>
           api.MethodParameter.of(pname.toString, apiType(ptype),
             isDefault, api.ParameterModifier.Plain))
-        api.ParameterList.of(params.toArray, mt.isImplicitMethod) :: paramLists(restpe, params.length)
+        api.ParameterList.of(params.toArray, mt.isImplicitMethod).nn :: paramLists(restpe, params.length)
       case _ =>
         Nil
     }
@@ -377,7 +379,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     val retTp = sym.info.finalResultType.widenExpr
 
     api.Def.of(sym.name.toString, apiAccess(sym), apiModifiers(sym),
-      apiAnnotations(sym).toArray, tparams.toArray, vparamss.toArray, apiType(retTp))
+      apiAnnotations(sym).toArray, tparams.toArray, vparamss.toArray, apiType(retTp)).nn
   }
 
   def apiTypeMember(sym: TypeSymbol): api.TypeMember = {
@@ -389,17 +391,17 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     val tpe = sym.info
 
     if (sym.isAliasType)
-      api.TypeAlias.of(name, access, modifiers, as.toArray, typeParams, apiType(tpe.bounds.hi))
+      api.TypeAlias.of(name, access, modifiers, as.toArray, typeParams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], apiType(tpe.bounds.hi)).nn
     else {
       assert(sym.isAbstractType)
-      api.TypeDeclaration.of(name, access, modifiers, as.toArray, typeParams, apiType(tpe.bounds.lo), apiType(tpe.bounds.hi))
+      api.TypeDeclaration.of(name, access, modifiers, as.toArray, typeParams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], apiType(tpe.bounds.lo), apiType(tpe.bounds.hi)).nn
     }
   }
 
   // Hack to represent dotty types which don't have an equivalent in xsbti
   def combineApiTypes(apiTps: api.Type*): api.Type = {
     api.Structure.of(api.SafeLazy.strict(apiTps.toArray),
-      api.SafeLazy.strict(Array()), api.SafeLazy.strict(Array()))
+      api.SafeLazy.strict(Array()), api.SafeLazy.strict(Array())).nn
   }
 
   def apiType(tp: Type): api.Type = {
@@ -413,7 +415,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     val tp2 = if (!tp.isLambdaSub) tp.dealiasKeepAnnots else tp
     tp2 match {
       case NoPrefix | NoType =>
-        Constants.emptyType
+        Constants.emptyType.nn
       case tp: NamedType =>
         val sym = tp.symbol
         // A type can sometimes be represented by multiple different NamedTypes
@@ -428,17 +430,17 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
           sym.owner.thisType
         else
           tp.prefix
-        api.Projection.of(apiType(prefix), sym.name.toString)
+        api.Projection.of(apiType(prefix), sym.name.toString).nn
       case AppliedType(tycon, args) =>
         def processArg(arg: Type): api.Type = arg match {
           case arg @ TypeBounds(lo, hi) => // Handle wildcard parameters
             if (lo.isDirectRef(defn.NothingClass) && hi.isDirectRef(defn.AnyClass))
-              Constants.emptyType
+              Constants.emptyType.nn
             else {
               val name = "_"
               val ref = api.ParameterRef.of(name)
               api.Existential.of(ref,
-                Array(apiTypeParameter(name, 0, lo, hi)))
+                Array(apiTypeParameter(name, 0, lo, hi))).nn
             }
           case _ =>
             apiType(arg)
@@ -446,11 +448,11 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
 
         val apiTycon = apiType(tycon)
         val apiArgs = args.map(processArg)
-        api.Parameterized.of(apiTycon, apiArgs.toArray)
+        api.Parameterized.of(apiTycon, apiArgs.toArray).nn
       case tl: TypeLambda =>
         val apiTparams = tl.typeParams.map(apiTypeParameter)
         val apiRes = apiType(tl.resType)
-        api.Polymorphic.of(apiRes, apiTparams.toArray)
+        api.Polymorphic.of(apiRes, apiTparams.toArray).nn
       case rt: RefinedType =>
         val name = rt.refinedName.toString
         val parent = apiType(rt.parent)
@@ -458,10 +460,10 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
         def typeRefinement(name: String, tp: TypeBounds): api.TypeMember = tp match {
           case TypeAlias(alias) =>
             api.TypeAlias.of(name,
-              Constants.public, Constants.emptyModifiers, Array(), Array(), apiType(alias))
+              Constants.public, Constants.emptyModifiers, Array(), Array(), apiType(alias)).nn
           case TypeBounds(lo, hi) =>
             api.TypeDeclaration.of(name,
-              Constants.public, Constants.emptyModifiers, Array(), Array(), apiType(lo), apiType(hi))
+              Constants.public, Constants.emptyModifiers, Array(), Array(), apiType(lo), apiType(hi)).nn
         }
         val decl = rt.refinedInfo match {
           case rinfo: TypeBounds =>
@@ -494,7 +496,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
         // `refinedTypeCache` is for.
         refinedTypeCache.getOrElseUpdate((parent, decl), {
           val adecl: Array[api.ClassDefinition] = if (decl == null) Array() else Array(decl)
-          api.Structure.of(api.SafeLazy.strict(Array(parent)), api.SafeLazy.strict(adecl), api.SafeLazy.strict(Array()))
+          api.Structure.of(api.SafeLazy.strict(Array(parent)), api.SafeLazy.strict(adecl), api.SafeLazy.strict(Array())).nn
         })
       case tp: RecType =>
         apiType(tp.parent)
@@ -507,29 +509,29 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
         combineApiTypes(apiType(tp.tp1), apiType(tp.tp2))
       case tp: OrType =>
         val s = combineApiTypes(apiType(tp.tp1), apiType(tp.tp2))
-        withMarker(s, orMarker)
+        withMarker(s, orMarker.nn)
       case ExprType(resultType) =>
-        withMarker(apiType(resultType), byNameMarker)
+        withMarker(apiType(resultType), byNameMarker.nn)
       case MatchType(bound, scrut, cases) =>
         val s = combineApiTypes(apiType(bound) :: apiType(scrut) :: cases.map(apiType): _*)
-        withMarker(s, matchMarker)
+        withMarker(s, matchMarker.nn)
       case ConstantType(constant) =>
-        api.Constant.of(apiType(constant.tpe), constant.stringValue)
+        api.Constant.of(apiType(constant.tpe), constant.stringValue).nn
       case AnnotatedType(tpe, annot) =>
-        api.Annotated.of(apiType(tpe), Array(apiAnnotation(annot)))
+        api.Annotated.of(apiType(tpe), Array(apiAnnotation(annot))).nn
       case tp: ThisType =>
         apiThis(tp.cls)
       case tp: ParamRef =>
         // TODO: Distinguishing parameters based on their names alone is not enough,
         // the binder is also needed (at least for type lambdas).
-        api.ParameterRef.of(tp.paramName.toString)
+        api.ParameterRef.of(tp.paramName.toString).nn
       case tp: LazyRef =>
         apiType(tp.ref)
       case tp: TypeVar =>
         apiType(tp.underlying)
       case _ => {
         ctx.warning(i"sbt-api: Unhandled type ${tp.getClass} : $tp")
-        Constants.emptyType
+        Constants.emptyType.nn
       }
     }
   }
@@ -538,13 +540,13 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     // TODO: The sbt api needs a convenient way to make a lazy type.
     // For now, we repurpose Structure for this.
     val apiTp = lzy(Array(apiType(tp)))
-    api.Structure.of(apiTp, api.SafeLazy.strict(Array()), api.SafeLazy.strict(Array()))
+    api.Structure.of(apiTp, api.SafeLazy.strict(Array()), api.SafeLazy.strict(Array())).nn
   }
 
   def apiThis(sym: Symbol): api.Singleton = {
     val pathComponents = sym.ownersIterator.takeWhile(!_.isEffectiveRoot)
       .map(s => api.Id.of(s.name.toString))
-    api.Singleton.of(api.Path.of(pathComponents.toArray.reverse ++ Array(Constants.thisPath)))
+    api.Singleton.of(api.Path.of(pathComponents.toArray.reverse ++ Array(Constants.thisPath))).nn
   }
 
   def apiTypeParameter(tparam: ParamInfo): api.TypeParameter =
@@ -553,7 +555,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
 
   def apiTypeParameter(name: String, variance: Int, lo: Type, hi: Type): api.TypeParameter =
     api.TypeParameter.of(name, Array(), Array(), apiVariance(variance),
-      apiType(lo), apiType(hi))
+      apiType(lo), apiType(hi)).nn
 
   def apiVariance(v: Int): api.Variance = {
     import api.Variance._
@@ -566,11 +568,11 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     // Symbols which are private[foo] do not have the flag Private set,
     // but their `privateWithin` exists, see `Parsers#ParserCommon#normalize`.
     if (!sym.is(Protected | Private) && !sym.privateWithin.exists)
-      Constants.public
+      Constants.public.nn
     else if (sym.is(PrivateLocal))
-      Constants.privateLocal
+      Constants.privateLocal.nn
     else if (sym.is(ProtectedLocal))
-      Constants.protectedLocal
+      Constants.protectedLocal.nn
     else {
       val qualifier =
         if (sym.privateWithin eq NoSymbol)
@@ -578,9 +580,9 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
         else
           api.IdQualifier.of(sym.privateWithin.fullName.toString)
       if (sym.is(Protected))
-        api.Protected.of(qualifier)
+        api.Protected.of(qualifier).nn
       else
-        api.Private.of(qualifier)
+        api.Private.of(qualifier).nn
     }
   }
 
@@ -603,7 +605,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
       // To do this properly we would need a way to hash trees and types in
       // dotty itself.
       val printTypesCtx = ctx.fresh.setSetting(ctx.settings.XprintTypes, true)
-      annots += marker(Inliner.bodyToInline(s).show(printTypesCtx))
+      annots += marker(Inliner.bodyToInline(s).show(printTypesCtx)).nn
     }
 
     // In the Scala2 ExtractAPI phase we only extract annotations that extend
@@ -627,6 +629,6 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     // junit tests are annotated @org.junit.Test).
     api.Annotation.of(
       apiType(annot.tree.tpe), // Used by sbt to find tests to run
-      Array(api.AnnotationArgument.of("FULLTREE", annot.tree.show)))
+      Array(api.AnnotationArgument.of("FULLTREE", annot.tree.show))).nn
   }
 }

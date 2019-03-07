@@ -1,17 +1,18 @@
 package dotty.tools.dotc.util
 
 import collection.mutable.ListBuffer
+import scala.ExplicitNulls.Nullable
 
 /** A simple linked map with `eq` as the key comparison, optimized for small maps.
  *  It has linear complexity for `apply`, `updated`, and `remove`.
  */
-abstract class SimpleIdentityMap[K <: AnyRef, +V >: Null <: AnyRef] extends (K => V) {
+abstract class SimpleIdentityMap[K <: AnyRef, +V >: Null <: Nullable[AnyRef]] extends (K => V) {
   def size: Int
   def apply(k: K): V
   def remove(k: K): SimpleIdentityMap[K, V]
-  def updated[V1 >: V <: AnyRef](k: K, v: V1): SimpleIdentityMap[K, V1]
+  def updated[V1 >: V <: Nullable[AnyRef]](k: K, v: V1): SimpleIdentityMap[K, V1]
   def contains(k: K): Boolean = apply(k) != null
-  def mapValuesNow[V1 >: V <: AnyRef](f: (K, V1) => V1): SimpleIdentityMap[K, V1]
+  def mapValuesNow[V1 >: V <: Nullable[AnyRef]](f: (K, V1) => V1): SimpleIdentityMap[K, V1]
   def foreachBinding(f: (K, V) => Unit): Unit
   def map2[T](f: (K, V) => T): List[T] = {
     val buf = new ListBuffer[T]
@@ -34,14 +35,14 @@ object SimpleIdentityMap {
     def size = 0
     def apply(k: AnyRef) = null
     def remove(k: AnyRef) = this
-    def updated[V1 >: Null <: AnyRef](k: AnyRef, v: V1) = new Map1(k, v)
-    def mapValuesNow[V1 >: Null <: AnyRef](f: (AnyRef, V1) => V1) = this
+    def updated[V1 >: Null <: Nullable[AnyRef]](k: AnyRef, v: V1) = new Map1(k, v)
+    def mapValuesNow[V1 >: Null <: Nullable[AnyRef]](f: (AnyRef, V1) => V1) = this
     def foreachBinding(f: (AnyRef, Null) => Unit) = ()
   }
 
   def Empty[K <: AnyRef]: SimpleIdentityMap[K, Null] = myEmpty.asInstanceOf[SimpleIdentityMap[K, Null]]
 
-  class Map1[K <: AnyRef, +V >: Null <: AnyRef] (k1: K, v1: V) extends SimpleIdentityMap[K, V] {
+  class Map1[K <: AnyRef, +V >: Null <: Nullable[AnyRef]] (k1: K, v1: V) extends SimpleIdentityMap[K, V] {
     def size: Int = 1
     def apply(k: K): V =
       if (k eq k1) v1
@@ -49,17 +50,17 @@ object SimpleIdentityMap {
     def remove(k: K): SimpleIdentityMap[K, V] =
       if (k eq k1) Empty.asInstanceOf[SimpleIdentityMap[K, V]]
       else this
-    def updated[V1 >: V <: AnyRef](k: K, v: V1): SimpleIdentityMap[K, V1] =
+    def updated[V1 >: V <: Nullable[AnyRef]](k: K, v: V1): SimpleIdentityMap[K, V1] =
       if (k eq k1) new Map1(k, v)
       else new Map2(k1, v1, k, v)
-    def mapValuesNow[V1 >: V <: AnyRef](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
+    def mapValuesNow[V1 >: V <: Nullable[AnyRef]](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
       val w1 = f(k1, v1)
       if (v1 eq w1) this else new Map1(k1, w1)
     }
     def foreachBinding(f: (K, V) => Unit): Unit = f(k1, v1)
   }
 
-  class Map2[K <: AnyRef, +V >: Null <: AnyRef] (k1: K, v1: V, k2: K, v2: V) extends SimpleIdentityMap[K, V] {
+  class Map2[K <: AnyRef, +V >: Null <: Nullable[AnyRef]] (k1: K, v1: V, k2: K, v2: V) extends SimpleIdentityMap[K, V] {
     def size: Int = 2
     def apply(k: K): V =
       if (k eq k1) v1
@@ -69,11 +70,11 @@ object SimpleIdentityMap {
       if (k eq k1) new Map1(k2, v2)
       else if (k eq k2) new Map1(k1, v1)
       else this
-    def updated[V1 >: V <: AnyRef](k: K, v: V1): SimpleIdentityMap[K, V1] =
+    def updated[V1 >: V <: Nullable[AnyRef]](k: K, v: V1): SimpleIdentityMap[K, V1] =
       if (k eq k1) new Map2(k, v, k2, v2)
       else if (k eq k2) new Map2(k1, v1, k, v)
       else new Map3(k1, v1, k2, v2, k, v)
-    def mapValuesNow[V1 >: V <: AnyRef](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
+    def mapValuesNow[V1 >: V <: Nullable[AnyRef]](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
       val w1 = f(k1, v1); val w2 = f(k2, v2)
       if ((v1 eq w1) && (v2 eq w2)) this
       else new Map2(k1, w1, k2, w2)
@@ -81,7 +82,7 @@ object SimpleIdentityMap {
     def foreachBinding(f: (K, V) => Unit): Unit = { f(k1, v1); f(k2, v2) }
   }
 
-  class Map3[K <: AnyRef, +V >: Null <: AnyRef] (k1: K, v1: V, k2: K, v2: V, k3: K, v3: V) extends SimpleIdentityMap[K, V] {
+  class Map3[K <: AnyRef, +V >: Null <: Nullable[AnyRef]] (k1: K, v1: V, k2: K, v2: V, k3: K, v3: V) extends SimpleIdentityMap[K, V] {
     def size: Int = 3
     def apply(k: K): V =
       if (k eq k1) v1
@@ -93,12 +94,12 @@ object SimpleIdentityMap {
       else if (k eq k2) new Map2(k1, v1, k3, v3)
       else if (k eq k3) new Map2(k1, v1, k2, v2)
       else this
-    def updated[V1 >: V <: AnyRef](k: K, v: V1): SimpleIdentityMap[K, V1] =
+    def updated[V1 >: V <: Nullable[AnyRef]](k: K, v: V1): SimpleIdentityMap[K, V1] =
       if (k eq k1) new Map3(k, v, k2, v2, k3, v3)
       else if (k eq k2) new Map3(k1, v1, k, v, k3, v3)
       else if (k eq k3) new Map3(k1, v1, k2, v2, k, v)
       else new Map4(k1, v1, k2, v2, k3, v3, k, v)
-    def mapValuesNow[V1 >: V <: AnyRef](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
+    def mapValuesNow[V1 >: V <: Nullable[AnyRef]](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
       val w1 = f(k1, v1); val w2 = f(k2, v2); val w3 = f(k3, v3)
       if ((v1 eq w1) && (v2 eq w2) && (v3 eq w3)) this
       else new Map3(k1, w1, k2, w2, k3, w3)
@@ -106,7 +107,7 @@ object SimpleIdentityMap {
     def foreachBinding(f: (K, V) => Unit): Unit = { f(k1, v1); f(k2, v2); f(k3, v3) }
   }
 
-  class Map4[K <: AnyRef, +V >: Null <: AnyRef] (k1: K, v1: V, k2: K, v2: V, k3: K, v3: V, k4: K, v4: V) extends SimpleIdentityMap[K, V] {
+  class Map4[K <: AnyRef, +V >: Null <: Nullable[AnyRef]] (k1: K, v1: V, k2: K, v2: V, k3: K, v3: V, k4: K, v4: V) extends SimpleIdentityMap[K, V] {
     def size: Int = 4
     def apply(k: K): V =
       if (k eq k1) v1
@@ -120,13 +121,13 @@ object SimpleIdentityMap {
       else if (k eq k3) new Map3(k1, v1, k2, v2, k4, v4)
       else if (k eq k4) new Map3(k1, v1, k2, v2, k3, v3)
       else this
-    def updated[V1 >: V <: AnyRef](k: K, v: V1): SimpleIdentityMap[K, V1] =
+    def updated[V1 >: V <: Nullable[AnyRef]](k: K, v: V1): SimpleIdentityMap[K, V1] =
       if (k eq k1) new Map4(k, v, k2, v2, k3, v3, k4, v4)
       else if (k eq k2) new Map4(k1, v1, k, v, k3, v3, k4, v4)
       else if (k eq k3) new Map4(k1, v1, k2, v2, k, v, k4, v4)
       else if (k eq k4) new Map4(k1, v1, k2, v2, k3, v3, k, v)
-      else new MapMore(Array[AnyRef](k1, v1, k2, v2, k3, v3, k4, v4, k, v))
-    def mapValuesNow[V1 >: V <: AnyRef](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
+      else new MapMore(Array[Nullable[AnyRef]](k1, v1, k2, v2, k3, v3, k4, v4, k, v))
+    def mapValuesNow[V1 >: V <: Nullable[AnyRef]](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
       val w1 = f(k1, v1); val w2 = f(k2, v2); val w3 = f(k3, v3); val w4 = f(k4, v4)
       if ((v1 eq w1) && (v2 eq w2) && (v3 eq w3) && (v4 eq w4)) this
       else new Map4(k1, w1, k2, w2, k3, w3, k4, w4)
@@ -134,7 +135,7 @@ object SimpleIdentityMap {
     def foreachBinding(f: (K, V) => Unit): Unit = { f(k1, v1); f(k2, v2); f(k3, v3); f(k4, v4) }
   }
 
-  class MapMore[K <: AnyRef, +V >: Null <: AnyRef](bindings: Array[AnyRef]) extends SimpleIdentityMap[K, V] {
+  class MapMore[K <: AnyRef, +V >: Null <: Nullable[AnyRef]](bindings: Array[Nullable[AnyRef]]) extends SimpleIdentityMap[K, V] {
     private def key(i: Int): K = bindings(i).asInstanceOf[K]
     private def value(i: Int): V = bindings(i + 1).asInstanceOf[V]
 
@@ -160,7 +161,7 @@ object SimpleIdentityMap {
               if (j != i) m = m.updated(key(j), value(j))
             m
           } else {
-            val bindings1 = new Array[AnyRef](bindings.length - 2)
+            val bindings1 = new Array[Nullable[AnyRef]](bindings.length - 2)
             System.arraycopy(bindings, 0, bindings1, 0, i)
             System.arraycopy(bindings, i + 2, bindings1, i, bindings1.length - i)
             new MapMore(bindings1)
@@ -171,7 +172,7 @@ object SimpleIdentityMap {
       this
     }
 
-    def updated[V1 >: V <: AnyRef](k: K, v: V1): SimpleIdentityMap[K, V] = {
+    def updated[V1 >: V <: Nullable[AnyRef]](k: K, v: V1): SimpleIdentityMap[K, V] = {
       var i = 0
       while (i < bindings.length) {
         if (bindings(i) eq k)
@@ -185,7 +186,7 @@ object SimpleIdentityMap {
           }
         i += 2
       }
-      val bindings2 = new Array[AnyRef](bindings.length + 2)
+      val bindings2 = new Array[Nullable[AnyRef]](bindings.length + 2)
       System.arraycopy(bindings, 0, bindings2, 0, bindings.length)
       bindings2(bindings.length) = k
       bindings2(bindings.length + 1) = v
@@ -201,8 +202,8 @@ object SimpleIdentityMap {
       false
     }
 
-    def mapValuesNow[V1 >: V <: AnyRef](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
-      var bindings1: Array[AnyRef] = bindings
+    def mapValuesNow[V1 >: V <: Nullable[AnyRef]](f: (K, V1) => V1): SimpleIdentityMap[K, V1] = {
+      var bindings1: Array[Nullable[AnyRef]] = bindings
       var i = 0
       while (i < bindings.length) {
         val v = value(i)

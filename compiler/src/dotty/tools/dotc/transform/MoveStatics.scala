@@ -13,6 +13,8 @@ import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Types.MethodType
 import dotty.tools.dotc.transform.MegaPhase.MiniPhase
 
+import scala.ExplicitNulls._
+
 object MoveStatics {
   val name: String = "moveStatic"
 }
@@ -38,7 +40,7 @@ class MoveStatics extends MiniPhase with SymTransformer {
       val (classes, others) = trees.partition(x => x.isInstanceOf[TypeDef] && x.symbol.isClass)
       val pairs = classes.groupBy(_.symbol.name.stripModuleClassSuffix).asInstanceOf[Map[Name, List[TypeDef]]]
 
-      def rebuild(orig: TypeDef, newBody: List[Tree]): Tree = {
+      def rebuild(orig: Nullable[TypeDef], newBody: List[Tree]): Tree = {
         if (orig eq null) return EmptyTree
 
         val staticFields = newBody.filter(x => x.isInstanceOf[ValDef] && x.symbol.hasAnnotation(defn.ScalaStaticAnnot)).asInstanceOf[List[ValDef]]
@@ -57,9 +59,9 @@ class MoveStatics extends MiniPhase with SymTransformer {
         cpy.TypeDef(orig)(rhs = cpy.Template(oldTemplate)(body = newBodyWithStaticConstr))
       }
 
-      def move(module: TypeDef, companion: TypeDef): List[Tree] = {
+      def move(module: TypeDef, companion: Nullable[TypeDef]): List[Tree] = {
         assert(companion != module)
-        if (!module.symbol.is(Flags.Module)) move(companion, module)
+        if (!module.symbol.is(Flags.Module)) move(companion.nn, module)
         else {
           val allMembers =
             (if(companion != null) {companion.rhs.asInstanceOf[Template].body} else Nil) ++

@@ -3,6 +3,7 @@ package dotty.tools.io
 import java.nio.file.{FileSystemAlreadyExistsException, FileSystems}
 
 import scala.collection.JavaConverters._
+import scala.ExplicitNulls._
 
 /**
  * This class implements an [[AbstractFile]] backed by a jar
@@ -34,7 +35,7 @@ object JarArchive {
         case _: FileSystemAlreadyExistsException => FileSystems.getFileSystem(uri)
       }
     }
-    val root = fs.getRootDirectories().iterator.next()
+    val root = fs.getRootDirectories().iterator.next().nn
     new JarArchive(Directory(root))
   }
 }

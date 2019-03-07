@@ -18,6 +18,8 @@ import typer.ConstFold
 import scala.annotation.tailrec
 import scala.io.Codec
 
+import scala.ExplicitNulls._
+
 /** Some creators for typed trees */
 object tpd extends Trees.Instance[Type] with TypedTreeInfo {
 
@@ -236,8 +238,8 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
           def makeSym(info: Type) = ctx.newSymbol(sym, name, TermParam | maybeImplicit | maybeErased, info, coord = sym.coord)
 
           if (isParamDependent) {
-            val sym = makeSym(origInfo.substParams(tp, previousParamRefs.toList))
-            previousParamRefs += sym.termRef
+            val sym = makeSym(origInfo.substParams(tp, previousParamRefs.nn.toList))
+            previousParamRefs.nn += sym.termRef
             sym
           }
           else
@@ -1032,13 +1034,13 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
   trait TreeProvider {
     protected def computeRootTrees(implicit ctx: Context): List[Tree]
 
-    private[this] var myTrees: List[Tree] = null
+    private[this] var myTrees: Nullable[List[Tree]] = null
 
     /** Get trees defined by this provider. Cache them if -Yretain-trees is set. */
     def rootTrees(implicit ctx: Context): List[Tree] =
       if (ctx.settings.YretainTrees.value) {
         if (myTrees == null) myTrees = computeRootTrees
-        myTrees
+        myTrees.nn
       } else computeRootTrees
 
     /** Get first tree defined by this provider, or EmptyTree if none exists */

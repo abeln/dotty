@@ -7,6 +7,8 @@ import ast.Trees._
 import Contexts._, Phases._, Symbols._, Decorators._
 import Flags.PackageVal
 
+import scala.ExplicitNulls._
+
 /** A MegaPhase combines a number of mini-phases which are all executed in
  *  a single tree traversal.
  *
@@ -445,11 +447,11 @@ class MegaPhase(val miniPhases: Array[MiniPhase]) extends Phase {
       else {
         var clsMethods = clsMethodsCache.get(cls)
         if (clsMethods eq null) {
-          clsMethods = cls.getDeclaredMethods
-          clsMethodsCache.put(cls, clsMethods)
+          clsMethods = cls.getDeclaredMethods.asInstanceOf[Array[java.lang.reflect.Method]]
+          clsMethodsCache.put(cls, clsMethods.nn)
         }
         clsMethods.exists(_.getName == name) ||
-        hasRedefinedMethod(cls.getSuperclass)
+        hasRedefinedMethod(cls.nn.getSuperclass.nn)
       }
     hasRedefinedMethod(phase.getClass)
   }

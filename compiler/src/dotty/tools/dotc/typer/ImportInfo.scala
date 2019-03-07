@@ -11,6 +11,8 @@ import Symbols._, Names._, Types._, Contexts._, StdNames._, Flags._
 import Implicits.RenamedImplicitRef
 import printing.Texts.Text
 
+import scala.ExplicitNulls._
+
 object ImportInfo {
   /** The import info for a root import from given symbol `sym` */
   def rootImport(refFn: () => TermRef)(implicit ctx: Context): ImportInfo = {
@@ -53,20 +55,20 @@ class ImportInfo(symf: Context => Symbol, val selectors: List[untpd.Tree],
   }
 
   /** The names that are excluded from any wildcard import */
-  def excluded: Set[TermName] = { ensureInitialized(); myExcluded }
+  def excluded: Set[TermName] = { ensureInitialized(); myExcluded.nn }
 
   /** A mapping from renamed to original names */
-  def reverseMapping: SimpleIdentityMap[TermName, TermName] = { ensureInitialized(); myMapped }
+  def reverseMapping: SimpleIdentityMap[TermName, Nullable[TermName]] = { ensureInitialized(); myMapped.nn }
 
   /** The original names imported by-name before renaming */
-  def originals: Set[TermName] = { ensureInitialized(); myOriginals }
+  def originals: Set[TermName] = { ensureInitialized(); myOriginals.nn }
 
   /** Does the import clause end with wildcard? */
-  def isWildcardImport: Boolean = { ensureInitialized(); myWildcardImport }
+  def isWildcardImport: Boolean = { ensureInitialized(); myWildcardImport.nn }
 
-  private[this] var myExcluded: Set[TermName] = null
-  private[this] var myMapped: SimpleIdentityMap[TermName, TermName] = null
-  private[this] var myOriginals: Set[TermName] = null
+  private[this] var myExcluded: Nullable[Set[TermName]] = null
+  private[this] var myMapped: Nullable[SimpleIdentityMap[TermName, Nullable[TermName]]] = null
+  private[this] var myOriginals: Nullable[Set[TermName]] = null
   private[this] var myWildcardImport: Boolean = false
 
   /** Compute info relating to the selector list */
@@ -78,16 +80,16 @@ class ImportInfo(symf: Context => Symbol, val selectors: List[untpd.Tree],
       case sel :: sels1 =>
         sel match {
           case Thicket(Ident(name: TermName) :: Ident(nme.WILDCARD) :: Nil) =>
-            myExcluded += name
+            myExcluded = myExcluded.nn + name
           case Thicket(Ident(from: TermName) :: Ident(to: TermName) :: Nil) =>
-            myMapped = myMapped.updated(to, from)
-            myExcluded += from
-            myOriginals += from
+            myMapped = myMapped.nn.updated(to, from)
+            myExcluded = myExcluded.nn + from
+            myOriginals = myOriginals.nn + from
           case Ident(nme.WILDCARD) =>
             myWildcardImport = true
           case Ident(name: TermName) =>
-            myMapped = myMapped.updated(name, name)
-            myOriginals += name
+            myMapped = myMapped.nn.updated(name, name)
+            myOriginals = myOriginals.nn + name
         }
         recur(sels1)
       case nil =>
@@ -107,10 +109,10 @@ class ImportInfo(symf: Context => Symbol, val selectors: List[untpd.Tree],
     } else
       for {
         renamed <- reverseMapping.keys
-        denot <- pre.member(reverseMapping(renamed)).altsWith(_ is implicitFlag)
+        denot <- pre.member(reverseMapping(renamed).nn).altsWith(_ is implicitFlag)
       } yield {
         val original = reverseMapping(renamed)
-        val ref = TermRef(pre, original, denot)
+        val ref = TermRef(pre, original.nn, denot)
         if (renamed == original) ref
         else new RenamedImplicitRef(ref, renamed)
       }
@@ -159,11 +161,11 @@ class ImportInfo(symf: Context => Symbol, val selectors: List[untpd.Tree],
       lastOwner = owner
       lastResults = lastResults.updated(feature, compute)
     }
-    lastResults(feature)
+    lastResults(feature).nn
   }
 
-  private[this] var lastOwner: Symbol = null
-  private[this] var lastResults: SimpleIdentityMap[TermName, java.lang.Boolean] = SimpleIdentityMap.Empty
+  private[this] var lastOwner: Nullable[Symbol] = null
+  private[this] var lastResults: SimpleIdentityMap[TermName, Nullable[java.lang.Boolean]] = SimpleIdentityMap.Empty
 
   def toText(printer: Printer): Text = printer.toText(this)
 }

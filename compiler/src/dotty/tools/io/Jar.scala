@@ -14,6 +14,7 @@ import scala.collection.mutable
 import Attributes.Name
 import scala.language.postfixOps
 import scala.annotation.tailrec
+import scala.ExplicitNulls._
 
 // Attributes.Name instances:
 //
@@ -36,7 +37,7 @@ import scala.annotation.tailrec
 // static Attributes.Name   SPECIFICATION_VERSION
 
 class Jar(file: File) extends Iterable[JarEntry] {
-  def this(jfile: JFile) = this(File(jfile.toPath))
+  def this(jfile: JFile) = this(File(jfile.toPath.nn))
   def this(path: String) = this(File(path))
 
   protected def errorFn(msg: String): Unit = Console println msg
@@ -44,12 +45,12 @@ class Jar(file: File) extends Iterable[JarEntry] {
   import Jar._
 
   lazy val jarFile: JarFile  = new JarFile(file.jpath.toFile)
-  lazy val manifest: Option[Manifest] = withJarInput(s => Option(s.getManifest))
+  lazy val manifest: Option[Manifest] = withJarInput(s => Option(s.getManifest.asInstanceOf[Manifest]))
 
-  def mainClass: Option[String]     = manifest map (f => f(Name.MAIN_CLASS))
+  def mainClass: Option[String]     = manifest map ((f: Manifest) => f(Name.MAIN_CLASS.nn))
   /** The manifest-defined classpath String if available. */
   def classPathString: Option[String] =
-    for (m <- manifest ; cp <- m.attrs get Name.CLASS_PATH) yield cp
+    for (m <- manifest ; cp <- m.attrs.get(Name.CLASS_PATH.nn).nn) yield cp.nn
   def classPathElements: List[String] = classPathString match {
     case Some(s)  => s split "\\s+" toList
     case _        => Nil
@@ -65,11 +66,11 @@ class Jar(file: File) extends Iterable[JarEntry] {
   }
 
   override def foreach[U](f: JarEntry => U): Unit = withJarInput { in =>
-    Iterator continually in.getNextJarEntry() takeWhile (_ != null) foreach f
+    Iterator continually in.getNextJarEntry() takeWhile (_ != null) foreach {entry => f(entry.nn)}
   }
   override def iterator: Iterator[JarEntry] = this.toList.iterator
 
-  def getEntryStream(entry: JarEntry): java.io.InputStream = jarFile getInputStream entry match {
+  def getEntryStream(entry: JarEntry): Nullable[java.io.InputStream] = jarFile getInputStream entry match {
     case null   => errorFn("No such entry: " + entry) ; null
     case x      => x
   }
@@ -123,7 +124,7 @@ class JarWriter(val file: File, val manifest: Manifest) {
 }
 
 object Jar {
-  type AttributeMap = java.util.Map[Attributes.Name, String]
+  type AttributeMap = java.util.Map[Attributes.Name, Nullable[String]]
 
   object WManifest {
     def apply(mainAttrs: (Attributes.Name, String)*): WManifest = {
@@ -139,22 +140,22 @@ object Jar {
       this(k) = v
 
     def underlying: JManifest = manifest
-    def attrs: mutable.Map[Name, String] = manifest.getMainAttributes().asInstanceOf[AttributeMap].asScala withDefaultValue null
+    def attrs: mutable.Map[Name, Nullable[String]] = manifest.getMainAttributes().asInstanceOf[AttributeMap].asScala withDefaultValue null
     def initialMainAttrs: Map[Attributes.Name, String] = {
       import scala.util.Properties._
       Map(
-        Name.MANIFEST_VERSION -> "1.0",
+        Name.MANIFEST_VERSION.nn -> "1.0",
         ScalaCompilerVersion  -> versionNumberString
       )
     }
 
-    def apply(name: Attributes.Name): String        = attrs(name)
+    def apply(name: Attributes.Name): String        = attrs(name).nn
     def apply(name: String): String                 = apply(new Attributes.Name(name))
-    def update(key: Attributes.Name, value: String): Option[String] = attrs.put(key, value)
-    def update(key: String, value: String): Option[String]          = attrs.put(new Attributes.Name(key), value)
+    def update(key: Attributes.Name, value: String): Option[Nullable[String]] = attrs.put(key, value)
+    def update(key: String, value: String): Option[Nullable[String]]          = attrs.put(new Attributes.Name(key), value)
 
-    def mainClass: String = apply(Name.MAIN_CLASS)
-    def mainClass_=(value: String): Option[String] = update(Name.MAIN_CLASS, value)
+    def mainClass: String = apply(Name.MAIN_CLASS.nn)
+    def mainClass_=(value: String): Option[Nullable[String]] = update(Name.MAIN_CLASS.nn, value)
   }
 
   // See http://download.java.net/jdk7/docs/api/java/nio/file/Path.html
@@ -167,7 +168,7 @@ object Jar {
     f.hasExtension("zip", "jar") || (examineFile && magicNumberIsZip(f))
 
   def create(file: File, sourceDir: Directory, mainClass: String): Unit =  {
-    val writer = new Jar(file).jarWriter(Name.MAIN_CLASS -> mainClass)
+    val writer = new Jar(file).jarWriter(Name.MAIN_CLASS.nn -> mainClass)
     writer writeAllFrom sourceDir
   }
 }

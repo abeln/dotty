@@ -11,6 +11,7 @@ import scala.language.postfixOps
 import core.Contexts._
 import Settings._
 import dotty.tools.io.File
+import scala.ExplicitNulls._
 
 object PathResolver {
 
@@ -45,7 +46,7 @@ object PathResolver {
     def classPathEnv: String        =  envOrElse("CLASSPATH", "")
     def sourcePathEnv: String       =  envOrElse("SOURCEPATH", "")
 
-    def javaBootClassPath: String   = propOrElse("sun.boot.class.path", searchForBootClasspath)
+    def javaBootClassPath: String   = propOrElse("sun.boot.class.path", searchForBootClasspath).nn
 
     def javaExtDirs: String         = propOrEmpty("java.ext.dirs")
     def scalaHome: String           = propOrEmpty("scala.home")
@@ -53,7 +54,7 @@ object PathResolver {
 
     /** The java classpath and whether to use it. 
      */
-    def javaUserClassPath: String   = propOrElse("java.class.path", "")
+    def javaUserClassPath: String   = propOrElse("java.class.path", "").nn
     def useJavaClassPath: Boolean    = propOrFalse("scala.usejavacp")
 
     override def toString: String = s"""

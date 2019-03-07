@@ -9,6 +9,8 @@ import dotty.tools.io.Directory
 import java.io.{File => JFile}
 import java.nio.file.{Files, Paths}
 
+import scala.ExplicitNulls._
+
 object Debug {
   def main(args: Array[String]): Unit = {
     // Preload scala.util.control.NonFatal. Otherwise, when trying to catch a StackOverflowError,
@@ -18,12 +20,12 @@ object Debug {
 
     assert(!args.contains("-d"))
 
-    val outPath = Paths.get("out")
+    val outPath = Paths.get("out").nn
     Directory(outPath).createDirectory()
 
-    val tmpOut = Files.createTempDirectory(outPath.toAbsolutePath, "from-tasty-tmp")
+    val tmpOut = Files.createTempDirectory(outPath.toAbsolutePath, "from-tasty-tmp").nn
 
-    val fromSourcesOut = Files.createDirectory(tmpOut.resolve("from-source"))
+    val fromSourcesOut = Files.createDirectory(tmpOut.resolve("from-source")).nn
 
     println("Compiling from .scala sources")
     val compilation1 = dotc.Main.process("-d" +: fromSourcesOut.toString +: args)

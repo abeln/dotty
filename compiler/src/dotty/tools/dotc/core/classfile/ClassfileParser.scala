@@ -20,6 +20,7 @@ import scala.annotation.switch
 import typer.Checking.checkNonCyclic
 import io.{AbstractFile, PlainFile, ZipArchive}
 import scala.util.control.NonFatal
+import scala.ExplicitNulls._
 
 object ClassfileParser {
   /** Marker trait for unpicklers that can be embedded in classfiles. */
@@ -298,7 +299,7 @@ class ClassfileParser(
   final def objToAny(tp: Type)(implicit ctx: Context): Type =
     if (tp.isDirectRef(defn.ObjectClass) && !ctx.phase.erasedTypes) defn.AnyType else tp
 
-  private def sigToType(sig: SimpleName, owner: Symbol = null)(implicit ctx: Context): Type = {
+  private def sigToType(sig: SimpleName, owner: Nullable[Symbol] = null)(implicit ctx: Context): Type = {
     var index = 0
     val end = sig.length
     def accept(ch: Char): Unit = {
@@ -355,7 +356,7 @@ class ClassfileParser(
                   if (argsBuf != null) argsBuf += arg
                 }
                 accept('>')
-                if (skiptvs) tp else tp.appliedTo(argsBuf.toList)
+                if (skiptvs) tp else tp.appliedTo(argsBuf.nn.toList)
               } else tp
             case tp =>
               assert(sig(index) != '<', tp)
@@ -435,14 +436,15 @@ class ClassfileParser(
     val newTParams = new ListBuffer[Symbol]()
     if (sig(index) == '<') {
       assert(owner != null)
+      val owner1 = owner.nn
       index += 1
       val start = index
       while (sig(index) != '>') {
         val tpname = subName(':'.==).toTypeName
         val s = ctx.newSymbol(
-          owner, tpname, owner.typeParamCreationFlags,
+          owner1, tpname, owner1.typeParamCreationFlags,
           typeParamCompleter(index), coord = indexCoord(index))
-        if (owner.isClass) owner.asClass.enter(s)
+        if (owner1.isClass) owner1.asClass.enter(s)
         tparams = tparams + (tpname -> s)
         sig2typeBounds(tparams, skiptvs = true)
         newTParams += s
@@ -544,7 +546,7 @@ class ClassfileParser(
   }
 
   def parseAttributes(sym: Symbol, symtype: Type)(implicit ctx: Context): Type = {
-    def convertTo(c: Constant, pt: Type): Constant = {
+    def convertTo(c: Constant, pt: Type): Nullable[Constant] = {
       if (pt == defn.BooleanType && c.tag == IntTag)
         Constant(c.value != 0)
       else
@@ -811,7 +813,7 @@ class ClassfileParser(
               ctx.error("Could not load TASTY from .tasty for virtual file " + classfile)
               Array.empty
             case Some(jar: ZipArchive) => // We are in a jar
-              val cl = new URLClassLoader(Array(jar.jpath.toUri.toURL))
+              val cl = new URLClassLoader(Array(jar.jpath.nn.toUri.toURL))
               val path = classfile.path.stripSuffix(".class") + ".tasty"
               val stream = cl.getResourceAsStream(path)
               if (stream != null) {
@@ -829,7 +831,7 @@ class ClassfileParser(
                 Array.empty
               }
             case _ =>
-              val plainFile = new PlainFile(io.File(classfile.jpath).changeExtension("tasty"))
+              val plainFile = new PlainFile(io.File(classfile.jpath.nn).changeExtension("tasty"))
               if (plainFile.exists) plainFile.toByteArray
               else {
                 ctx.error("Could not find " + plainFile)
@@ -1002,7 +1004,7 @@ class ClassfileParser(
   class ConstantPool {
     private val len = in.nextChar
     private val starts = new Array[Int](len)
-    private val values = new Array[AnyRef](len)
+    private val values = new Array[Nullable[AnyRef]](len)
     private val internalized = new Array[SimpleName](len)
 
     { var i = 1
@@ -1034,7 +1036,7 @@ class ClassfileParser(
       if (index <= 0 || len <= index)
         errorBadIndex(index)
 
-      values(index) match {
+      (values(index): @unchecked) match {
         case name: SimpleName => name
         case null   =>
           val start = starts(index)
@@ -1092,7 +1094,7 @@ class ClassfileParser(
     def getClassOrArrayType(index: Int)(implicit ctx: Context): Type = {
       if (index <= 0 || len <= index) errorBadIndex(index)
       val value = values(index)
-      var c: Type = null
+      var c: Nullable[Type] = null
       if (value eq null) {
         val start = starts(index)
         if (in.buf(start).toInt != CONSTANT_CLASS) errorBadTag(start)
@@ -1109,7 +1111,7 @@ class ClassfileParser(
           case tp: Type => tp
           case cls: Symbol => cls.typeRef
       }
-      c
+      c.nn
     }
 
     def getType(index: Int)(implicit ctx: Context): Type =
@@ -1157,7 +1159,7 @@ class ClassfileParser(
         }
         values(index) = value
       }
-      value match {
+      (value: @unchecked) match {
         case  ct: Constant => ct
         case cls: Symbol   => Constant(cls.typeRef)
         case arr: Type     => Constant(arr)

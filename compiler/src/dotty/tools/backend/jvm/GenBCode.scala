@@ -30,6 +30,8 @@ import StdNames._
 import dotty.tools.dotc.core.tasty.{TastyBuffer, TastyHeaderUnpickler}
 import dotty.tools.io._
 
+import scala.ExplicitNulls._
+
 class GenBCode extends Phase {
   def phaseName: String = GenBCode.name
   private val entryPoints = new mutable.HashSet[Symbol]()
@@ -90,12 +92,12 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
 
 //  class BCodePhase() {
 
-    private[this] var bytecodeWriter  : BytecodeWriter   = null
-    private[this] var mirrorCodeGen   : JMirrorBuilder   = null
+    private[this] var bytecodeWriter  : Nullable[BytecodeWriter]   = null
+    private[this] var mirrorCodeGen   : Nullable[JMirrorBuilder]   = null
 
     /* ---------------- q1 ---------------- */
 
-    case class Item1(arrivalPos: Int, cd: TypeDef, cunit: CompilationUnit) {
+    case class Item1(arrivalPos: Int, cd: Nullable[TypeDef], cunit: CompilationUnit) {
       def isPoison: Boolean = { arrivalPos == Int.MaxValue }
     }
     private val poison1 = Item1(Int.MaxValue, null, ctx.compilationUnit)
@@ -103,12 +105,12 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
 
     /* ---------------- q2 ---------------- */
 
-    case class SubItem2(classNode: asm.tree.ClassNode,
-                        file:      dotty.tools.io.AbstractFile)
+    case class SubItem2(classNode: Nullable[asm.tree.ClassNode],
+                        file:      Nullable[dotty.tools.io.AbstractFile])
 
     case class Item2(arrivalPos: Int,
-                     mirror:     SubItem2,
-                     plain:      SubItem2) {
+                     mirror:     Nullable[SubItem2],
+                     plain:      Nullable[SubItem2]) {
       def isPoison: Boolean = { arrivalPos == Int.MaxValue }
     }
 
@@ -131,8 +133,8 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
                          )
 
     case class Item3(arrivalPos: Int,
-                     mirror:     SubItem3,
-                     plain:      SubItem3) {
+                     mirror:     Nullable[SubItem3],
+                     plain:      Nullable[SubItem3]) {
 
       def isPoison: Boolean  = { arrivalPos == Int.MaxValue }
     }
@@ -171,7 +173,7 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
 
       def run(): Unit = {
         while (true) {
-          val item = q1.poll
+          val item = q1.poll.nn
           if (item.isPoison) {
             q2 add poison2
             return
@@ -195,13 +197,13 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
        */
       def visit(item: Item1): Boolean = {
         val Item1(arrivalPos, cd, cunit) = item
-        val claszSymbol = cd.symbol
+        val claszSymbol = cd.nn.symbol
 
         // -------------- mirror class, if needed --------------
         val mirrorC =
           if (int.symHelper(claszSymbol).isTopLevelModuleClass) {
             if (claszSymbol.companionClass == NoSymbol) {
-              mirrorCodeGen.genMirrorClass(claszSymbol, cunit)
+              mirrorCodeGen.nn.genMirrorClass(claszSymbol, cunit)
             } else {
               ctx.log(s"No mirror class for module with linked class: ${claszSymbol.fullName}")
               null
@@ -211,15 +213,17 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
         // -------------- "plain" class --------------
         val pcb = new PlainClassBuilder(cunit)
         pcb.genPlainClass(cd)
-        val outF = if (needsOutFolder) getOutFolder(claszSymbol, pcb.thisName) else null;
+        val outF = if (needsOutFolder) getOutFolder(claszSymbol, pcb.thisName.nn) else null;
         val plainC = pcb.cnode
 
         if (claszSymbol.isClass) // @DarkDimius is this test needed here?
           for (binary <- ctx.compilationUnit.pickled.get(claszSymbol.asClass)) {
-            val store = if (mirrorC ne null) mirrorC else plainC
+            // TODO(abeln): HACK. If we leave `store` without `.nn` and then try to do `.nn` at the usage
+            // sites the member is not found!
+            val store = (if (mirrorC ne null) mirrorC else plainC).nn
             val tasty =
               if (!ctx.settings.YemitTastyInClass.value) {
-                val outTastyFile = getFileForClassfile(outF, store.name, ".tasty")
+                val outTastyFile = getFileForClassfile(outF.nn, store.name.nn, ".tasty")
                 val outstream = new DataOutputStream(outTastyFile.bufferedOutput)
                 try outstream.write(binary)
                 finally outstream.close()
@@ -237,7 +241,7 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
               } else {
                 // Create an empty file to signal that a tasty section exist in the corresponding .class
                 // This is much cheaper and simpler to check than doing classfile parsing
-                getFileForClassfile(outF, store.name, ".hasTasty")
+                getFileForClassfile(outF.nn, store.name.nn, ".hasTasty")
                 binary
               }
             val dataAttr = new CustomAttr(nme.TASTYATTR.mangledString, tasty)
@@ -251,11 +255,11 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
         val classFiles = classNodes.map(cls =>
           if (outF != null && cls != null) {
             try {
-              checkForCaseConflict(cls.name, claszSymbol)
-              getFileForClassfile(outF, cls.name, ".class")
+              checkForCaseConflict(cls.name.nn, claszSymbol)
+              getFileForClassfile(outF, cls.name.nn, ".class")
             } catch {
               case e: FileConflictException =>
-                ctx.error(s"error writing ${cls.name}: ${e.getMessage}")
+                ctx.error(s"error writing ${cls.name.nn}: ${e.getMessage}")
                 null
             }
           } else null
@@ -271,12 +275,12 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
           if (cls != null) {
             val className = cls.name.replace('/', '.')
             if (ctx.compilerCallback != null)
-              ctx.compilerCallback.onClassGenerated(sourceFile, convertAbstractFile(clsFile), className)
+              ctx.compilerCallback.onClassGenerated(sourceFile, convertAbstractFile(clsFile.nn), className)
             if (ctx.sbtCallback != null) {
               if (isLocal)
-                ctx.sbtCallback.generatedLocalClass(sourceFile.jfile.orElse(null), clsFile.file)
+                ctx.sbtCallback.generatedLocalClass(sourceFile.jfile.orElse(null), clsFile.nn.file)
               else {
-                ctx.sbtCallback.generatedNonLocalClass(sourceFile.jfile.orElse(null), clsFile.file,
+                ctx.sbtCallback.generatedNonLocalClass(sourceFile.jfile.orElse(null), clsFile.nn.file,
                   className, fullClassName)
               }
             }
@@ -406,16 +410,16 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
           }
           else {
             try {
-              val plainNode = item.plain.classNode
+              val plainNode = item.plain.nn.classNode.nn
               localOptimizations(plainNode)
               val serializableLambdas = collectSerializableLambdas(plainNode)
               if (serializableLambdas.nonEmpty)
                 addLambdaDeserialize(plainNode, serializableLambdas)
-              addToQ3(item)
+              addToQ3(item.nn)
             } catch {
               case ex: Throwable =>
                 ex.printStackTrace()
-                ctx.error(s"Error while emitting ${item.plain.classNode.name}\n${ex.getMessage}")
+                ctx.error(s"Error while emitting ${item.plain.nn.classNode.nn.name}\n${ex.getMessage}")
             }
           }
         }
@@ -426,15 +430,15 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
         def getByteArray(cn: asm.tree.ClassNode): Array[Byte] = {
           val cw = new CClassWriter(extraProc)
           cn.accept(cw)
-          cw.toByteArray
+          cw.toByteArray.nn
         }
 
         val Item2(arrivalPos, SubItem2(mirror, mirrorFile), SubItem2(plain, plainFile)) = item
 
-        val mirrorC = if (mirror == null) null else SubItem3(mirror.name, getByteArray(mirror), mirrorFile)
-        val plainC  = SubItem3(plain.name, getByteArray(plain), plainFile)
+        val mirrorC = if (mirror == null) null else SubItem3(mirror.name.nn, getByteArray(mirror), mirrorFile.nn)
+        val plainC  = SubItem3(plain.nn.name.nn, getByteArray(plain.nn), plainFile.nn)
 
-        if (AsmUtils.traceSerializedClassEnabled && plain.name.contains(AsmUtils.traceSerializedClassPattern)) {
+        if (AsmUtils.traceSerializedClassEnabled && plain.nn.name.contains(AsmUtils.traceSerializedClassPattern)) {
           if (mirrorC != null) AsmUtils.traceClass(mirrorC.jclassBytes)
           AsmUtils.traceClass(plainC.jclassBytes)
         }
@@ -476,7 +480,7 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
       buildAndSendToDisk(needsOutfileForSymbol)
 
       // closing output files.
-      bytecodeWriter.close()
+      bytecodeWriter.nn.close()
       // Statistics.stopTimer(BackendStats.bcodeTimer, bcodeStart)
 
       if (ctx.compilerCallback != null)
@@ -537,10 +541,10 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
     /* Pipeline that writes classfile representations to disk. */
     private def drainQ3() = {
 
-      def sendToDisk(cfr: SubItem3): Unit = {
+      def sendToDisk(cfr: Nullable[SubItem3]): Unit = {
         if (cfr != null){
           val SubItem3(jclassName, jclassBytes, jclassFile) = cfr
-          bytecodeWriter.writeClass(jclassName, jclassName, jclassBytes, jclassFile)
+          bytecodeWriter.nn.writeClass(jclassName, jclassName, jclassBytes, jclassFile)
         }
       }
 

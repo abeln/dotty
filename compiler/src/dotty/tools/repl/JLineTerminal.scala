@@ -12,6 +12,7 @@ import org.jline.reader._
 import org.jline.reader.impl.history.DefaultHistory
 import org.jline.terminal.TerminalBuilder
 import org.jline.utils.AttributedString
+import scala.ExplicitNulls._
 
 final class JLineTerminal extends java.io.Closeable {
   // import java.util.logging.{Logger, Level}
@@ -65,7 +66,7 @@ final class JLineTerminal extends java.io.Closeable {
       .option(DISABLE_EVENT_EXPANSION, true)    // don't process escape sequences in input
       .build()
 
-    lineReader.readLine(prompt)
+    lineReader.readLine(prompt).nn
   }
 
   def close(): Unit = terminal.close()
@@ -74,7 +75,7 @@ final class JLineTerminal extends java.io.Closeable {
   private class Highlighter(implicit ctx: Context) extends reader.Highlighter {
     def highlight(reader: LineReader, buffer: String): AttributedString = {
       val highlighted = SyntaxHighlighting.highlight(buffer)
-      AttributedString.fromAnsi(highlighted)
+      AttributedString.fromAnsi(highlighted).nn
     }
   }
 
@@ -109,7 +110,7 @@ final class JLineTerminal extends java.io.Closeable {
         /* missing = */ newLinePrompt)
 
       case class TokenData(token: Token, start: Int, end: Int)
-      def currentToken: TokenData /* | Null */ = {
+      def currentToken: Nullable[TokenData] /* | Null */ = {
         val source = SourceFile.virtual("<completions>", input)
         val scanner = new Scanner(source)(ctx.fresh.setReporter(Reporter.NoReporter))
         while (scanner.token != EOF) {

@@ -1,11 +1,13 @@
 package dotty.tools.dotc.util
 
+import scala.ExplicitNulls._
+
 /** A hash set that allows some privileged protected access to its internals
  */
-class HashSet[T >: Null <: AnyRef](powerOfTwoInitialCapacity: Int, loadFactor: Float = 0.25f) extends Set[T] {
+class HashSet[T >: Null <: Nullable[AnyRef]](powerOfTwoInitialCapacity: Int, loadFactor: Float = 0.25f) extends Set[T] {
   private[this] var used: Int = _
   private[this] var limit: Int = _
-  private[this] var table: Array[AnyRef] = _
+  private[this] var table: Array[Nullable[AnyRef]] = _
 
   assert(Integer.bitCount(powerOfTwoInitialCapacity) == 1)
   protected def isEqual(x: T, y: T): Boolean = x.equals(y)
@@ -20,7 +22,7 @@ class HashSet[T >: Null <: AnyRef](powerOfTwoInitialCapacity: Int, loadFactor: F
   def size: Int = used
 
   private def allocate(size: Int) = {
-    table = new Array[AnyRef](size)
+    table = new Array[Nullable[AnyRef]](size)
     limit = (size * loadFactor).toInt
   }
 

@@ -21,6 +21,8 @@ import transform.SymUtils._
 import reporting.diagnostic.messages._
 import config.Printers.{exhaustivity => debug}
 
+import scala.ExplicitNulls._
+
 /** Space logic for checking exhaustivity and unreachability of pattern matching
  *
  *  Space can be thought of as a set of possible values. A type or a pattern
@@ -673,7 +675,7 @@ class SpaceEngine(implicit ctx: Context) extends SpaceLogic {
     // such that `Foo(Test.this.foo) <:< Foo(Foo.this)`
     // See tests/patmat/i3938.scala
     class RemoveThisMap extends TypeMap {
-      var prefixTVar: Type = null
+      var prefixTVar: Nullable[Type] = null
       def apply(tp: Type): Type = tp match {
         case ThisType(tref: TypeRef) if !tref.symbol.isStaticOwner =>
           if (tref.symbol.is(Module))
@@ -683,7 +685,7 @@ class SpaceEngine(implicit ctx: Context) extends SpaceLogic {
           else {
             prefixTVar = WildcardType  // prevent recursive call from assigning it
             prefixTVar = newTypeVar(TypeBounds.upper(this(tref)))
-            prefixTVar
+            prefixTVar.nn
           }
         case tp => mapOver(tp)
       }

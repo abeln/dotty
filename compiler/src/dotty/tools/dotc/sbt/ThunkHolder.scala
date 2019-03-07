@@ -6,6 +6,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import xsbti.api
 
+import scala.ExplicitNulls._
+
 /** Create and hold thunks. A thunk is a (potentially) unevaluated value
  *  that may be evaluated once.
  */
@@ -25,7 +27,7 @@ private[sbt] trait ThunkHolder {
    *  It will be forced by the next call to `forceThunks()`
    */
   def lzy[T <: AnyRef](t: => T): api.Lazy[T] = {
-    val l = api.SafeLazy.apply(() => t)
+    val l = api.SafeLazy.apply(() => t).nn
     thunks += l
     l
   }

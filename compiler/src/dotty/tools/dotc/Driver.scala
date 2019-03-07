@@ -12,6 +12,8 @@ import reporting._
 import scala.util.control.NonFatal
 import fromtasty.{TASTYCompiler, TastyFileUtil}
 
+import scala.ExplicitNulls._
+
 /** Run the Dotty compiler.
  *
  *  Extending this class lets you customize many aspect of the compilation
@@ -68,7 +70,7 @@ class Driver {
     if (ctx0.settings.fromTasty.value(ctx0)) {
       // Resolve classpath and class names of tasty files
       val (classPaths, classNames) = fileNames0.map { name =>
-        val path = Paths.get(name)
+        val path = Paths.get(name).nn
         if (!name.endsWith(".tasty")) ("", name)
         else if (Files.exists(path)) {
           TastyFileUtil.getClassName(path) match {
@@ -128,8 +130,8 @@ class Driver {
    *  @return           The `Reporter` used. Use `Reporter#hasErrors` to check
    *                    if compilation succeeded.
    */
-  final def process(args: Array[String], reporter: Reporter = null,
-    callback: interfaces.CompilerCallback = null): Reporter = {
+  final def process(args: Array[String], reporter: Nullable[Reporter] = null,
+    callback: Nullable[interfaces.CompilerCallback] = null): Reporter = {
     val ctx = initCtx.fresh
     if (reporter != null)
       ctx.setReporter(reporter)
@@ -147,7 +149,7 @@ class Driver {
    *  with sbt.
    */
   final def process(args: Array[String]): Reporter =
-    process(args, null: Reporter, null: interfaces.CompilerCallback)
+    process(args, null: Nullable[Reporter], null: Nullable[interfaces.CompilerCallback])
 
   /** Entry point to the compiler using a custom `Context`.
    *

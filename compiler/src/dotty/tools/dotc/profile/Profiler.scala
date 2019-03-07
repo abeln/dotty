@@ -11,6 +11,8 @@ import dotty.tools.dotc.core.Phases.Phase
 import dotty.tools.dotc.core.Contexts.Context
 import dotty.tools.io.AbstractFile
 
+import scala.ExplicitNulls._
+
 object Profiler {
   def apply()(implicit ctx: Context): Profiler =
     if (!ctx.settings.YprofileEnabled.value) NoOpProfiler
@@ -81,12 +83,12 @@ private [profile] object NoOpProfiler extends Profiler {
 }
 private [profile] object RealProfiler {
   import scala.collection.JavaConverters._
-  val runtimeMx: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
-  val memoryMx: MemoryMXBean = ManagementFactory.getMemoryMXBean
+  val runtimeMx: RuntimeMXBean = ManagementFactory.getRuntimeMXBean.nn
+  val memoryMx: MemoryMXBean = ManagementFactory.getMemoryMXBean.nn
   val gcMx: List[GarbageCollectorMXBean] = ManagementFactory.getGarbageCollectorMXBeans.asScala.toList
-  val classLoaderMx: ClassLoadingMXBean = ManagementFactory.getClassLoadingMXBean
-  val compileMx: CompilationMXBean = ManagementFactory.getCompilationMXBean
-  val threadMx: ExtendedThreadMxBean = ExtendedThreadMxBean.proxy
+  val classLoaderMx: ClassLoadingMXBean = ManagementFactory.getClassLoadingMXBean.nn
+  val compileMx: CompilationMXBean = ManagementFactory.getCompilationMXBean.nn
+  val threadMx: ExtendedThreadMxBean = ExtendedThreadMxBean.proxy.nn
   if (threadMx.isThreadCpuTimeSupported) threadMx.setThreadCpuTimeEnabled(true)
   private val idGen = new AtomicInteger()
 }

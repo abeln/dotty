@@ -7,6 +7,8 @@ import Spans.Span
 
 import org.scalajs.ir
 
+import scala.ExplicitNulls._
+
 /** Conversion utilities from dotty Positions to IR Positions. */
 class JSPositions()(implicit ctx: Context) {
 
@@ -30,15 +32,15 @@ class JSPositions()(implicit ctx: Context) {
   private[this] object pos2irPosCache { // scalastyle:ignore
     import dotty.tools.dotc.util._
 
-    private[this] var lastDotcSource: SourceFile = null
-    private[this] var lastIRSource: ir.Position.SourceFile = null
+    private[this] var lastDotcSource: Nullable[SourceFile] = null
+    private[this] var lastIRSource: Nullable[ir.Position.SourceFile] = null
 
     def toIRSource(dotcSource: SourceFile): ir.Position.SourceFile = {
       if (dotcSource != lastDotcSource) {
         lastIRSource = convert(dotcSource)
         lastDotcSource = dotcSource
       }
-      lastIRSource
+      lastIRSource.nn
     }
 
     private[this] def convert(dotcSource: SourceFile): ir.Position.SourceFile = {
@@ -50,7 +52,7 @@ class JSPositions()(implicit ctx: Context) {
               null                  // Fragment
           )
         case file =>
-          val srcURI = file.toURI
+          val srcURI = file.nn.toURI
           def matches(pat: java.net.URI) = pat.relativize(srcURI) != srcURI
 
           // TODO

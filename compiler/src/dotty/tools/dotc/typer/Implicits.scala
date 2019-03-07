@@ -37,6 +37,8 @@ import annotation.tailrec
 
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNulls._
+
 /** Implicit resolution */
 object Implicits {
   import tpd._
@@ -76,13 +78,13 @@ object Implicits {
     /** The implicit references */
     def refs: List[ImplicitRef]
 
-    private[this] var SingletonClass: ClassSymbol = null
+    private[this] var SingletonClass: Nullable[ClassSymbol] = null
 
     /** Widen type so that it is neither a singleton type nor a type that inherits from scala.Singleton. */
     private def widenSingleton(tp: Type)(implicit ctx: Context): Type = {
       if (SingletonClass == null) SingletonClass = defn.SingletonClass
       val wtp = tp.widenSingleton
-      if (wtp.derivesFrom(SingletonClass)) defn.AnyType else wtp
+      if (wtp.derivesFrom(SingletonClass.nn)) defn.AnyType else wtp
     }
 
     /** Return those references in `refs` that are compatible with type `pt`. */
@@ -254,7 +256,7 @@ object Implicits {
    *                   name, b, whereas the name of the symbol is the original name, a.
    *  @param outerCtx  the next outer context that makes visible further implicits
    */
-  class ContextualImplicits(val refs: List[ImplicitRef], val outerImplicits: ContextualImplicits)(initctx: Context) extends ImplicitRefs(initctx) {
+  class ContextualImplicits(val refs: List[ImplicitRef], val outerImplicits: Nullable[ContextualImplicits])(initctx: Context) extends ImplicitRefs(initctx) {
     private val eligibleCache = new java.util.IdentityHashMap[Type, List[Candidate]]
 
     /** The level increases if current context has a different owner or scope than
@@ -286,10 +288,10 @@ object Implicits {
           def elided(ci: ContextualImplicits): Int = {
             val n = ci.refs.length
             if (ci.isOuterMost) n
-            else n + elided(ci.outerImplicits)
+            else n + elided(ci.outerImplicits.nn)
           }
           if (monitored) record(s"elided eligible refs", elided(this))
-          eligibles
+          eligibles.nn
         }
         else if (ctx eq NoContext) Nil
         else {
@@ -306,7 +308,7 @@ object Implicits {
       if (isOuterMost) ownEligible
       else ownEligible ::: {
         val shadowed = ownEligible.map(_.ref.implicitName).toSet
-        outerImplicits.eligible(tp).filterNot(cand => shadowed.contains(cand.ref.implicitName))
+        outerImplicits.nn.eligible(tp).filterNot(cand => shadowed.contains(cand.ref.implicitName))
       }
     }
 
@@ -321,7 +323,7 @@ object Implicits {
     def exclude(root: Symbol): ContextualImplicits =
       if (this == NoContext.implicits) this
       else {
-        val outerExcluded = outerImplicits exclude root
+        val outerExcluded = outerImplicits.nn exclude root
         if (ctx.importInfo.site.termSymbol == root) outerExcluded
         else if (outerExcluded eq outerImplicits) this
         else new ContextualImplicits(refs, outerExcluded)(ctx)
@@ -1032,7 +1034,7 @@ trait Implicits { self: Typer =>
             result0
         }
       // If we are at the outermost implicit search then emit the implicit dictionary, if any.
-      ctx.searchHistory.emitDictionary(span, result)
+      ctx.searchHistory.nn.emitDictionary(span, result)
     }
   }
 
@@ -1108,15 +1110,15 @@ trait Implicits { self: Typer =>
       * a diverging search
       */
     def tryImplicit(cand: Candidate, contextual: Boolean): SearchResult = {
-      if (ctx.searchHistory.checkDivergence(cand, pt))
+      if (ctx.searchHistory.nn.checkDivergence(cand, pt))
         SearchFailure(new DivergingImplicit(cand.ref, pt.widenExpr, argument))
       else {
-        val history = ctx.searchHistory.nest(cand, pt)
+        val history = ctx.searchHistory.nn.nest(cand, pt)
         val result =
           typedImplicit(cand, contextual)(nestedContext().setNewTyperState().setFreshGADTBounds.setSearchHistory(history))
         result match {
           case res: SearchSuccess =>
-            ctx.searchHistory.defineBynameImplicit(pt.widenExpr, res)
+            ctx.searchHistory.nn.defineBynameImplicit(pt.widenExpr, res)
           case _ =>
             result
         }
@@ -1288,7 +1290,7 @@ trait Implicits { self: Typer =>
       // effectively in a more inner context than any other definition provided by
       // explicit definitions. Consequently these terms have the highest priority and no
       // other candidates need to be considered.
-      ctx.searchHistory.recursiveRef(pt) match {
+      ctx.searchHistory.nn.recursiveRef(pt) match {
         case ref: TermRef =>
           SearchSuccess(tpd.ref(ref).withSpan(span.startPos), ref, 0)(ctx.typerState, ctx.gadt)
         case _ =>
@@ -1452,7 +1454,7 @@ abstract class SearchHistory { outer =>
 
         loop(open, bynamePt) match {
           case NoType => NoType
-          case tp => ctx.searchHistory.linkBynameImplicit(tp.widenExpr)
+          case tp => ctx.searchHistory.nn.linkBynameImplicit(tp.widenExpr)
         }
       }
     }
@@ -1478,11 +1480,11 @@ final class SearchRoot extends SearchHistory {
   val byname = false
 
   /** The dictionary of recursive implicit types and corresponding terms for this search. */
-  var implicitDictionary0: mutable.Map[Type, (TermRef, tpd.Tree)] = null
+  var implicitDictionary0: Nullable[mutable.Map[Type, (TermRef, tpd.Tree)]] = null
   def implicitDictionary = {
     if (implicitDictionary0 == null)
       implicitDictionary0 = mutable.Map.empty[Type, (TermRef, tpd.Tree)]
-    implicitDictionary0
+    implicitDictionary0.nn
   }
 
   /**
@@ -1644,7 +1646,7 @@ final class SearchRoot extends SearchHistory {
 
 /** A set of term references where equality is =:= */
 final class TermRefSet(implicit ctx: Context) {
-  private[this] val elems = new java.util.LinkedHashMap[TermSymbol, List[Type]]
+  private[this] val elems = new java.util.LinkedHashMap[TermSymbol, Nullable[List[Type]]]
 
   def += (ref: TermRef): Unit = {
     val pre = ref.prefix
@@ -1653,17 +1655,25 @@ final class TermRefSet(implicit ctx: Context) {
       case null =>
         elems.put(sym, pre :: Nil)
       case prefixes =>
-        if (!prefixes.exists(_ =:= pre))
-          elems.put(sym, pre :: prefixes)
+        if (!prefixes.nn.exists(_ =:= pre))
+          elems.put(sym, pre :: prefixes.nn)
     }
   }
 
   def ++= (that: TermRefSet): Unit =
     that.foreach(+=)
 
-  def foreach[U](f: TermRef => U): Unit =
-    elems.forEach((sym: TermSymbol, prefixes: List[Type]) =>
-      prefixes.foreach(pre => f(TermRef(pre, sym))))
+  def foreach[U](f: TermRef => U): Unit = {
+    // TODO(abeln): this used to be written as a lambda, but something's broken
+    // in the conversion of the lambda to the nullable BiConsumer functional interface.
+    // So declare the function in the java style directly.
+    val fn = new java.util.function.BiConsumer[TermSymbol, Nullable[List[Type]]] {
+      override def accept(sym: TermSymbol, prefixes: Nullable[List[Type]]): Unit = {
+        prefixes.nn.foreach(pre => f(TermRef(pre, sym)))
+      }
+    }
+    elems.forEach(fn)
+  }
 
   // used only for debugging
   def toList: List[TermRef] = {

@@ -11,6 +11,8 @@ import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.transform.SymUtils._
 import util.{NoSource, SourceFile}
 
+import scala.ExplicitNulls._
+
 class CompilationUnit protected (val source: SourceFile) {
 
   override def toString: String = source.toString
@@ -37,7 +39,7 @@ object CompilationUnit {
 
   /** Make a compilation unit for top class `clsd` with the contents of the `unpickled` tree */
   def apply(clsd: ClassDenotation, unpickled: Tree, forceTrees: Boolean)(implicit ctx: Context): CompilationUnit =
-    apply(new SourceFile(clsd.symbol.associatedFile, Array.empty[Char]), unpickled, forceTrees)
+    apply(new SourceFile(clsd.symbol.associatedFile.nn, Array.empty[Char]), unpickled, forceTrees)
 
   /** Make a compilation unit, given picked bytes and unpickled tree */
   def apply(source: SourceFile, unpickled: Tree, forceTrees: Boolean)(implicit ctx: Context): CompilationUnit = {

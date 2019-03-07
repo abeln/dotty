@@ -14,6 +14,7 @@ import java.io.IOException
 import scala.collection.JavaConverters._
 
 import scala.util.Random.alphanumeric
+import scala.ExplicitNulls._
 
 /** An abstraction for filesystem paths.  The differences between
  *  Path, File, and Directory are primarily to communicate intent.
@@ -52,7 +53,7 @@ object Path {
 
   def roots: List[Path] = FileSystems.getDefault.getRootDirectories.iterator().asScala.map(Path.apply).toList
 
-  def apply(path: String): Path = apply(Paths.get(path))
+  def apply(path: String): Path = apply(Paths.get(path).nn)
   def apply(jpath: JPath): Path = try {
     if (Files.isRegularFile(jpath)) new File(jpath)
     else if (Files.isDirectory(jpath)) new Directory(jpath)
@@ -77,10 +78,10 @@ class Path private[io] (val jpath: JPath) {
   // conversions
   def toFile: File = new File(jpath)
   def toDirectory: Directory = new Directory(jpath)
-  def toAbsolute: Path = if (isAbsolute) this else new Path(jpath.toAbsolutePath)
+  def toAbsolute: Path = if (isAbsolute) this else new Path(jpath.toAbsolutePath.nn)
   def toCanonical: Path = normalize.toAbsolute
-  def toURI: URI = jpath.toUri()
-  def toURL: URL = toURI.toURL()
+  def toURI: URI = jpath.toUri().nn
+  def toURL: URL = toURI.toURL().nn
 
   /** If this path is absolute, returns it: otherwise, returns an absolute
    *  path made up of root / this.
@@ -90,7 +91,7 @@ class Path private[io] (val jpath: JPath) {
   /** Creates a new Path with the specified path appended.  Assumes
    *  the type of the new component implies the type of the result.
    */
-  def /(child: String): Path = new Path(jpath.resolve(child))
+  def /(child: String): Path = new Path(jpath.resolve(child).nn)
   def /(child: Path): Path = resolve(child)
   def /(child: Directory): Directory = /(child: Path).toDirectory
   def /(child: File): File = /(child: Path).toFile
@@ -118,10 +119,10 @@ class Path private[io] (val jpath: JPath) {
     case name => name.toString
   }
   def path: String = jpath.toString
-  def normalize: Path = new Path(jpath.normalize)
+  def normalize: Path = new Path(jpath.normalize.nn)
 
-  def resolve(other: Path): Path = new Path(jpath.resolve(other.jpath))
-  def relativize(other: Path): Path = new Path(jpath.relativize(other.jpath))
+  def resolve(other: Path): Path = new Path(jpath.resolve(other.jpath).nn)
+  def relativize(other: Path): Path = new Path(jpath.relativize(other.jpath).nn)
 
   def segments: List[String] = (path split separator).toList filterNot (_.length == 0)
 
@@ -130,7 +131,7 @@ class Path private[io] (val jpath: JPath) {
    */
   def parent: Directory = jpath.normalize.getParent match {
     case null => Directory(jpath)
-    case parent => Directory(parent)
+    case parent => Directory(parent.nn)
   }
   def parents: List[Directory] = {
     val p = parent
@@ -146,12 +147,12 @@ class Path private[io] (val jpath: JPath) {
   // returns the filename without the extension.
   def stripExtension: String = name stripSuffix ("." + extension)
   // returns the Path with the extension.
-  def addExtension(ext: String): Path = new Path(jpath.resolveSibling(name + ext))
+  def addExtension(ext: String): Path = new Path(jpath.resolveSibling(name + ext).nn)
   // changes the existing extension out for a new one, or adds it
   // if the current path has none.
   def changeExtension(ext: String): Path =
     if (extension == "") addExtension(ext)
-    else new Path(jpath.resolveSibling(stripExtension + "." + ext))
+    else new Path(jpath.resolveSibling(stripExtension + "." + ext).nn)
 
   // conditionally execute
   def ifFile[T](f: File => T): Option[T] = if (isFile) Some(f(toFile)) else None
@@ -169,7 +170,7 @@ class Path private[io] (val jpath: JPath) {
   def isEmpty: Boolean = path.length == 0
 
   // Information
-  def lastModified: FileTime = Files.getLastModifiedTime(jpath)
+  def lastModified: FileTime = Files.getLastModifiedTime(jpath).nn
   def length: Long = Files.size(jpath)
 
   // Boolean path comparisons
@@ -179,13 +180,13 @@ class Path private[io] (val jpath: JPath) {
 
   // creations
   def createDirectory(force: Boolean = true, failIfExists: Boolean = false): Directory = {
-    val res = tryCreate(if (force) Files.createDirectories(jpath) else Files.createDirectory(jpath))
+    val res = tryCreate(if (force) Files.createDirectories(jpath).nn else Files.createDirectory(jpath).nn)
     if (!res && failIfExists && exists) fail("Directory '%s' already exists." format name)
     else if (isDirectory) toDirectory
     else new Directory(jpath)
   }
   def createFile(failIfExists: Boolean = false): File = {
-    val res = tryCreate(Files.createFile(jpath))
+    val res = tryCreate(Files.createFile(jpath).nn)
     Files.createFile(jpath)
     if (!res && failIfExists && exists) fail("File '%s' already exists." format name)
     else if (isFile) toFile

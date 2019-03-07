@@ -30,6 +30,7 @@ import util.{SourceFile, NoSource, Property, SourcePosition}
 import scala.collection.JavaConverters._
 import scala.annotation.internal.sharable
 import config.Printers.typr
+import scala.ExplicitNulls._
 
 /** Creation methods for symbols */
 trait Symbols { this: Context =>
@@ -46,7 +47,7 @@ trait Symbols { this: Context =>
     new Symbol(coord, descriptor, ctx.nextSymId).asInstanceOf[Symbol { type ThisName = N }]
 
   /** Create a class symbol without a denotation. */
-  def newNakedClassSymbol(coord: Coord = NoCoord, assocFile: AbstractFile = null)(implicit ctx: Context): ClassSymbol =
+  def newNakedClassSymbol(coord: Coord = NoCoord, assocFile: Nullable[AbstractFile] = null)(implicit ctx: Context): ClassSymbol =
     new ClassSymbol(coord, assocFile, ctx.nextSymId)
 
 // ---- Symbol creation methods ----------------------------------
@@ -67,7 +68,7 @@ trait Symbols { this: Context =>
   }
 
   /** Create a class symbol from a function producing its denotation */
-  def newClassSymbolDenoting(denotFn: ClassSymbol => SymDenotation, coord: Coord = NoCoord, assocFile: AbstractFile = null): ClassSymbol = {
+  def newClassSymbolDenoting(denotFn: ClassSymbol => SymDenotation, coord: Coord = NoCoord, assocFile: Nullable[AbstractFile] = null): ClassSymbol = {
     val cls = newNakedClassSymbol(coord, assocFile)
     cls.denot = denotFn(cls)
     cls
@@ -83,7 +84,7 @@ trait Symbols { this: Context =>
       infoFn: ClassSymbol => Type,
       privateWithin: Symbol = NoSymbol,
       coord: Coord = NoCoord,
-      assocFile: AbstractFile = null): ClassSymbol
+      assocFile: Nullable[AbstractFile] = null): ClassSymbol
   = {
     val cls = newNakedClassSymbol(coord, assocFile)
     val denot = SymDenotation(cls, owner, name, flags, infoFn(cls), privateWithin)
@@ -101,7 +102,7 @@ trait Symbols { this: Context =>
       selfInfo: Type = NoType,
       privateWithin: Symbol = NoSymbol,
       coord: Coord = NoCoord,
-      assocFile: AbstractFile = null): ClassSymbol =
+      assocFile: Nullable[AbstractFile] = null): ClassSymbol =
     newClassSymbol(
         owner, name, flags,
         ClassInfo(owner.thisType, _, parents, decls, selfInfo),
@@ -119,7 +120,7 @@ trait Symbols { this: Context =>
       selfInfo: Type = NoType,
       privateWithin: Symbol = NoSymbol,
       coord: Coord = NoCoord,
-      assocFile: AbstractFile = null): ClassSymbol = {
+      assocFile: Nullable[AbstractFile] = null): ClassSymbol = {
     def completer = new LazyType {
       def complete(denot: SymDenotation)(implicit ctx: Context): Unit = {
         val cls = denot.asClass.classSymbol
@@ -145,7 +146,7 @@ trait Symbols { this: Context =>
       infoFn: (TermSymbol, ClassSymbol) => Type, // typically a ModuleClassCompleterWithDecls
       privateWithin: Symbol = NoSymbol,
       coord: Coord = NoCoord,
-      assocFile: AbstractFile = null): TermSymbol
+      assocFile: Nullable[AbstractFile] = null): TermSymbol
   = {
     val base = owner.thisType
     val module = newNakedSymbol[TermName](coord)
@@ -178,7 +179,7 @@ trait Symbols { this: Context =>
       decls: Scope,
       privateWithin: Symbol = NoSymbol,
       coord: Coord = NoCoord,
-      assocFile: AbstractFile = null): TermSymbol =
+      assocFile: Nullable[AbstractFile] = null): TermSymbol =
     newModuleSymbol(
         owner, name, modFlags, clsFlags,
         (module, modcls) => ClassInfo(
@@ -226,7 +227,7 @@ trait Symbols { this: Context =>
   /** Create a stub symbol that will issue a missing reference error
    *  when attempted to be completed.
    */
-  def newStubSymbol(owner: Symbol, name: Name, file: AbstractFile = null): Symbol = {
+  def newStubSymbol(owner: Symbol, name: Name, file: Nullable[AbstractFile] = null): Symbol = {
     def stubCompleter = new StubInfo()
     val normalizedOwner = if (owner is ModuleVal) owner.moduleClass else owner
     typr.println(s"creating stub for ${name.show}, owner = ${normalizedOwner.denot.debugString}, file = $file")
@@ -435,11 +436,11 @@ object Symbols {
       myCoord = c
     }
 
-    private[this] var myDefTree: Tree = null
+    private[this] var myDefTree: Nullable[Tree] = null
 
     /** The tree defining the symbol at pickler time, EmptyTree if none was retained */
     def defTree: Tree =
-      if (myDefTree == null) tpd.EmptyTree else myDefTree
+      if (myDefTree == null) tpd.EmptyTree else myDefTree.nn
 
     /** Set defining tree if this symbol retains its definition tree */
     def defTree_=(tree: Tree)(implicit ctx: Context): Unit =
@@ -501,7 +502,7 @@ object Symbols {
     final def isDefinedInCurrentRun(implicit ctx: Context): Boolean =
       span.exists && defRunId == ctx.runId && {
         val file = associatedFile
-        file != null && ctx.run.files.contains(file)
+        file != null && ctx.run.files.nn.contains(file)
       }
 
     /** Is symbol valid in current run? */
@@ -607,11 +608,11 @@ object Symbols {
      *  the class containing this symbol was generated, null if not applicable.
      *  Overridden in ClassSymbol
      */
-    def associatedFile(implicit ctx: Context): AbstractFile =
+    def associatedFile(implicit ctx: Context): Nullable[AbstractFile] =
       if (lastDenot == null) null else lastDenot.topLevelClass.associatedFile
 
     /** The class file from which this class was generated, null if not applicable. */
-    final def binaryFile(implicit ctx: Context): AbstractFile = {
+    final def binaryFile(implicit ctx: Context): Nullable[AbstractFile] = {
       val file = associatedFile
       if (file != null && file.extension == "class") file else null
     }
@@ -697,7 +698,7 @@ object Symbols {
   type TermSymbol = Symbol { type ThisName = TermName }
   type TypeSymbol = Symbol { type ThisName = TypeName }
 
-  class ClassSymbol private[Symbols] (coord: Coord, val assocFile: AbstractFile, id: Int)
+  class ClassSymbol private[Symbols] (coord: Coord, val assocFile: Nullable[AbstractFile], id: Int)
     extends Symbol(coord, None, id) {
 
     type ThisName = TypeName
@@ -757,7 +758,7 @@ object Symbols {
     }
 
     /** The source or class file from which this class was generated, null if not applicable. */
-    override def associatedFile(implicit ctx: Context): AbstractFile =
+    override def associatedFile(implicit ctx: Context): Nullable[AbstractFile] =
       if (assocFile != null || (this.owner is PackageClass) || this.isEffectiveRoot) assocFile
       else super.associatedFile
 
@@ -809,7 +810,7 @@ object Symbols {
         info: Type = sym.info,
         privateWithin: Symbol = sym.privateWithin,
         coord: Coord = NoCoord, // Can be `= owner.coord` once we boostrap
-        associatedFile: AbstractFile = null // Can be `= owner.associatedFile` once we boostrap
+        associatedFile: Nullable[AbstractFile] = null // Can be `= owner.associatedFile` once we boostrap
     ): Symbol = {
       val coord1 = if (coord == NoCoord) owner.coord else coord
       val associatedFile1 = if (associatedFile == null) owner.associatedFile else associatedFile
@@ -836,9 +837,9 @@ object Symbols {
   /* Mutable map from symbols any T */
   class MutableSymbolMap[T](private[Symbols] val value: java.util.IdentityHashMap[Symbol, T]) extends AnyVal {
 
-    def apply(sym: Symbol): T = value.get(sym)
+    def apply(sym: Symbol): Nullable[T] = value.get(sym)
 
-    def get(sym: Symbol): Option[T] = Option(value.get(sym))
+    def get(sym: Symbol): Option[T] = Option(value.get(sym).asInstanceOf[T])
 
     def getOrElse[U >: T](sym: Symbol, default: => U): U = {
       val v = value.get(sym)
@@ -860,13 +861,13 @@ object Symbols {
       assert(x != null)
       value.put(sym, x)
     }
-    def put(sym: Symbol, x: T): T = {
+    def put(sym: Symbol, x: T): Nullable[T] = {
       assert(x != null)
       value.put(sym, x)
     }
 
     def -=(sym: Symbol): Unit = value.remove(sym)
-    def remove(sym: Symbol): Option[T] = Option(value.remove(sym))
+    def remove(sym: Symbol): Option[T] = Option(value.remove(sym).asInstanceOf[T])
 
     def contains(sym: Symbol): Boolean = value.containsKey(sym)
 

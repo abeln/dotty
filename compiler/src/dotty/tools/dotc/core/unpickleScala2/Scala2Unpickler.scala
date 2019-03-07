@@ -30,6 +30,8 @@ import scala.annotation.switch
 import reporting.trace
 import dotty.tools.dotc.reporting.diagnostic.messages.FailureToEliminateExistential
 
+import scala.ExplicitNulls._
+
 object Scala2Unpickler {
 
   /** Exception thrown if classfile is corrupted */
@@ -237,7 +239,7 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
 
   def source(implicit ctx: Context): AbstractFile = {
     val f = classRoot.symbol.associatedFile
-    if (f != null) f else moduleClassRoot.symbol.associatedFile
+    if (f != null) f else moduleClassRoot.symbol.associatedFile.nn
   }
 
   private def checkVersion(implicit ctx: Context): Unit = {
@@ -977,14 +979,14 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
     // Set by the three functions to follow.  If symbol is non-null
     // after the new tree 't' has been created, t has its Symbol
     // set to symbol; and it always has its Type set to tpe.
-    var symbol: Symbol = null
-    var mods: Modifiers = null
-    var name: Name = null
+    var symbol: Nullable[Symbol] = null
+    var mods: Nullable[Modifiers] = null
+    var name: Nullable[Name] = null
 
     /** Read a Symbol, Modifiers, and a Name */
     def setSymModsName(): Unit = {
       symbol = readSymbolRef()
-      mods = readModifiersRef(symbol.isType)
+      mods = readModifiersRef(symbol.nn.isType)
       name = readNameRef()
     }
     /** Read a Symbol and a Name */
@@ -1013,20 +1015,20 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
         setSymModsName()
         val impl = readTemplateRef()
         val tparams = until(end, () => readTypeDefRef())
-        val cls = symbol.asClass
+        val cls = symbol.nn.asClass
         val ((constr: DefDef) :: Nil, stats) =
           impl.body.partition(_.symbol == cls.primaryConstructor)
         ClassDef(cls, constr, tparams ++ stats)
 
       case MODULEtree =>
         setSymModsName()
-        ModuleDef(symbol.asTerm, readTemplateRef().body)
+        ModuleDef(symbol.nn.asTerm, readTemplateRef().body)
 
       case VALDEFtree =>
         setSymModsName()
         val tpt = readTreeRef()
         val rhs = readTreeRef()
-        ValDef(symbol.asTerm, rhs)
+        ValDef(symbol.nn.asTerm, rhs)
 
       case DEFDEFtree =>
         setSymModsName()
@@ -1034,23 +1036,23 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
         val vparamss = times(readNat(), () => times(readNat(), () => readValDefRef()))
         val tpt = readTreeRef()
         val rhs = readTreeRef()
-        DefDef(symbol.asTerm, rhs)
+        DefDef(symbol.nn.asTerm, rhs)
 
       case TYPEDEFtree =>
         setSymModsName()
         val rhs = readTreeRef()
         val tparams = until(end, () => readTypeDefRef())
-        TypeDef(symbol.asType)
+        TypeDef(symbol.nn.asType)
 
       case LABELtree =>
         ???
         setSymName()
         val rhs = readTreeRef()
         val params = until(end, () => readIdentRef())
-        val ldef = DefDef(symbol.asTerm, rhs)
+        val ldef = DefDef(symbol.nn.asTerm, rhs)
         def isCaseLabel(sym: Symbol) = sym.name.startsWith(nme.CASEkw.toString)
-        if (isCaseLabel(symbol)) ldef
-        else Block(ldef :: Nil, Apply(Ident(symbol.termRef), Nil))
+        if (isCaseLabel(symbol.nn)) ldef
+        else Block(ldef :: Nil, Apply(Ident(symbol.nn.termRef), Nil))
 
       case IMPORTtree =>
         setSym()
@@ -1070,7 +1072,7 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
         val self = readValDefRef()
         val body = until(end, () => readTreeRef())
         untpd.Template(???, parents, Nil, self, body) // !!! TODO: pull out primary constructor
-          .withType(symbol.namedType)
+          .withType(symbol.nn.namedType)
 
       case BLOCKtree =>
         val expr = readTreeRef()
@@ -1092,7 +1094,7 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
 
       case BINDtree =>
         setSymName()
-        Bind(symbol.asTerm, readTreeRef())
+        Bind(symbol.nn.asTerm, readTreeRef())
 
       case UNAPPLYtree =>
         val fun = readTreeRef()
@@ -1110,8 +1112,8 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
         val body = readTreeRef()
         val vparams = until(end, () => readValDefRef())
         val applyType = MethodType(vparams map (_.name), vparams map (_.tpt.tpe), body.tpe)
-        val applyMeth = ctx.newSymbol(symbol.owner, nme.apply, Method, applyType)
-        Closure(applyMeth, Function.const(body.changeOwner(symbol, applyMeth)) _)
+        val applyMeth = ctx.newSymbol(symbol.nn.owner, nme.apply, Method, applyType)
+        Closure(applyMeth, Function.const(body.changeOwner(symbol.nn, applyMeth)) _)
 
       case ASSIGNtree =>
         val lhs = readTreeRef()
@@ -1131,7 +1133,7 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
 
       case RETURNtree =>
         setSym()
-        Return(readTreeRef(), Ident(symbol.termRef))
+        Return(readTreeRef(), Ident(symbol.nn.termRef))
 
       case TREtree =>
         val block = readTreeRef()
@@ -1181,16 +1183,16 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
       case THIStree =>
         setSym()
         val name = readTypeNameRef()
-        This(symbol.asClass)
+        This(symbol.nn.asClass)
 
       case SELECTtree =>
         setSym()
         val qualifier = readTreeRef()
         val selector = readNameRef()
-        qualifier.select(symbol.namedType)
+        qualifier.select(symbol.nn.namedType)
       case IDENTtree =>
         setSymName()
-        Ident(symbol.namedType)
+        Ident(symbol.nn.namedType)
 
       case LITERALtree =>
         Literal(readConstantRef())
@@ -1209,7 +1211,7 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
       case SELECTFROMTYPEtree =>
         val qualifier = readTreeRef()
         val selector = readTypeNameRef()
-        Select(qualifier, symbol.namedType)
+        Select(qualifier, symbol.nn.namedType)
 
       case COMPOUNDTYPEtree =>
         readTemplateRef()

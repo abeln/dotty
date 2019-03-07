@@ -13,6 +13,8 @@ import util.Spans._
 import Decorators._
 import NameKinds.SuperAccessorName
 
+import scala.ExplicitNulls._
+
 /** This class adds super accessors for all super calls that either
  *  appear in a trait or have as a target a member of some outer class.
  *
@@ -84,7 +86,7 @@ class SuperAccessors(thisPhase: DenotTransformer) {
             ctx.error(
               s"Internal error: unable to store accessor definition in ${clazz}. clazz.hasPackageFlag=${clazz is Package}. Accessor required for ${sel} (${sel.show})",
               sel.sourcePos)
-          else accDefs(clazz) += DefDef(acc, EmptyTree).withSpan(accRange)
+          else accDefs(clazz).nn += DefDef(acc, EmptyTree).withSpan(accRange)
           acc
         }
 

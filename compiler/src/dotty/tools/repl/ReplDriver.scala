@@ -25,6 +25,7 @@ import org.jline.reader._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.ExplicitNulls._
 
 /** The state of the REPL contains necessary bindings instead of having to have
  *  mutation
@@ -107,7 +108,7 @@ class ReplDriver(settings: Array[String],
     /** Blockingly read a line, getting back a parse result */
     def readLine(state: State): ParseResult = {
       val completer: Completer = { (_, line, candidates) =>
-        val comps = completions(line.cursor, line.line, state)
+        val comps = completions(line.cursor, line.line.nn, state)
         candidates.addAll(comps.asJava)
       }
       implicit val ctx = state.context
