@@ -29,6 +29,7 @@ import scala.tools.asm
 import StdNames.{nme, str}
 import NameKinds.{DefaultGetterName, ExpandedName}
 import Names.TermName
+import scala.ExplicitNulls._
 
 class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Map[Symbol, Set[ClassSymbol]])(implicit ctx: Context) extends BackendInterface{
   import Symbols.{toDenot, toClassDenot}
@@ -237,7 +238,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   private def emitArgument(av:   AnnotationVisitor,
-                           name: String,
+                           name: Nullable[String],
                            arg:  Tree, bcodeStore: BCodeHelpers)(innerClasesStore: bcodeStore.BCInnerClassGen): Unit = {
     (normalizeArgument(arg): @unchecked) match {
       case Literal(const @ Constant(_)) =>
@@ -265,13 +266,13 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
               s"${toDenot(t.symbol).name.debugString}") // this should be default getter. do not emit.
         }
       case t: SeqLiteral =>
-        val arrAnnotV: AnnotationVisitor = av.visitArray(name)
+        val arrAnnotV: AnnotationVisitor = av.visitArray(name).nn
         for (arg <- t.elems) { emitArgument(arrAnnotV, null, arg, bcodeStore)(innerClasesStore) }
         arrAnnotV.visitEnd()
 
       case Apply(fun, args) if fun.symbol == defn.ArrayClass.primaryConstructor ||
         toDenot(fun.symbol).owner == defn.ArrayClass.linkedClass && fun.symbol.name == nme_apply =>
-        val arrAnnotV: AnnotationVisitor = av.visitArray(name)
+        val arrAnnotV: AnnotationVisitor = av.visitArray(name).nn
 
         var actualArgs = if (fun.tpe.isImplicitMethod) {
           // generic array method, need to get implicit argument out of the way
@@ -304,7 +305,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
         val typ = t.tpe.classSymbol.denot.info
         val assocs = assocsFromApply(t)
         val desc = innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]) // the class descriptor of the nested annotation class
-        val nestedVisitor = av.visitAnnotation(name, desc)
+        val nestedVisitor = av.visitAnnotation(name, desc).nn
         emitAssocs(nestedVisitor, assocs, bcodeStore)(innerClasesStore)
     }
   }
@@ -314,7 +315,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     for(annot <- annotations; if shouldEmitAnnotation(annot)) {
       val typ = annot.atp
       val assocs = annot.assocs
-      val av = cw.visitAnnotation(innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot))
+      val av = cw.visitAnnotation(innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot)).nn
       emitAssocs(av, assocs, bcodeStore)(innerClasesStore)
     }
   }
@@ -331,7 +332,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     for(annot <- annotations; if shouldEmitAnnotation(annot)) {
       val typ = annot.atp
       val assocs = annot.assocs
-      val av = mw.visitAnnotation(innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot))
+      val av = mw.visitAnnotation(innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot)).nn
       emitAssocs(av, assocs, bcodeStore)(innerClasesStore)
     }
   }
@@ -341,7 +342,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     for(annot <- annotations; if shouldEmitAnnotation(annot)) {
       val typ = annot.atp
       val assocs = annot.assocs
-      val av = fw.visitAnnotation(innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot))
+      val av = fw.visitAnnotation(innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot)).nn
       emitAssocs(av, assocs, bcodeStore)(innerClasesStore)
     }
   }
@@ -354,7 +355,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
          annot <- annots) {
       val typ = annot.atp
       val assocs = annot.assocs
-      val pannVisitor: asm.AnnotationVisitor = jmethod.visitParameterAnnotation(idx, innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot))
+      val pannVisitor: asm.AnnotationVisitor = jmethod.visitParameterAnnotation(idx, innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]), isRuntimeVisible(annot)).nn
       emitAssocs(pannVisitor, assocs, bcodeStore)(innerClasesStore)
     }
   }
@@ -367,7 +368,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   def getClassIfDefined(fullname: String): Symbol = NoSymbol // used only for android. todo: implement
 
   private def erasureString(clazz: Class[_]): String = {
-    if (clazz.isArray) "Array[" + erasureString(clazz.getComponentType) + "]"
+    if (clazz.isArray) "Array[" + erasureString(clazz.getComponentType.nn) + "]"
     else clazz.getName
   }
 
@@ -448,7 +449,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
         case _ =>
       }
     }
-    if (found == null) None else Some(found)
+    if (found == null) None else Some(found.nn)
   }
 
   def getLabelDefOwners(tree: Tree): Map[Tree, List[LabelDef]] = Map.empty
@@ -516,7 +517,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
    *         Machine Specification, §4.3.4, or `null` if `sym` doesn't need a generic signature.
    * @see https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.3.4
    */
-  def getGenericSignature(sym: Symbol, owner: Symbol): String = {
+  def getGenericSignature(sym: Symbol, owner: Symbol): Nullable[String] = {
     ctx.atPhase(ctx.erasurePhase) { implicit ctx =>
       val memberTpe =
         if (sym.is(Flags.Method)) sym.denot.info
@@ -525,7 +526,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     }
   }
 
-  def getStaticForwarderGenericSignature(sym: Symbol, moduleClass: Symbol): String = {
+  def getStaticForwarderGenericSignature(sym: Symbol, moduleClass: Symbol): Nullable[String] = {
     // scala/bug#3452 Static forwarder generation uses the same erased signature as the method if forwards to.
     // By rights, it should use the signature as-seen-from the module class, and add suitable
     // primitive and value-class boxing/unboxing.
@@ -982,14 +983,14 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
   object Select extends SelectDeconstructor {
 
-    var desugared: tpd.Select = null
+    var desugared: Nullable[tpd.Select] = null
 
     override def isEmpty: Boolean =
       desugared eq null
 
-    def _1: Tree =  desugared.qualifier
+    def _1: Tree =  desugared.nn.qualifier
 
-    def _2: Name = desugared.name
+    def _2: Name = desugared.nn.name
 
     override def unapply(s: Select): this.type = {
       s match {

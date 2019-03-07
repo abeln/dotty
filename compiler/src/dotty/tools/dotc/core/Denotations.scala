@@ -20,6 +20,7 @@ import io.AbstractFile
 import config.Config
 import util.common._
 import collection.mutable.ListBuffer
+import scala.ExplicitNulls.Nullable
 
 /** Denotations represent the meaning of symbols and named types.
  *  The following diagram shows how the principal types of denotations
@@ -280,7 +281,7 @@ object Denotations {
                        name: Name,
                        site: Denotation = NoDenotation,
                        args: List[Type] = Nil,
-                       source: AbstractFile = null,
+                       source: Nullable[AbstractFile] = null,
                        generateStubs: Boolean = true)
                       (p: Symbol => Boolean)
                       (implicit ctx: Context): Symbol =

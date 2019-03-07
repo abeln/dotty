@@ -21,6 +21,7 @@ import reporting.trace
 import collection.mutable
 
 import scala.annotation.internal.sharable
+import scala.ExplicitNulls._
 
 trait SymDenotations { this: Context =>
   import SymDenotations._
@@ -711,7 +712,7 @@ object SymDenotations {
      *  Everything is accessible if `pre` is `NoPrefix`.
      *  A symbol with type `NoType` is not accessible for any other prefix.
      */
-    final def isAccessibleFrom(pre: Type, superAccess: Boolean = false, whyNot: StringBuffer = null)(implicit ctx: Context): Boolean = {
+    final def isAccessibleFrom(pre: Type, superAccess: Boolean = false, whyNot: Nullable[StringBuffer] = null)(implicit ctx: Context): Boolean = {
 
       /** Are we inside definition of `boundary`? */
       def accessWithin(boundary: Symbol) = ctx.owner.isContainedIn(boundary)
@@ -1318,9 +1319,9 @@ object SymDenotations {
       owner: Symbol = this.owner,
       name: Name = this.name,
       initFlags: FlagSet = UndefinedFlags,
-      info: Type = null,
-      privateWithin: Symbol = null,
-      annotations: List[Annotation] = null)(implicit ctx: Context): SymDenotation =
+      info: Nullable[Type] = null,
+      privateWithin: Nullable[Symbol] = null,
+      annotations: Nullable[List[Annotation]] = null)(implicit ctx: Context): SymDenotation =
     { // simulate default parameters, while also passing implicit context ctx to the default values
       val initFlags1 = (if (initFlags != UndefinedFlags) initFlags else this.flags)
       val info1 = if (info != null) info else this.info
@@ -1342,7 +1343,7 @@ object SymDenotations {
     /** Are `info1` and `info2` ClassInfo types with different parents?
      *  @param completersMatter  if `true`, consider parents changed if `info1` or `info2 `is a type completer
      */
-    protected def changedClassParents(info1: Type, info2: Type, completersMatter: Boolean): Boolean =
+    protected def changedClassParents(info1: Nullable[Type], info2: Type, completersMatter: Boolean): Boolean =
       info2 match {
         case info2: ClassInfo =>
           info1 match {
@@ -1386,26 +1387,26 @@ object SymDenotations {
 
     // ----- caches -------------------------------------------------------
 
-    private[this] var myTypeParams: List[TypeSymbol] = null
-    private[this] var fullNameCache: SimpleIdentityMap[QualifiedNameKind, Name] = SimpleIdentityMap.Empty
+    private[this] var myTypeParams: Nullable[List[TypeSymbol]] = null
+    private[this] var fullNameCache: SimpleIdentityMap[QualifiedNameKind, Nullable[Name]] = SimpleIdentityMap.Empty
 
-    private[this] var myMemberCache: LRUCache[Name, PreDenotation] = null
+    private[this] var myMemberCache: Nullable[LRUCache[Nullable[Name], Nullable[PreDenotation]]] = null
     private[this] var myMemberCachePeriod: Period = Nowhere
 
     /** A cache from types T to baseType(T, C) */
     type BaseTypeMap = java.util.IdentityHashMap[CachedType, Type]
-    private[this] var myBaseTypeCache: BaseTypeMap = null
+    private[this] var myBaseTypeCache: Nullable[BaseTypeMap] = null
     private[this] var myBaseTypeCachePeriod: Period = Nowhere
 
     private var baseDataCache: BaseData = BaseData.None
     private var memberNamesCache: MemberNames = MemberNames.None
 
-    private def memberCache(implicit ctx: Context): LRUCache[Name, PreDenotation] = {
+    private def memberCache(implicit ctx: Context): LRUCache[Nullable[Name], Nullable[PreDenotation]] = {
       if (myMemberCachePeriod != ctx.period) {
         myMemberCache = new LRUCache
         myMemberCachePeriod = ctx.period
       }
-      myMemberCache
+      myMemberCache.nn
     }
 
     private def baseTypeCache(implicit ctx: Context): BaseTypeMap = {
@@ -1413,7 +1414,7 @@ object SymDenotations {
         myBaseTypeCache = new BaseTypeMap
         myBaseTypeCachePeriod = ctx.period
       }
-      myBaseTypeCache
+      myBaseTypeCache.nn
     }
 
     private def invalidateBaseDataCache() = {
@@ -1477,7 +1478,7 @@ object SymDenotations {
               case _ => typeParamsFromDecls
             }
           }
-      myTypeParams
+      myTypeParams.nn
     }
 
     override protected[dotc] final def info_=(tp: Type): Unit = {
@@ -1512,7 +1513,7 @@ object SymDenotations {
 
    // ------ class-specific operations -----------------------------------
 
-    private[this] var myThisType: Type = null
+    private[this] var myThisType: Nullable[Type] = null
 
     /** The this-type depends on the kind of class:
      *  - for a package class `p`:  ThisType(TypeRef(Noprefix, p))
@@ -1521,7 +1522,7 @@ object SymDenotations {
      */
     override def thisType(implicit ctx: Context): Type = {
       if (myThisType == null) myThisType = computeThisType
-      myThisType
+      myThisType.nn
     }
 
     private def computeThisType(implicit ctx: Context): Type = {
@@ -1530,11 +1531,11 @@ object SymDenotations {
       ThisType.raw(TypeRef(pre, cls))
     }
 
-    private[this] var myTypeRef: TypeRef = null
+    private[this] var myTypeRef: Nullable[TypeRef] = null
 
     override def typeRef(implicit ctx: Context): TypeRef = {
       if (myTypeRef == null) myTypeRef = super.typeRef
-      myTypeRef
+      myTypeRef.nn
     }
 
     override def appliedRef(implicit ctx: Context): Type = classInfo.appliedRef
@@ -1622,7 +1623,7 @@ object SymDenotations {
     /** Enter a symbol in given `scope` without potentially replacing the old copy. */
     def enterNoReplace(sym: Symbol, scope: MutableScope)(implicit ctx: Context): Unit = {
       scope.enter(sym)
-      if (myMemberCache != null) myMemberCache.invalidate(sym.name)
+      if (myMemberCache != null) myMemberCache.nn.invalidate(sym.name)
       if (!sym.flagsUNSAFE.is(Private)) invalidateMemberNamesCache()
     }
 
@@ -1632,7 +1633,7 @@ object SymDenotations {
      */
     def replace(prev: Symbol, replacement: Symbol)(implicit ctx: Context): Unit = {
       unforcedDecls.openForMutations.replace(prev, replacement)
-      if (myMemberCache != null) myMemberCache.invalidate(replacement.name)
+      if (myMemberCache != null) myMemberCache.nn.invalidate(replacement.name)
     }
 
     /** Delete symbol from current scope.
@@ -1641,7 +1642,7 @@ object SymDenotations {
      */
     def delete(sym: Symbol)(implicit ctx: Context): Unit = {
       info.decls.openForMutations.unlink(sym)
-      if (myMemberCache != null) myMemberCache.invalidate(sym.name)
+      if (myMemberCache != null) myMemberCache.nn.invalidate(sym.name)
       if (!sym.flagsUNSAFE.is(Private)) invalidateMemberNamesCache()
     }
 
@@ -1677,15 +1678,15 @@ object SymDenotations {
     final def nonPrivateMembersNamed(name: Name)(implicit ctx: Context): PreDenotation = {
       Stats.record("nonPrivateMembersNamed")
       if (Config.cacheMembersNamed) {
-        var denots: PreDenotation = memberCache lookup name
+        var denots: Nullable[PreDenotation] = memberCache lookup name
         if (denots == null) {
           denots = computeNPMembersNamed(name)
           memberCache.enter(name, denots)
         } else if (Config.checkCacheMembersNamed) {
           val denots1 = computeNPMembersNamed(name)
-          assert(denots.exists == denots1.exists, s"cache inconsistency: cached: $denots, computed $denots1, name = $name, owner = $this")
+          assert(denots.nn.exists == denots1.exists, s"cache inconsistency: cached: $denots, computed $denots1, name = $name, owner = $this")
         }
-        denots
+        denots.nn
       } else computeNPMembersNamed(name)
     }
 
@@ -2225,12 +2226,12 @@ object SymDenotations {
   private abstract class InheritedCacheImpl(val createdAt: Period) extends InheritedCache {
     protected def sameGroup(p1: Phase, p2: Phase): Boolean
 
-    private[this] var dependent: WeakHashMap[InheritedCache, Unit] = null
+    private[this] var dependent: Nullable[WeakHashMap[InheritedCache, Unit]] = null
     private[this] var checkedPeriod: Period = Nowhere
 
     protected def invalidateDependents() = {
       if (dependent != null) {
-        val it = dependent.keySet.iterator()
+        val it = dependent.nn.keySet.iterator()
         while (it.hasNext()) it.next().invalidate()
       }
       dependent = null
@@ -2238,7 +2239,7 @@ object SymDenotations {
 
     protected def addDependent(dep: InheritedCache) = {
       if (dependent == null) dependent = new WeakHashMap
-      dependent.put(dep, ())
+      dependent.nn.put(dep, ())
     }
 
     def isValidAt(phase: Phase)(implicit ctx: Context) =
@@ -2256,7 +2257,7 @@ object SymDenotations {
   }
 
   private class MemberNamesImpl(createdAt: Period) extends InheritedCacheImpl(createdAt) with MemberNames {
-    private[this] var cache: SimpleIdentityMap[NameFilter, Set[Name]] = SimpleIdentityMap.Empty
+    private[this] var cache: Nullable[SimpleIdentityMap[NameFilter, Nullable[Set[Name]]]] = SimpleIdentityMap.Empty
 
     final def isValid(implicit ctx: Context): Boolean =
       cache != null && isValidAt(ctx.phase)
@@ -2277,7 +2278,7 @@ object SymDenotations {
 
     def apply(keepOnly: NameFilter, clsd: ClassDenotation)(implicit onBehalf: MemberNames, ctx: Context) = {
       assert(isValid)
-      val cached = cache(keepOnly)
+      val cached = cache.nn(keepOnly)
       try
         if (cached != null) cached
         else {
@@ -2285,7 +2286,7 @@ object SymDenotations {
           val computed =
             try clsd.computeMemberNames(keepOnly)(this, ctx)
             finally locked = false
-          cache = cache.updated(keepOnly, computed)
+          cache = cache.nn.updated(keepOnly, computed)
           computed
         }
       finally addDependent(onBehalf)
@@ -2295,7 +2296,7 @@ object SymDenotations {
   }
 
   private class BaseDataImpl(createdAt: Period) extends InheritedCacheImpl(createdAt) with BaseData {
-    private[this] var cache: (List[ClassSymbol], BaseClassSet) = null
+    private[this] var cache: Nullable[(List[ClassSymbol], BaseClassSet)] = null
 
     private[this] var valid = true
     private[this] var locked = false
@@ -2316,7 +2317,7 @@ object SymDenotations {
         : (List[ClassSymbol], BaseClassSet) = {
       assert(isValid)
       try {
-        if (cache != null) cache
+        if (cache != null) cache.nn
         else {
           if (locked) throw CyclicReference(clsd)
           locked = true

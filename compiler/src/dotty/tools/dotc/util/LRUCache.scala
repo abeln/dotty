@@ -2,6 +2,7 @@ package dotty.tools.dotc.util
 
 import reflect.ClassTag
 import annotation.tailrec
+import scala.ExplicitNulls._
 
 /** A least-recently-used cache for Key -> Value computations
  *  It currently keeps the last 8 associations, but this can be
@@ -15,7 +16,7 @@ import annotation.tailrec
  *  get promoted to be first in the queue. Elements are evicted
  *  at the `last` position.
  */
-class LRUCache[Key >: Null <: AnyRef : ClassTag, Value >: Null: ClassTag] {
+class LRUCache[Key >: Null <: Nullable[AnyRef] : ClassTag, Value >: Null: ClassTag] {
   import LRUCache._
   val keys: Array[Key] = new Array[Key](Retained)
   val values: Array[Value] = new Array(Retained)

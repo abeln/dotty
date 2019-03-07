@@ -7,6 +7,7 @@ import scala.reflect.ClassTag
 import dotty.tools.io.AbstractFile
 import scala.language.implicitConversions
 import scala.tools.asm
+import scala.ExplicitNulls._
 
 
 /* Interface to abstract over frontend inside backend.
@@ -15,12 +16,12 @@ import scala.tools.asm
 abstract class BackendInterface extends BackendInterfaceDefinitions {
   type Flags      = Long
 
-  type Constant   >: Null <: AnyRef
-  type Symbol     >: Null <: AnyRef
-  type Type       >: Null <: AnyRef
-  type Annotation >: Null <: AnyRef
-  type Tree       >: Null <: AnyRef
-  type Modifiers  >: Null <: AnyRef
+  type Constant   >: Null <: Nullable[AnyRef]
+  type Symbol     >: Null <: Nullable[AnyRef]
+  type Type       >: Null <: Nullable[AnyRef]
+  type Annotation >: Null <: Nullable[AnyRef]
+  type Tree       >: Null <: Nullable[AnyRef]
+  type Modifiers  >: Null <: Nullable[AnyRef]
   type TypeDef    >: Null <: Tree
   type Apply      >: Null <: Tree
   type Select     >: Null <: Tree
@@ -47,9 +48,9 @@ abstract class BackendInterface extends BackendInterfaceDefinitions {
   type DefDef     >: Null <: Tree
   type ModuleDef  >: Null <: Tree
   type Template   >: Null <: Tree
-  type Name       >: Null <: AnyRef
+  type Name       >: Null <: Nullable[AnyRef]
   type Position
-  type CompilationUnit <: AnyRef
+  type CompilationUnit <: Nullable[AnyRef]
   type Bind         >: Null <: Tree
   type New          >: Null <: Tree
   type ApplyDynamic >: Null <: Tree
@@ -229,7 +230,7 @@ abstract class BackendInterface extends BackendInterfaceDefinitions {
   val ClassDef: ClassDefDeconstructor
   val Closure: ClosureDeconstructor
 
-  abstract class DeconstructorCommon[T >: Null <: AnyRef] {
+  abstract class DeconstructorCommon[T >: Null <: Nullable[AnyRef]] {
     var field: T = null
     def get: this.type = this
     def isEmpty: Boolean = field eq null
@@ -240,7 +241,7 @@ abstract class BackendInterface extends BackendInterfaceDefinitions {
     }
   }
 
-  abstract class Deconstructor1Common[T >: Null <: AnyRef, R]{
+  abstract class Deconstructor1Common[T >: Null <: Nullable[AnyRef], R]{
     var field: T = _
     def get: R
     def isEmpty: Boolean = field eq null
