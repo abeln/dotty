@@ -48,7 +48,10 @@ object ExplicitNulls {
        *  nullable elements).
        */
       def copyOf[T <: AnyRef|Null](original: Array[T], newLength: Int): Array[T] = {
-        java.util.Arrays.copyOf(original.asInstanceOf[Array[T|Null]], newLength).nn.asInstanceOf[Array[T]]
+        // When casting `original`, we used to do `original.asInstanceOf[Array[T|Null]]` (`T` instead of `Object`),
+        // but that leads to compilation errors during `dotty-bootstrapped/compile`.
+        // TODO(abeln): figure out why.
+        java.util.Arrays.copyOf(original.asInstanceOf[Array[Object|Null]], newLength).nn.asInstanceOf[Array[T]]
       }
     }
   }
