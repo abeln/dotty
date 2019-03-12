@@ -977,13 +977,13 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object Assign extends AssignDeconstructor {
-    def _1: Tree = field.lhs
-    def _2: Tree = field.rhs
+    def _1: Tree = field.nn.lhs
+    def _2: Tree = field.nn.rhs
   }
 
   object Select extends SelectDeconstructor {
 
-    var desugared: Nullable[tpd.Select] = null
+    var desugared: Nullable[tpd.Select] = _
 
     override def isEmpty: Boolean =
       desugared eq null
@@ -1008,21 +1008,21 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object Apply extends ApplyDeconstructor {
-    def _1: Tree = field.fun
-    def _2: List[Tree] = field.args
+    def _1: Tree = field.nn.fun
+    def _2: List[Tree] = field.nn.args
   }
 
   object If extends IfDeconstructor {
-    def _1: Tree = field.cond
-    def _2: Tree = field.thenp
-    def _3: Tree = field.elsep
+    def _1: Tree = field.nn.cond
+    def _2: Tree = field.nn.thenp
+    def _3: Tree = field.nn.elsep
   }
 
   object ValDef extends ValDefDeconstructor {
     def _1: Modifiers = null
-    def _2: Name = field.name
-    def _3: Tree = field.tpt
-    def _4: Tree = field.rhs
+    def _2: Name = field.nn.name
+    def _3: Tree = field.nn.tpt
+    def _4: Tree = field.nn.rhs
   }
 
   object ApplyDynamic extends ApplyDynamicDeconstructor {
@@ -1032,11 +1032,11 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
   // todo: this product1s should also eventually become name-based pattn matching
   object Literal extends LiteralDeconstructor {
-    def get: Constant = field.const
+    def get: Constant = field.nn.const
   }
 
   object Throw extends ThrowDeconstructor {
-    def get: Tree = field.args.head
+    def get: Tree = field.nn.args.head
 
     override def unapply(s: Throw): Throw.type = {
       if (s.fun.symbol eq defn.throwMethod) {
@@ -1049,48 +1049,48 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object New extends NewDeconstructor {
-    def get: Type = field.tpt.tpe
+    def get: Type = field.nn.tpt.tpe
   }
 
   object This extends ThisDeconstructor {
-    def get: Name = field.qual.name
+    def get: Name = field.nn.qual.name
     def apply(s: Symbol): This = tpd.This(s.asClass)
   }
 
   object Labeled extends LabeledDeconstructor {
-    def _1: Bind = field.bind
-    def _2: Tree = field.expr
+    def _1: Bind = field.nn.bind
+    def _2: Tree = field.nn.expr
   }
 
   object Return extends ReturnDeconstructor {
-    def _1: Tree = field.expr
-    def _2: Symbol = if (field.from.symbol.isLabel) field.from.symbol else NoSymbol
+    def _1: Tree = field.nn.expr
+    def _2: Symbol = if (field.nn.from.symbol.isLabel) field.nn.from.symbol else NoSymbol
   }
 
   object WhileDo extends WhileDoDeconstructor {
-    def _1: Tree = field.cond
-    def _2: Tree = field.body
+    def _1: Tree = field.nn.cond
+    def _2: Tree = field.nn.body
   }
 
   object Ident extends IdentDeconstructor {
-    def get: Name = field.name
+    def get: Name = field.nn.name
   }
 
   object Alternative extends AlternativeDeconstructor {
-    def get: List[Tree] = field.trees
+    def get: List[Tree] = field.nn.trees
   }
 
   object Constant extends ConstantDeconstructor {
-    def get: Any = field.value
+    def get: Any = field.nn.value
   }
   object ThrownException extends ThrownException {
     def unapply(a: Annotation): Option[Symbol] = None // todo
   }
 
   object Try extends TryDeconstructor {
-    def _1: Tree = field.expr
-    def _2: List[Tree] = field.cases
-    def _3: Tree = field.finalizer
+    def _1: Tree = field.nn.expr
+    def _2: List[Tree] = field.nn.cases
+    def _3: Tree = field.nn.finalizer
   }
 
   object LabelDef extends LabelDeconstructor {
@@ -1100,47 +1100,47 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object Typed extends TypedDeconstrutor {
-    def _1: Tree = field.expr
-    def _2: Tree = field.tpt
+    def _1: Tree = field.nn.expr
+    def _2: Tree = field.nn.tpt
   }
   object Super extends SuperDeconstructor {
-    def _1: Tree = field.qual
-    def _2: Name = field.mix.name
+    def _1: Tree = field.nn.qual
+    def _2: Name = field.nn.mix.name
   }
   object ArrayValue extends ArrayValueDeconstructor {
-    def _1: Type = field.tpe match {
+    def _1: Type = field.nn.tpe match {
       case JavaArrayType(elem) => elem
       case _ =>
-        error(field.span, s"JavaSeqArray with type ${field.tpe} reached backend: $field")
+        error(field.nn.span, s"JavaSeqArray with type ${field.nn.tpe} reached backend: $field")
         UnspecifiedErrorType
     }
-    def _2: List[Tree] = field.elems
+    def _2: List[Tree] = field.nn.elems
   }
   object Match extends MatchDeconstructor {
-    def _1: Tree = field.selector
-    def _2: List[Tree] = field.cases
+    def _1: Tree = field.nn.selector
+    def _2: List[Tree] = field.nn.cases
   }
   object Block extends BlockDeconstructor {
-    def _1: List[Tree] = field.stats
-    def _2: Tree = field.expr
+    def _1: List[Tree] = field.nn.stats
+    def _2: Tree = field.nn.expr
   }
   object TypeApply extends TypeApplyDeconstructor {
-    def _1: Tree = field.fun
-    def _2: List[Tree] = field.args
+    def _1: Tree = field.nn.fun
+    def _2: List[Tree] = field.nn.args
   }
   object CaseDef extends CaseDeconstructor {
-    def _1: Tree = field.pat
-    def _2: Tree = field.guard
-    def _3: Tree = field.body
+    def _1: Tree = field.nn.pat
+    def _2: Tree = field.nn.guard
+    def _3: Tree = field.nn.body
   }
 
   object DefDef extends DefDefDeconstructor {
     def _1: Modifiers = null
-    def _2: Name = field.name
-    def _3: List[TypeDef] = field.tparams
-    def _4: List[List[ValDef]] = field.vparamss
-    def _5: Tree = field.tpt
-    def _6: Tree = field.rhs
+    def _2: Name = field.nn.name
+    def _3: List[TypeDef] = field.nn.tparams
+    def _4: List[List[ValDef]] = field.nn.vparamss
+    def _5: Tree = field.nn.tpt
+    def _6: Tree = field.nn.rhs
   }
 
   object ModuleDef extends ModuleDefDeconstructor {
@@ -1150,34 +1150,34 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object Template extends TemplateDeconstructor {
-    def _1: List[Tree] = field.parents
-    def _2: ValDef = field.self
+    def _1: List[Tree] = field.nn.parents
+    def _2: ValDef = field.nn.self
     def _3: List[Tree] =
-      if (field.constr.rhs.isEmpty) field.body
-      else field.constr :: field.body
+      if (field.nn.constr.rhs.isEmpty) field.nn.body
+      else field.nn.constr :: field.nn.body
   }
 
   object Bind extends BindDeconstructor {
-    def _1: Name = field.name
-    def _2: Tree = field.body
+    def _1: Name = field.nn.name
+    def _2: Tree = field.nn.body
   }
 
   object ClassDef extends ClassDefDeconstructor {
     def _1: Modifiers = null
-    def _2: Name = field.name
-    def _4: Template = field.rhs.asInstanceOf[Template]
+    def _2: Name = field.nn.name
+    def _4: Template = field.nn.rhs.asInstanceOf[Template]
     def _3: List[TypeDef] = Nil
   }
 
   object Closure extends ClosureDeconstructor {
-    def _1: List[Tree] = field.env
-    def _2: Tree = field.meth
+    def _1: List[Tree] = field.nn.env
+    def _2: Tree = field.nn.meth
     def _3: Symbol = {
-      val t = field.tpt.tpe.typeSymbol
+      val t = field.nn.tpt.tpe.typeSymbol
       if (t.exists) t
       else {
-        val arity = field.meth.tpe.widenDealias.paramTypes.size - _1.size
-        val returnsUnit = field.meth.tpe.widenDealias.resultType.classSymbol == UnitClass
+        val arity = field.nn.meth.tpe.widenDealias.paramTypes.size - _1.size
+        val returnsUnit = field.nn.meth.tpe.widenDealias.resultType.classSymbol == UnitClass
         if (returnsUnit)
           ctx.requiredClass(("dotty.runtime.function.JProcedure" + arity))
         else ctx.requiredClass(("dotty.runtime.function.JFunction" + arity))
