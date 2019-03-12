@@ -918,8 +918,15 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
             if (typedArgs.length <= pt.paramInfos.length && !isNamed)
               if (typedFn.symbol == defn.Predef_classOf && typedArgs.nonEmpty) {
                 val arg = typedArgs.head
-                if (!arg.symbol.is(Module)) // Allow `classOf[Foo.type]` if `Foo` is an object
-                  checkClassType(arg.tpe, arg.sourcePos, traitReq = false, stablePrefixReq = false)
+                if (!arg.symbol.is(Module)) { // Allow `classOf[Foo.type]` if `Foo` is an object
+                  val argTpe = if (ctx.settings.YexplicitNulls.value) {
+                    // Allow e.g. `classOf[String|Null]`, which is post-erasure `String`.
+                    arg.tpe.stripNull
+                  } else {
+                    arg.tpe
+                  }
+                  checkClassType(argTpe, arg.sourcePos, traitReq = false, stablePrefixReq = false)
+                }
               }
           case _ =>
         }
