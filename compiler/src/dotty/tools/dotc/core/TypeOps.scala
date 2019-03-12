@@ -15,6 +15,7 @@ import reporting.trace
 import reporting.diagnostic.Message
 
 import scala.annotation.internal.sharable
+import scala.ExplicitNulls._
 
 trait TypeOps { this: Context => // TODO: Make standalone object.
 
@@ -75,7 +76,7 @@ trait TypeOps { this: Context => // TODO: Make standalone object.
     pre.isStable || !ctx.phase.isTyper
 
   /** Implementation of Types#simplified */
-  final def simplify(tp: Type, theMap: SimplifyMap): Type = {
+  final def simplify(tp: Type, theMap: Nullable[SimplifyMap]): Type = {
     def mapOver = (if (theMap != null) theMap else new SimplifyMap).mapOver(tp)
     tp match {
       case tp: NamedType =>
@@ -132,7 +133,7 @@ trait TypeOps { this: Context => // TODO: Make standalone object.
 
     /** a faster version of cs1 intersect cs2 */
     def intersect(cs1: List[ClassSymbol], cs2: List[ClassSymbol]): List[ClassSymbol] = {
-      val cs2AsSet = new util.HashSet[ClassSymbol](128)
+      val cs2AsSet = new util.HashSet[Nullable[ClassSymbol]](128)
       cs2.foreach(cs2AsSet.addEntry)
       cs1.filter(cs2AsSet.contains)
     }

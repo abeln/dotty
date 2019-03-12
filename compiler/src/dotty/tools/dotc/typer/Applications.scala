@@ -31,6 +31,7 @@ import dotty.tools.dotc.reporting.diagnostic.messages.{UnapplyInvalidReturnType,
 import Denotations.SingleDenotation
 import annotation.constructorOnly
 import dotty.tools.dotc.core.FlowFacts.Inferred
+import scala.ExplicitNulls._
 
 object Applications {
   import tpd._
@@ -160,7 +161,7 @@ object Applications {
     }
   }
 
-  def wrapDefs(defs: mutable.ListBuffer[Tree], tree: Tree)(implicit ctx: Context): Tree =
+  def wrapDefs(defs: Nullable[mutable.ListBuffer[Tree]], tree: Tree)(implicit ctx: Context): Tree =
     if (defs != null && defs.nonEmpty) tpd.Block(defs.toList, tree) else tree
 
   /** A wrapper indicating that its argument is an application of an extension method.
@@ -625,7 +626,7 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
     type TypedArg = Tree
     def isVarArg(arg: Trees.Tree[T]): Boolean = untpd.isWildcardStarArg(arg)
     private[this] var typedArgBuf = new mutable.ListBuffer[Tree]
-    private[this] var liftedDefs: mutable.ListBuffer[Tree] = null
+    private[this] var liftedDefs: Nullable[mutable.ListBuffer[Tree]] = null
     private[this] var myNormalizedFun: Tree = fun
     init()
 
@@ -661,7 +662,7 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
     override def liftFun(): Unit =
       if (liftedDefs == null) {
         liftedDefs = new mutable.ListBuffer[Tree]
-        myNormalizedFun = lifter.liftApp(liftedDefs, myNormalizedFun)
+        myNormalizedFun = lifter.liftApp(liftedDefs.nn, myNormalizedFun)
       }
 
     /** The index of the first difference between lists of trees `xs` and `ys`
@@ -713,7 +714,7 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
               scala.util.Sorting.stableSort[(Tree, Int), Int](argDefBuf zip indices, x => x._2).map(_._1)
             }
 
-            liftedDefs ++= orderedArgDefs
+            liftedDefs.nn ++= orderedArgDefs
           }
           if (sameSeq(typedArgs, args)) // trick to cut down on tree copying
             typedArgs = args.asInstanceOf[List[Tree]]

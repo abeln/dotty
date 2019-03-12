@@ -69,13 +69,18 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   type Bind            = tpd.Bind
   type New             = tpd.New
   type Super           = tpd.Super
-  type Modifiers       = Null
+  type Modifiers       = Dummy
   type Annotation      = Annotations.Annotation
   type ArrayValue      = tpd.JavaSeqLiteral
-  type ApplyDynamic    = Null
-  type ModuleDef       = Null
-  type LabelDef        = Null
+  type ApplyDynamic    = Dummy
+  type ModuleDef       = Dummy
+  type LabelDef        = Dummy
   type Closure         = tpd.Closure
+
+  /** Dummy class to use for trees we don't need.
+   *  TODO(abeln): remove this hack.
+   */
+  abstract class Dummy extends tpd.Tree
 
   val NoSymbol: Symbol = Symbols.NoSymbol
   val NoPosition: Position = Spans.NoSpan
@@ -1019,7 +1024,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object ValDef extends ValDefDeconstructor {
-    def _1: Modifiers = null
+    def _1: Nullable[Modifiers] = null
     def _2: Name = field.nn.name
     def _3: Tree = field.nn.tpt
     def _4: Tree = field.nn.rhs
@@ -1135,7 +1140,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object DefDef extends DefDefDeconstructor {
-    def _1: Modifiers = null
+    def _1: Nullable[Modifiers] = null
     def _2: Name = field.nn.name
     def _3: List[TypeDef] = field.nn.tparams
     def _4: List[List[ValDef]] = field.nn.vparamss
@@ -1163,7 +1168,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   object ClassDef extends ClassDefDeconstructor {
-    def _1: Modifiers = null
+    def _1: Nullable[Modifiers] = null
     def _2: Name = field.nn.name
     def _4: Template = field.nn.rhs.asInstanceOf[Template]
     def _3: List[TypeDef] = Nil

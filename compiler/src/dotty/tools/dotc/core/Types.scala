@@ -36,6 +36,7 @@ import java.lang.ref.WeakReference
 import dotty.tools.dotc.transform.SymUtils._
 
 import scala.annotation.internal.sharable
+import scala.ExplicitNulls._
 
 object Types {
 
@@ -1685,13 +1686,13 @@ object Types {
      *  We usually override `equals` when we override `iso` except if the
      *  `equals` comes from a case class, so it already has the right definition anyway.
      */
-    final def equals(that: Any, bs: BinderPairs): Boolean =
+    final def equals(that: Any, bs: Nullable[BinderPairs]): Boolean =
       (this `eq` that.asInstanceOf[AnyRef]) || this.iso(that, bs)
 
     /** Is `this` isomorphic to `that`, assuming pairs of matching binders `bs`?
      *  It is assumed that `this.ne(that)`.
      */
-    protected def iso(that: Any, bs: BinderPairs): Boolean = this.equals(that)
+    protected def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = this.equals(that)
 
     /** Equality used for hash-consing; uses `eq` on all recursive invocations,
      *  except where a BindingType is involved. The latter demand a deep isomorphism check.
@@ -1705,7 +1706,7 @@ object Types {
     def hash: Int
 
     /** Compute hashcode relative to enclosing binders `bs` */
-    def computeHash(bs: Binders): Int
+    def computeHash(bs: Nullable[Binders]): Int
 
     /** Is the `hash` of this type the same for all possible sequences of enclosing binders? */
     def stableHash: Boolean = true
@@ -1849,10 +1850,10 @@ object Types {
 
   /** Implementations of this trait cache the results of `narrow`. */
   trait NarrowCached extends Type {
-    private[this] var myNarrow: TermRef = null
+    private[this] var myNarrow: Nullable[TermRef] = null
     override def narrow(implicit ctx: Context): TermRef = {
       if (myNarrow eq null) myNarrow = super.narrow
-      myNarrow
+      myNarrow.nn
     }
   }
 
@@ -1869,9 +1870,9 @@ object Types {
 
     assert(prefix.isValueType || (prefix eq NoPrefix), s"invalid prefix $prefix")
 
-    private[this] var myName: Name = null
-    private[this] var lastDenotation: Denotation = null
-    private[this] var lastSymbol: Symbol = null
+    private[this] var myName: Nullable[Name] = null
+    private[this] var lastDenotation: Nullable[Denotation] = null
+    private[this] var lastSymbol: Nullable[Symbol] = null
     private[this] var checkedPeriod: Period = Nowhere
     private[this] var myStableHash: Byte = 0
 
@@ -1931,21 +1932,21 @@ object Types {
     final def symbol(implicit ctx: Context): Symbol =
       // We can rely on checkedPeriod (unlike in the definition of `denot` below)
       // because SymDenotation#installAfter never changes the symbol
-      if (checkedPeriod == ctx.period) lastSymbol else computeSymbol
+      if (checkedPeriod == ctx.period) lastSymbol.nn else computeSymbol
 
     private def computeSymbol(implicit ctx: Context): Symbol =
       designator match {
         case sym: Symbol =>
           if (sym.isValidInCurrentRun) sym else denot.symbol
         case name =>
-          (if (denotationIsCurrent) lastDenotation else denot).symbol
+          (if (denotationIsCurrent) lastDenotation.nn else denot).symbol
       }
 
     /** There is a denotation computed which is valid (somewhere in) the
      *  current run.
      */
     def denotationIsCurrent(implicit ctx: Context): Boolean =
-      lastDenotation != null && lastDenotation.validFor.runId == ctx.runId
+      lastDenotation != null && lastDenotation.nn.validFor.runId == ctx.runId
 
     /** If the reference is symbolic or the denotation is current, its symbol, otherwise NoDenotation.
      *
@@ -1958,7 +1959,7 @@ object Types {
      */
     final def currentSymbol(implicit ctx: Context): Symbol = designator match {
       case sym: Symbol => sym
-      case _ => if (denotationIsCurrent) lastDenotation.symbol else NoSymbol
+      case _ => if (denotationIsCurrent) lastDenotation.nn.symbol else NoSymbol
     }
 
     /** Retrieves currently valid symbol without necessarily updating denotation.
@@ -1966,7 +1967,7 @@ object Types {
      *  Used to get the class underlying a ThisType.
      */
     private[Types] def stableInRunSymbol(implicit ctx: Context): Symbol = {
-      if (checkedPeriod.runId == ctx.runId) lastSymbol
+      if (checkedPeriod.runId == ctx.runId) lastSymbol.nn
       else symbol
     }
 
@@ -1977,9 +1978,9 @@ object Types {
       val now = ctx.period
       // Even if checkedPeriod == now we still need to recheck lastDenotation.validFor
       // as it may have been mutated by SymDenotation#installAfter
-      if (checkedPeriod != Nowhere && lastDenotation.validFor.contains(now)) {
+      if (checkedPeriod != Nowhere && lastDenotation.nn.validFor.contains(now)) {
         checkedPeriod = now
-        lastDenotation
+        lastDenotation.nn
       }
       else computeDenot
     }
@@ -2135,6 +2136,7 @@ object Types {
     private def checkSymAssign(sym: Symbol)(implicit ctx: Context) = {
       def selfTypeOf(sym: Symbol) =
         if (sym.isClass) sym.asClass.givenSelfType else NoType
+      lazy val lastSymbol1 = lastSymbol.nn
       assert(
         (lastSymbol eq sym)
         ||
@@ -2142,26 +2144,26 @@ object Types {
         ||
         !denotationIsCurrent
         ||
-        lastSymbol.infoOrCompleter.isInstanceOf[ErrorType]
+        lastSymbol1.infoOrCompleter.isInstanceOf[ErrorType]
         ||
         !sym.exists
         ||
-        !lastSymbol.exists
+        !lastSymbol1.exists
         ||
         sym.isPackageObject // package objects can be visited before we get around to index them
         ||
-        sym.owner != lastSymbol.owner &&
-          (sym.owner.derivesFrom(lastSymbol.owner)
+        sym.owner != lastSymbol1.owner &&
+          (sym.owner.derivesFrom(lastSymbol1.owner)
            ||
-           selfTypeOf(sym).derivesFrom(lastSymbol.owner)
+           selfTypeOf(sym).derivesFrom(lastSymbol1.owner)
            ||
-           selfTypeOf(lastSymbol).derivesFrom(sym.owner)
+           selfTypeOf(lastSymbol1).derivesFrom(sym.owner)
           )
         ||
         sym == defn.AnyClass.primaryConstructor,
         s"""data race? overwriting $lastSymbol with $sym in type $this,
-           |last sym id = ${lastSymbol.id}, new sym id = ${sym.id},
-           |last owner = ${lastSymbol.owner}, new owner = ${sym.owner},
+           |last sym id = ${lastSymbol1.id}, new sym id = ${sym.id},
+           |last owner = ${lastSymbol1.owner}, new owner = ${sym.owner},
            |period = ${ctx.phase} at run ${ctx.runId}""")
     }
 
@@ -2347,12 +2349,13 @@ object Types {
     /** A reference like this one, but with the given prefix. */
     final def withPrefix(prefix: Type)(implicit ctx: Context): NamedType = {
       def reload(): NamedType = {
-        val allowPrivate = !lastSymbol.exists || lastSymbol.is(Private) && prefix.classSymbol == this.prefix.classSymbol
+        val lastSymbol1 = lastSymbol.nn
+        val allowPrivate = !lastSymbol1.exists || lastSymbol1.is(Private) && prefix.classSymbol == this.prefix.classSymbol
         var d = memberDenot(prefix, name, allowPrivate)
-        if (d.isOverloaded && lastSymbol.exists)
+        if (d.isOverloaded && lastSymbol1.exists)
           d = disambiguate(d,
-                if (lastSymbol.signature == Signature.NotAMethod) Signature.NotAMethod
-                else lastSymbol.asSeenFrom(prefix).signature)
+                if (lastSymbol1.signature == Signature.NotAMethod) Signature.NotAMethod
+                else lastSymbol1.asSeenFrom(prefix).signature)
         NamedType(prefix, name, d)
       }
       if (prefix eq this.prefix) this
@@ -2636,17 +2639,17 @@ object Types {
     }
   }
 
-  case class LazyRef(private var refFn: Context => Type) extends UncachedProxyType with ValueType {
-    private[this] var myRef: Type = null
+  case class LazyRef(private var refFn: Nullable[Context => Type]) extends UncachedProxyType with ValueType {
+    private[this] var myRef: Nullable[Type] = null
     private[this] var computed = false
     def ref(implicit ctx: Context): Type = {
       if (computed) assert(myRef != null)
       else {
         computed = true
-        myRef = refFn(ctx)
+        myRef = refFn.nn(ctx)
         refFn = null
       }
-      myRef
+      myRef.nn
     }
     def evaluating: Boolean = computed && myRef == null
     def completed: Boolean = myRef != null
@@ -2757,11 +2760,11 @@ object Types {
 
     val parent: Type = parentExp(this)
 
-    private[this] var myRecThis: RecThis = null
+    private[this] var myRecThis: Nullable[RecThis] = null
 
     def recThis: RecThis = {
       if (myRecThis == null) myRecThis = new RecThisImpl(this)
-      myRecThis
+      myRecThis.nn
     }
 
     override def underlying(implicit ctx: Context): Type = parent
@@ -3087,11 +3090,11 @@ object Types {
     final def isTypeLambda: Boolean = isInstanceOf[TypeLambda]
     final def isHigherKinded: Boolean = isInstanceOf[TypeProxy]
 
-    private[this] var myParamRefs: List[ParamRefType] = null
+    private[this] var myParamRefs: Nullable[List[ParamRefType]] = null
 
     def paramRefs: List[ParamRefType] = {
       if (myParamRefs == null) myParamRefs = paramNames.indices.toList.map(newParamRef)
-      myParamRefs
+      myParamRefs.nn
     }
 
     /** Like `paramInfos` but substitute parameter references with the given arguments */
@@ -3834,10 +3837,10 @@ object Types {
 
     def withName(name: Name): this.type = { myRepr = name; this }
 
-    private[this] var myRepr: Name = null
+    private[this] var myRepr: Nullable[Name] = null
     def repr(implicit ctx: Context): Name = {
       if (myRepr == null) myRepr = SkolemName.fresh()
-      myRepr
+      myRepr.nn
     }
 
     override def toString: String = s"Skolem($hashCode)"
@@ -3871,7 +3874,7 @@ object Types {
     private[core] def inst_=(tp: Type): Unit = {
       myInst = tp
       if (tp.exists && (owningState ne null)) {
-        owningState.get.ownedVars -= this
+        owningState.nn.get.ownedVars -= this
         owningState = null // no longer needed; null out to avoid a memory leak
       }
     }
@@ -3879,7 +3882,7 @@ object Types {
     /** The state owning the variable. This is at first `creatorState`, but it can
      *  be changed to an enclosing state on a commit.
      */
-    private[core] var owningState: WeakReference[TyperState] =
+    private[core] var owningState: Nullable[WeakReference[TyperState]] =
       if (creatorState == null) null else new WeakReference(creatorState)
 
     /** The instance type of this variable, or NoType if the variable is currently
@@ -3895,7 +3898,7 @@ object Types {
     def instantiateWith(tp: Type)(implicit ctx: Context): Type = {
       assert(tp ne this, s"self instantiation of ${tp.show}, constraint = ${ctx.typerState.constraint.show}")
       typr.println(s"instantiating ${this.show} with ${tp.show}")
-      if ((ctx.typerState eq owningState.get) && !ctx.typeComparer.subtypeCheckInProgress)
+      if ((ctx.typerState eq owningState.nn.get) && !ctx.typeComparer.subtypeCheckInProgress)
         inst = tp
       ctx.typerState.constraint = ctx.typerState.constraint.replace(origin, tp)
       tp
@@ -3964,8 +3967,8 @@ object Types {
     def alternatives(implicit ctx: Context): List[Type] = cases.map(caseType)
     def underlying(implicit ctx: Context): Type = bound
 
-    private[this] var myReduced: Type = null
-    private[this] var reductionContext: mutable.Map[Type, Type] = null
+    private[this] var myReduced: Nullable[Type] = null
+    private[this] var reductionContext: Nullable[mutable.Map[Type, Type]] = null
 
     override def tryNormalize(implicit ctx: Context): Type = reduced.normalized
 
@@ -4021,13 +4024,13 @@ object Types {
       def updateReductionContext() = {
         reductionContext = new mutable.HashMap
         for (tp <- cmp.footprint)
-          reductionContext(tp) = contextInfo(tp)
+          reductionContext.nn(tp) = contextInfo(tp)
         typr.println(i"footprint for $this $hashCode: ${cmp.footprint.toList.map(x => (x, contextInfo(x)))}%, %")
       }
 
       def upToDate =
-        reductionContext.keysIterator.forall { tp =>
-          reductionContext(tp) `eq` contextInfo(tp)
+        reductionContext.nn.keysIterator.forall { tp =>
+          reductionContext.nn(tp) `eq` contextInfo(tp)
         }
 
       record("MatchType.reduce called")
@@ -4047,7 +4050,7 @@ object Types {
           }
         updateReductionContext()
       }
-      myReduced
+      myReduced.nn
     }
 
     override def computeHash(bs: Binders): Int = doHash(bs, scrutinee, bound :: cases)
@@ -4088,8 +4091,8 @@ object Types {
       decls: Scope,
       selfInfo: TypeOrSymbol) extends CachedGroundType with TypeType {
 
-    private[this] var selfTypeCache: Type = null
-    private[this] var appliedRefCache: Type = null
+    private[this] var selfTypeCache: Nullable[Type] = null
+    private[this] var appliedRefCache: Nullable[Type] = null
 
     /** The self type of a class is the conjunction of
      *   - the explicit self type if given (or the info of a given self symbol), and
@@ -4104,23 +4107,23 @@ object Types {
           else if (ctx.erasedTypes) appliedRef
           else AndType(givenSelf, appliedRef)
         }
-      selfTypeCache
+      selfTypeCache.nn
     }
 
     def appliedRef(implicit ctx: Context): Type = {
       if (appliedRefCache == null)
         appliedRefCache =
           TypeRef(prefix, cls).appliedTo(cls.typeParams.map(_.typeRef))
-      appliedRefCache
+      appliedRefCache.nn
     }
 
     // cached because baseType needs parents
-    private[this] var parentsCache: List[Type] = null
+    private[this] var parentsCache: Nullable[List[Type]] = null
 
     override def parents(implicit ctx: Context): List[Type] = {
       if (parentsCache == null)
         parentsCache = classParents.mapConserve(_.asSeenFrom(prefix, cls.owner))
-      parentsCache
+      parentsCache.nn
     }
 
     def derivedClassInfo(prefix: Type)(implicit ctx: Context): ClassInfo =
@@ -4371,6 +4374,12 @@ object Types {
   @sharable case object NoType extends CachedGroundType {
     override def computeHash(bs: Binders): Int = hashSeed
   }
+
+  /** The type of untyped trees. No element of this type is ever instantiated: the type
+   *  itself just needs to be a subtype of `Type` so that `Tree[Type] <: Tree[Untyped]`.
+   *  TODO(abeln): should we use `NoType` or `Nothing` instead of this?
+   */
+  class Untyped extends UncachedGroundType
 
   /** Missing prefix */
   @sharable case object NoPrefix extends CachedGroundType {
@@ -5143,9 +5152,9 @@ object Types {
     (implicit ctx: Context) extends TypeAccumulator[mutable.Set[NamedType]] {
     override def stopAtStatic: Boolean = false
     def maybeAdd(x: mutable.Set[NamedType], tp: NamedType): mutable.Set[NamedType] = if (p(tp)) x += tp else x
-    val seen: util.HashSet[Type] = new util.HashSet[Type](64) {
-      override def hash(x: Type): Int = System.identityHashCode(x)
-      override def isEqual(x: Type, y: Type) = x.eq(y)
+    val seen: util.HashSet[Nullable[Type]] = new util.HashSet[Nullable[Type]](64) {
+      override def hash(x: Nullable[Type]): Int = System.identityHashCode(x)
+      override def isEqual(x: Nullable[Type], y: Nullable[Type]) = x.eq(y)
     }
     def apply(x: mutable.Set[NamedType], tp: Type): mutable.Set[NamedType] =
       if (seen contains tp) x
