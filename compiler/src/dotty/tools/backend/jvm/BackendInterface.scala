@@ -16,46 +16,46 @@ import scala.ExplicitNulls._
 abstract class BackendInterface extends BackendInterfaceDefinitions {
   type Flags      = Long
 
-  type Constant   <: AnyRef
-  type Symbol     >: Null <: AnyRef
-  type Type       <: AnyRef
-  type Annotation <: AnyRef
-  type Tree       >: Null <: AnyRef
-  type Modifiers  <: AnyRef
-  type TypeDef    <: Tree
-  type Apply      <: Tree
-  type Select     <: Tree
-  type TypeApply  <: Tree
-  type ClassDef   <: Tree
-  type Try        <: Tree
-  type Assign     <: Tree
-  type Ident      <: Tree
-  type If         <: Tree
-  type LabelDef   <: Tree
-  type ValDef     <: Tree
-  type Throw      <: Tree
-  type Labeled    <: Tree
-  type Return     <: Tree
-  type WhileDo    <: Tree
-  type Literal    <: Tree
-  type Block      <: Tree
-  type Typed      <: Tree
-  type ArrayValue <: Tree
-  type Match       <: Tree
-  type This        <: Tree
-  type CaseDef     <: Tree
-  type Alternative <: Tree
-  type DefDef     <: Tree
-  type ModuleDef  <: Tree
-  type Template   <: Tree
-  type Name       <: AnyRef
+  type Constant   >: Null <: Nullable[AnyRef]
+  type Symbol     >: Null <: Nullable[AnyRef]
+  type Type       >: Null <: Nullable[AnyRef]
+  type Annotation >: Null <: Nullable[AnyRef]
+  type Tree       >: Null <: Nullable[AnyRef]
+  type Modifiers  >: Null <: Nullable[AnyRef]
+  type TypeDef    >: Null <: Tree
+  type Apply      >: Null <: Tree
+  type Select     >: Null <: Tree
+  type TypeApply  >: Null <: Tree
+  type ClassDef   >: Null <: Tree
+  type Try        >: Null <: Tree
+  type Assign     >: Null <: Tree
+  type Ident      >: Null <: Tree
+  type If         >: Null <: Tree
+  type LabelDef   >: Null <: Tree
+  type ValDef     >: Null <: Tree
+  type Throw      >: Null <: Tree
+  type Labeled    >: Null <: Tree
+  type Return     >: Null <: Tree
+  type WhileDo    >: Null <: Tree
+  type Literal    >: Null <: Tree
+  type Block      >: Null <: Tree
+  type Typed      >: Null <: Tree
+  type ArrayValue >: Null <: Tree
+  type Match       >: Null <: Tree
+  type This        >: Null <: Tree
+  type CaseDef     >: Null <: Tree
+  type Alternative >: Null <: Tree
+  type DefDef     >: Null <: Tree
+  type ModuleDef  >: Null <: Tree
+  type Template   >: Null <: Tree
+  type Name       >: Null <: Nullable[AnyRef]
   type Position
   type CompilationUnit <: AnyRef
-  type Bind         <: Tree
-  type New          <: Tree
-  type ApplyDynamic <: Tree
-  type Super        <: Tree
-  type Closure      <: Tree
+  type Bind         >: Null <: Tree
+  type New          >: Null <: Tree
+  type ApplyDynamic >: Null <: Tree
+  type Super        >: Null <: Tree
+  type Closure      >: Null <: Tree
 
 
   implicit val TypeDefTag: ClassTag[TypeDef]
@@ -171,8 +171,8 @@ abstract class BackendInterface extends BackendInterfaceDefinitions {
   /* backend actually uses free names to generate stuff. This should NOT mangled */
   def newTermName(prefix: String): Name
 
-  def getGenericSignature(sym: Symbol, owner:Symbol): String
-  def getStaticForwarderGenericSignature(sym: Symbol, moduleClass: Symbol): String
+  def getGenericSignature(sym: Symbol, owner:Symbol): Nullable[String]
+  def getStaticForwarderGenericSignature(sym: Symbol, moduleClass: Symbol): Nullable[String]
 
   def isBox(sym: Symbol): Boolean
   def isUnbox(sym: Symbol): Boolean
@@ -230,8 +230,8 @@ abstract class BackendInterface extends BackendInterfaceDefinitions {
   val ClassDef: ClassDefDeconstructor
   val Closure: ClosureDeconstructor
 
-  abstract class DeconstructorCommon[T <: AnyRef] {
-    var field: Nullable[T] = _
+  abstract class DeconstructorCommon[T >: Null <: Nullable[AnyRef]] {
+    var field: T = null
     def get: this.type = this
     def isEmpty: Boolean = field eq null
     def isDefined = !isEmpty
@@ -241,8 +241,8 @@ abstract class BackendInterface extends BackendInterfaceDefinitions {
     }
   }
 
-  abstract class Deconstructor1Common[T <: AnyRef, R]{
-    var field: Nullable[T] = _
+  abstract class Deconstructor1Common[T >: Null <: Nullable[AnyRef], R]{
+    var field: T = null
     def get: R
     def isEmpty: Boolean = field eq null
     def isDefined = !isEmpty
@@ -642,7 +642,7 @@ abstract class BackendInterface extends BackendInterfaceDefinitions {
     def atp: Type
     def symbol: Symbol
     def args: List[Tree]
-    def assocs: List[(Name, /* ClassfileAnnotArg*/ Object)]
+    def assocs: List[(Name, /* ClassfileAnnotArg*/ Nullable[Object])]
   }
 
   def debuglog(msg: => String): Unit

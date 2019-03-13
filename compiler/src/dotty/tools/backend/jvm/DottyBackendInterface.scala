@@ -36,51 +36,46 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     // Dotty deviation: Need to (re-)import implicit decorators here because otherwise
     // they would be shadowed by the more deeply nested `symHelper` decorator.
 
-  type Symbol          = Symbols.Symbol
-  type Type            = Types.Type
-  type Tree            = tpd.Tree
+  type Symbol          = Nullable[Symbols.Symbol]
+  type Type            = Nullable[Types.Type]
+  type Tree            = Nullable[tpd.Tree]
   type CompilationUnit = dotc.CompilationUnit
-  type Constant        = Constants.Constant
-  type Literal         = tpd.Literal
+  type Constant        = Nullable[Constants.Constant]
+  type Literal         = Nullable[tpd.Literal]
   type Position        = Spans.Span
-  type Name            = Names.Name
-  type ClassDef        = tpd.TypeDef
-  type TypeDef         = tpd.TypeDef
-  type Apply           = tpd.Apply
-  type TypeApply       = tpd.TypeApply
-  type Try             = tpd.Try
-  type Assign          = tpd.Assign
-  type Ident           = tpd.Ident
-  type If              = tpd.If
-  type ValDef          = tpd.ValDef
-  type Throw           = tpd.Apply
-  type Labeled         = tpd.Labeled
-  type Return          = tpd.Return
-  type WhileDo         = tpd.WhileDo
-  type Block           = tpd.Block
-  type Typed           = tpd.Typed
-  type Match           = tpd.Match
-  type This            = tpd.This
-  type CaseDef         = tpd.CaseDef
-  type Alternative     = tpd.Alternative
-  type DefDef          = tpd.DefDef
-  type Template        = tpd.Template
-  type Select          = tpd.Tree // Actually tpd.Select || tpd.Ident
-  type Bind            = tpd.Bind
-  type New             = tpd.New
-  type Super           = tpd.Super
-  type Modifiers       = Dummy
-  type Annotation      = Annotations.Annotation
-  type ArrayValue      = tpd.JavaSeqLiteral
-  type ApplyDynamic    = Dummy
-  type ModuleDef       = Dummy
-  type LabelDef        = Dummy
-  type Closure         = tpd.Closure
-
-  /** Dummy class to use for trees we don't need.
-   *  TODO(abeln): remove this hack.
-   */
-  abstract class Dummy extends tpd.Tree
+  type Name            = Nullable[Names.Name]
+  type ClassDef        = Nullable[tpd.TypeDef]
+  type TypeDef         = Nullable[tpd.TypeDef]
+  type Apply           = Nullable[tpd.Apply]
+  type TypeApply       = Nullable[tpd.TypeApply]
+  type Try             = Nullable[tpd.Try]
+  type Assign          = Nullable[tpd.Assign]
+  type Ident           = Nullable[tpd.Ident]
+  type If              = Nullable[tpd.If]
+  type ValDef          = Nullable[tpd.ValDef]
+  type Throw           = Nullable[tpd.Apply]
+  type Labeled         = Nullable[tpd.Labeled]
+  type Return          = Nullable[tpd.Return]
+  type WhileDo         = Nullable[tpd.WhileDo]
+  type Block           = Nullable[tpd.Block]
+  type Typed           = Nullable[tpd.Typed]
+  type Match           = Nullable[tpd.Match]
+  type This            = Nullable[tpd.This]
+  type CaseDef         = Nullable[tpd.CaseDef]
+  type Alternative     = Nullable[tpd.Alternative]
+  type DefDef          = Nullable[tpd.DefDef]
+  type Template        = Nullable[tpd.Template]
+  type Select          = Nullable[tpd.Tree] // Actually tpd.Select || tpd.Ident
+  type Bind            = Nullable[tpd.Bind]
+  type New             = Nullable[tpd.New]
+  type Super           = Nullable[tpd.Super]
+  type Modifiers       = Null
+  type Annotation      = Nullable[Annotations.Annotation]
+  type ArrayValue      = Nullable[tpd.JavaSeqLiteral]
+  type ApplyDynamic    = Null
+  type ModuleDef       = Null
+  type LabelDef        = Null
+  type Closure         = Nullable[tpd.Closure]
 
   val NoSymbol: Symbol = Symbols.NoSymbol
   val NoPosition: Position = Spans.NoSpan
@@ -136,7 +131,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   val FloatClass: Symbol = defn.FloatClass
   val DoubleClass: Symbol = defn.DoubleClass
   def isArrayClone(tree: Tree): Boolean = tree match {
-    case Select(qual, StdNames.nme.clone_) if qual.tpe.widen.isInstanceOf[JavaArrayType] => true
+    case Select(qual, StdNames.nme.clone_) if qual.tpe.nn.widen.isInstanceOf[JavaArrayType] => true
     case _ => false
   }
 
@@ -146,8 +141,8 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   val externalEqualsNumObject: Symbol = defn.BoxesRunTimeModule.requiredMethod(nme.equalsNumObject)
   val externalEquals: Symbol = defn.BoxesRunTimeClass.info.decl(nme.equals_).suchThat(toDenot(_).info.firstParamTypes.size == 2).symbol
   val MaxFunctionArity: Int = Definitions.MaxImplementedFunctionArity
-  val FunctionClass: Array[Symbol] = defn.FunctionClassPerRun()
-  val AbstractFunctionClass: Array[Symbol] = defn.AbstractFunctionClassPerRun()
+  val FunctionClass: Array[Symbol] = defn.FunctionClassPerRun().asInstanceOf[Array[Symbol]]
+  val AbstractFunctionClass: Array[Symbol] = defn.AbstractFunctionClassPerRun().asInstanceOf[Array[Symbol]]
   val PartialFunctionClass: Symbol = defn.PartialFunctionClass
   val AbstractPartialFunctionClass: Symbol = defn.AbstractPartialFunctionClass
   val String_valueOf: Symbol = defn.String_valueOf_Object
@@ -170,17 +165,17 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   def isBox(sym: Symbol): Boolean =
-    Erasure.Boxing.isBox(sym) && sym.denot.owner != defn.UnitModuleClass
+    Erasure.Boxing.isBox(sym.nn) && sym.nn.denot.owner != defn.UnitModuleClass
   def isUnbox(sym: Symbol): Boolean =
-    Erasure.Boxing.isUnbox(sym) && sym.denot.owner != defn.UnitModuleClass
+    Erasure.Boxing.isUnbox(sym.nn) && sym.nn.denot.owner != defn.UnitModuleClass
 
   val primitives: Primitives = new Primitives {
     val primitives = new DottyPrimitives(ctx)
-    def getPrimitive(app: Apply, receiver: Type): Int = primitives.getPrimitive(app, receiver)
+    def getPrimitive(app: Apply, receiver: Type): Int = primitives.getPrimitive(app.nn, receiver.nn)
 
-    def getPrimitive(sym: Symbol): Int = primitives.getPrimitive(sym)
+    def getPrimitive(sym: Symbol): Int = primitives.getPrimitive(sym.nn)
 
-    def isPrimitive(fun: Tree): Boolean = primitives.isPrimitive(fun)
+    def isPrimitive(fun: Tree): Boolean = primitives.isPrimitive(fun.nn)
   }
   implicit val TypeDefTag: ClassTag[TypeDef] = ClassTag[TypeDef](classOf[TypeDef])
   implicit val ApplyTag: ClassTag[Apply] = ClassTag[Apply](classOf[Apply])
@@ -217,7 +212,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   implicit val ClosureTag: ClassTag[Closure] = ClassTag[Closure](classOf[Closure])
 
   def isRuntimeVisible(annot: Annotation): Boolean =
-    if (toDenot(annot.atp.typeSymbol).hasAnnotation(AnnotationRetentionAttr))
+    if (toDenot(annot.atp.typeSymbol.nn).hasAnnotation(AnnotationRetentionAttr))
       retentionPolicyOf(annot) == AnnotationRetentionRuntimeAttr
     else {
       // SI-8926: if the annotation class symbol doesn't have a @RetentionPolicy annotation, the
@@ -233,7 +228,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   private def retentionPolicyOf(annot: Annotation): Symbol =
-    annot.atp.typeSymbol.getAnnotation(AnnotationRetentionAttr).
+    annot.atp.typeSymbol.nn.getAnnotation(AnnotationRetentionAttr).
       flatMap(_.argumentConstant(0).map(_.symbolValue)).getOrElse(AnnotationRetentionClassAttr)
 
   private def normalizeArgument(arg: Tree): Tree = arg match {
@@ -254,12 +249,12 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
             av.visit(name, const.stringValue) // `stringValue` special-cases null, but that execution path isn't exercised for a const with StringTag
           case ClazzTag => av.visit(name, const.typeValue.toTypeKind(bcodeStore)(innerClasesStore).toASMType)
           case EnumTag =>
-            val edesc = innerClasesStore.typeDescriptor(const.tpe.asInstanceOf[bcodeStore.int.Type]) // the class descriptor of the enumeration class.
+            val edesc = innerClasesStore.typeDescriptor(const.nn.tpe.asInstanceOf[bcodeStore.int.Type]) // the class descriptor of the enumeration class.
             val evalue = const.symbolValue.name.mangledString // value the actual enumeration value.
             av.visitEnum(name, edesc, evalue)
         }
-      case t: TypeApply if (t.fun.symbol == Predef_classOf) =>
-        av.visit(name, t.args.head.tpe.classSymbol.denot.info.toTypeKind(bcodeStore)(innerClasesStore).toASMType)
+      case t: TypeApply if (t.nn.fun.symbol == Predef_classOf) =>
+        av.visit(name, t.nn.args.head.tpe.classSymbol.denot.info.toTypeKind(bcodeStore)(innerClasesStore).toASMType)
       case t: tpd.Select =>
         if (t.symbol.denot.owner.is(Flags.JavaEnum)) {
           val edesc = innerClasesStore.typeDescriptor(t.tpe.asInstanceOf[bcodeStore.int.Type]) // the class descriptor of the enumeration class.
@@ -276,12 +271,12 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
         arrAnnotV.visitEnd()
 
       case Apply(fun, args) if fun.symbol == defn.ArrayClass.primaryConstructor ||
-        toDenot(fun.symbol).owner == defn.ArrayClass.linkedClass && fun.symbol.name == nme_apply =>
+        toDenot(fun.symbol.nn).owner == defn.ArrayClass.linkedClass && fun.symbol.name == nme_apply =>
         val arrAnnotV: AnnotationVisitor = av.visitArray(name).nn
 
-        var actualArgs = if (fun.tpe.isImplicitMethod) {
+        var actualArgs = if (fun.tpe.nn.isImplicitMethod) {
           // generic array method, need to get implicit argument out of the way
-          fun.asInstanceOf[Apply].args
+          fun.asInstanceOf[Apply].nn.args
         } else args
 
         val flatArgs = actualArgs.flatMap { arg =>
@@ -306,8 +301,8 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
           arrAnnotV.visitEnd()
         }          // for the lazy val in ScalaSigBytes to be GC'ed, the invoker of emitAnnotations() should hold the ScalaSigBytes in a method-local var that doesn't escape.
 */
-      case t @ Apply(constr, args) if t.tpe.derivesFrom(JavaAnnotationClass) =>
-        val typ = t.tpe.classSymbol.denot.info
+      case t @ Apply(constr, args) if t.tpe.nn.derivesFrom(JavaAnnotationClass) =>
+        val typ = t.tpe.nn.classSymbol.denot.info
         val assocs = assocsFromApply(t)
         val desc = innerClasesStore.typeDescriptor(typ.asInstanceOf[bcodeStore.int.Type]) // the class descriptor of the nested annotation class
         val nestedVisitor = av.visitAnnotation(name, desc).nn
@@ -325,7 +320,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     }
   }
 
-  private def emitAssocs(av: asm.AnnotationVisitor, assocs: List[(Name, Object)], bcodeStore: BCodeHelpers)
+  private def emitAssocs(av: asm.AnnotationVisitor, assocs: List[(Name, Nullable[Object])], bcodeStore: BCodeHelpers)
                         (innerClasesStore: bcodeStore.BCInnerClassGen) = {
     for ((name, value) <- assocs)
       emitArgument(av, name.mangledString, value.asInstanceOf[Tree], bcodeStore)(innerClasesStore)
@@ -440,14 +435,14 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
       Flags.Bridge | Flags.Private | Flags.Macro
   }.bits
 
-  def isQualifierSafeToElide(qual: Tree): Boolean = tpd.isIdempotentExpr(qual)
+  def isQualifierSafeToElide(qual: Tree): Boolean = tpd.isIdempotentExpr(qual.nn)
 
   private val desugared = new java.util.IdentityHashMap[Type, tpd.Select]
 
   def desugarIdent(i: Ident): Option[tpd.Select] = {
     var found = desugared.get(i.tpe)
     if (found == null) {
-      tpd.desugarIdent(i) match {
+      tpd.desugarIdent(i.nn) match {
         case sel: tpd.Select =>
           desugared.put(i.tpe, sel)
           found = sel
@@ -461,12 +456,13 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
   // todo: remove
   def isMaybeBoxed(sym: Symbol): Boolean = {
-    (sym == ObjectClass) ||
-      (sym == JavaSerializableClass) ||
-      (sym == defn.ComparableClass) ||
-      (sym derivesFrom BoxedNumberClass) ||
-      (sym derivesFrom BoxedCharacterClass) ||
-      (sym derivesFrom BoxedBooleanClass)
+    val sym1 = sym.nn
+    (sym1 == ObjectClass) ||
+      (sym1 == JavaSerializableClass) ||
+      (sym1 == defn.ComparableClass) ||
+      (sym1 derivesFrom BoxedNumberClass.nn) ||
+      (sym1 derivesFrom BoxedCharacterClass.nn) ||
+      (sym1 derivesFrom BoxedBooleanClass.nn)
   }
 
   def getSingleOutput: Option[AbstractFile] = None // todo: implement
@@ -480,10 +476,10 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     // without it.  This is particularly bad because the availability of
     // generic information could disappear as a consequence of a seemingly
     // unrelated change.
-       ctx.base.settings.YnoGenericSig.value
-    || sym.is(Flags.Artifact)
-    || sym.is(Flags.LiftedMethod)
-    || sym.is(Flags.Bridge)
+       ctx.base.settings.YnoGenericSig.value || {
+         val sym1 = sym.nn
+         sym1.is(Flags.Artifact) || sym1.is(Flags.LiftedMethod) || sym1.is(Flags.Bridge)
+       }
   )
 
   private def verifySignature(sym: Symbol, sig: String)(implicit ctx: Context): Unit = {
@@ -493,10 +489,11 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
       catch { case ex: Throwable => println(ex.getMessage); false }
 
     val valid = wrap {
-      if (sym.is(Flags.Method)) {
+      val sym1 = sym.nn
+      if (sym1.is(Flags.Method)) {
         CheckClassAdapter.checkMethodSignature(sig)
       }
-      else if (sym.isTerm) {
+      else if (sym1.isTerm) {
         CheckClassAdapter.checkFieldSignature(sig)
       }
       else {
@@ -506,10 +503,10 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
     if (!valid) {
       ctx.error(
-        i"""|compiler bug: created invalid generic signature for $sym in ${sym.denot.owner.showFullName}
+        i"""|compiler bug: created invalid generic signature for $sym in ${sym.nn.denot.owner.showFullName}
             |signature: $sig
             |if this is reproducible, please report bug at https://github.com/lampepfl/dotty/issues
-        """.trim, sym.sourcePos)
+        """.trim, sym.nn.sourcePos)
     }
   }
 
@@ -525,8 +522,8 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   def getGenericSignature(sym: Symbol, owner: Symbol): Nullable[String] = {
     ctx.atPhase(ctx.erasurePhase) { implicit ctx =>
       val memberTpe =
-        if (sym.is(Flags.Method)) sym.denot.info
-        else owner.denot.thisType.memberInfo(sym)
+        if (sym.nn.is(Flags.Method)) sym.nn.denot.info
+        else owner.nn.denot.thisType.memberInfo(sym)
       getGenericSignature(sym, owner, memberTpe).orNull
     }
   }
@@ -538,20 +535,20 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     // But for now, just like we did in mixin, we just avoid writing a wrong generic signature
     // (one that doesn't erase to the actual signature). See run/t3452b for a test case.
 
-    val memberTpe = ctx.atPhase(ctx.erasurePhase) { implicit ctx => moduleClass.denot.thisType.memberInfo(sym) }
-    val erasedMemberType = TypeErasure.erasure(memberTpe)
-    if (erasedMemberType =:= sym.denot.info)
+    val memberTpe = ctx.atPhase(ctx.erasurePhase) { implicit ctx => moduleClass.nn.denot.thisType.memberInfo(sym) }
+    val erasedMemberType = TypeErasure.erasure(memberTpe.nn)
+    if (erasedMemberType =:= sym.nn.denot.info)
       getGenericSignature(sym, moduleClass, memberTpe).orNull
     else null
   }
 
   private def getGenericSignature(sym: Symbol, owner: Symbol, memberTpe: Type)(implicit ctx: Context): Option[String] =
     if (needsGenericSignature(sym)) {
-      val erasedTypeSym = sym.denot.info.typeSymbol
+      val erasedTypeSym = sym.nn.denot.info.typeSymbol
       if (erasedTypeSym.isPrimitiveValueClass) {
         None
       } else {
-        val jsOpt = GenericSignatures.javaSig(sym, memberTpe)
+        val jsOpt = GenericSignatures.javaSig(sym.nn, memberTpe.nn)
         if (ctx.settings.XverifySignatures.value) {
           jsOpt.foreach(verifySignature(sym, _))
         }
@@ -591,34 +588,40 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
 
-  implicit def treeHelper(a: Tree): TreeHelper = new TreeHelper {
-    def symbol: Symbol = a.symbol
+  implicit def treeHelper(a1: Tree): TreeHelper = {
+    val a = a1.nn
+    new TreeHelper {
+      def symbol: Symbol = a.symbol
 
-    def pos: Position = a.span
+      def pos: Position = a.span
 
-    def isEmpty: Boolean = a.isEmpty
+      def isEmpty: Boolean = a.isEmpty
 
-    def tpe: Type = a.tpe
+      def tpe: Type = a.tpe
 
-    def exists(pred: (Tree) => Boolean): Boolean = a.find(pred).isDefined
+      def exists(pred: (Tree) => Boolean): Boolean = a.find(pred).isDefined
+    }
   }
 
 
-  implicit def annotHelper(a: Annotation): AnnotationHelper = new AnnotationHelper {
-    def atp: Type = a.tree.tpe
+  implicit def annotHelper(a1: Annotation): AnnotationHelper = {
+    val a = a1.nn
+    new AnnotationHelper {
+      def atp: Type = a.tree.tpe
 
-    def assocs: List[(Name, Tree)] = assocsFromApply(a.tree)
+      def assocs: List[(Name, Tree)] = assocsFromApply(a.tree)
 
-    def symbol: Symbol = a.tree.symbol
+      def symbol: Symbol = a.tree.symbol
 
-    def args: List[Tree] = List.empty // those arguments to scala-defined annotations. they are never emitted
+      def args: List[Tree] = List.empty // those arguments to scala-defined annotations. they are never emitted
+    }
   }
 
   def assocsFromApply(tree: Tree): List[(Name, Tree)] = {
     tree match {
       case Block(_, expr) => assocsFromApply(expr)
       case Apply(fun, args) =>
-        fun.tpe.widen match {
+        fun.tpe.nn.widen match {
           case MethodType(names) =>
             (names zip args).filter {
               case (_, t: tpd.Ident) if (t.tpe.normalizedPrefix eq NoPrefix) => false
@@ -635,7 +638,9 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     def mangledString: String = n.mangledString
   }
 
-  implicit def symHelper(sym: Symbol): SymbolHelper = new SymbolHelper {
+  implicit def symHelper(sym1: Symbol): SymbolHelper = new SymbolHelper {
+    private val sym = sym1.nn
+
     // names
     def fullName(sep: Char): String = sym.showFullName
     def fullName: String = sym.showFullName
@@ -704,8 +709,8 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
       (sym is Flags.Abstract) || (sym is Flags.JavaInterface) || (sym is Flags.Trait)
     def hasModuleFlag: Boolean = sym is Flags.Module
     def isSynchronized: Boolean = sym is Flags.Synchronized
-    def isNonBottomSubClass(other: Symbol): Boolean = sym.derivesFrom(other)
-    def hasAnnotation(ann: Symbol): Boolean = toDenot(sym).hasAnnotation(ann)
+    def isNonBottomSubClass(other: Symbol): Boolean = sym.derivesFrom(other.nn)
+    def hasAnnotation(ann: Symbol): Boolean = toDenot(sym).hasAnnotation(ann.nn)
     def shouldEmitForwarders: Boolean =
       (sym is Flags.Module) && !(sym is Flags.ImplClass) && sym.isStatic
     def isJavaEntryPoint: Boolean = CollectEntryPoints.isJavaEntryPoint(sym)
@@ -732,7 +737,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
 
     // navigation
-    def owner: Symbol = toDenot(sym).owner
+    def owner: Symbols.Symbol = toDenot(sym).owner
     def rawowner: Symbol = {
       originalOwner
     }
@@ -809,7 +814,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
 
     def freshLocal(cunit: CompilationUnit, name: String, tpe: Type, pos: Position, flags: Flags): Symbol = {
-      ctx.newSymbol(sym, name.toTermName, termFlagSet(flags), tpe, NoSymbol, pos)
+      ctx.newSymbol(sym, name.toTermName, termFlagSet(flags), tpe.nn, Symbols.NoSymbol, pos)
     }
 
     def getter(clz: Symbol): Symbol = decorateSymbol(sym).getter
@@ -867,8 +872,10 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
 
-  implicit def typeHelper(tp: Type): TypeHelper = new TypeHelper {
-    def member(string: Name): Symbol = tp.member(string.toTermName).symbol
+  implicit def typeHelper(tp1: Type): TypeHelper = new TypeHelper {
+    private val tp = tp1.nn
+
+    def member(string: Name): Symbol = tp.member(string.nn.toTermName).symbol
 
     def isFinalType: Boolean = tp.typeSymbol is Flags.Final //in scalac checks for type parameters. Why? Aren't they gone by backend?
 
@@ -1044,7 +1051,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     def get: Tree = field.nn.args.head
 
     override def unapply(s: Throw): Throw.type = {
-      if (s.fun.symbol eq defn.throwMethod) {
+      if (s.nn.fun.symbol eq defn.throwMethod) {
         field = s
       } else {
         field = null
@@ -1059,7 +1066,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
   object This extends ThisDeconstructor {
     def get: Name = field.nn.qual.name
-    def apply(s: Symbol): This = tpd.This(s.asClass)
+    def apply(s: Symbol): This = tpd.This(s.nn.asClass)
   }
 
   object Labeled extends LabeledDeconstructor {

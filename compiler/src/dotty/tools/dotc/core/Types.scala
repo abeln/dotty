@@ -1706,7 +1706,7 @@ object Types {
     def hash: Int
 
     /** Compute hashcode relative to enclosing binders `bs` */
-    def computeHash(bs: Nullable[Binders]): Int
+    def computeHash(bs: Binders): Int
 
     /** Is the `hash` of this type the same for all possible sequences of enclosing binders? */
     def stableHash: Boolean = true
