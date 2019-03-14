@@ -20,7 +20,7 @@ import io.AbstractFile
 import config.Config
 import util.common._
 import collection.mutable.ListBuffer
-import scala.ExplicitNulls.Nullable
+import scala.ExplicitNulls._
 
 /** Denotations represent the meaning of symbols and named types.
  *  The following diagram shows how the principal types of denotations
@@ -314,7 +314,11 @@ object Denotations {
       info.member(name).requiredSymbol(i"method", name, this, argTypes) { x =>
         (x is Method) && {
           x.info.paramInfoss match {
-            case paramInfos :: Nil => paramInfos.corresponds(argTypes)(_ =:= _)
+            case paramInfos :: Nil =>
+              // TODO(abeln): remove hack where we strip nulls before looking for the method.
+              // This was done so that ModuleSerializationProxy's constructor can be found
+              // from Definitions.
+              paramInfos.map(_.stripNull).corresponds(argTypes)(_ =:= _)
             case _ => false
           }
         }
