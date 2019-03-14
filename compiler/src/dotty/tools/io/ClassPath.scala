@@ -14,6 +14,8 @@ import java.util.regex.PatternSyntaxException
 import File.pathSeparator
 import Jar.isJarOrZip
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /**
   * A representation of the compiler's class- or sourcepath.
   */

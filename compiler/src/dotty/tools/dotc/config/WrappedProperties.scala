@@ -4,6 +4,8 @@ package config
 
 import java.security.AccessControlException
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** For placing a wrapper function around property functions.
  *  Motivated by places like google app engine throwing exceptions
  *  on property lookups.

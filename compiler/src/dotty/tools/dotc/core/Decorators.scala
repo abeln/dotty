@@ -11,6 +11,8 @@ import ast.tpd._
 import scala.language.implicitConversions
 import printing.Formatting._
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** This object provides useful implicit decorators for types defined elsewhere */
 object Decorators {
 

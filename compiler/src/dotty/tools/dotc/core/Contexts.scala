@@ -37,6 +37,8 @@ import xsbti.AnalysisCallback
 import plugins._
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object Contexts {
 
   private val (compilerCallbackLoc, store1) = Store.empty.newLocation[CompilerCallback]()

@@ -10,6 +10,8 @@ import dotty.tools.io.{ AbstractFile, FileZipArchive }
 import FileUtils.AbstractFileOps
 import dotty.tools.io.{ClassPath, ClassRepresentation}
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /**
  * A trait allowing to look for classpath entries of given type in zip and jar files.
  * It provides common logic for classes handling class and source files.

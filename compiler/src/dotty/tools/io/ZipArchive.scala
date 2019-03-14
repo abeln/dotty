@@ -13,6 +13,9 @@ import java.util.jar.Manifest
 import scala.collection.mutable
 import scala.collection.JavaConverters._
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
+
 /** An abstraction for zip files and streams.  Everything is written the way
  *  it is for performance: we come through here a lot on every run.  Be careful
  *  about changing it.
