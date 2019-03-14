@@ -9,3 +9,8 @@ object ExplicitNulls {
     def nn: T = x
   }
 }
+
+object ExplicitNullsLanguage {
+  object implicitNulls
+}
+

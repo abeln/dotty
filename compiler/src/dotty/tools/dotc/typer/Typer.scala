@@ -2855,7 +2855,13 @@ class Typer extends Namer
         case _ =>
       }
 
-      if (ctx.settings.YexplicitNulls.value && ctx.featureEnabled(defn.LanguageModuleClass, nme.implicitNulls)) {
+      def implicitNulls: Boolean = {
+        assert(ctx.settings.YexplicitNulls.value)
+        ctx.featureEnabled(defn.LanguageModuleClass, nme.implicitNulls) ||
+          ctx.featureEnabled(defn.ExplicitNullsLanguageModuleClass, nme.implicitNulls)
+      }
+
+      if (ctx.settings.YexplicitNulls.value && implicitNulls) {
         // If `pt` is a reference type, try to adapt `wtp` to `pt` by treating `wtp` as implicitly nullable.
         // There are two cases:
         //   - if `wtp` is `Null`, then it's safe to do `tree.asInstanceOf[pt]`

@@ -12,6 +12,8 @@ import reporting._
 import scala.util.control.NonFatal
 import fromtasty.{TASTYCompiler, TastyFileUtil}
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** Run the Dotty compiler.
  *
  *  Extending this class lets you customize many aspect of the compilation

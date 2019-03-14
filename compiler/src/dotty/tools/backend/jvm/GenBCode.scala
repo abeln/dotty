@@ -30,6 +30,8 @@ import StdNames._
 import dotty.tools.dotc.core.tasty.{TastyBuffer, TastyHeaderUnpickler}
 import dotty.tools.io._
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 class GenBCode extends Phase {
   def phaseName: String = GenBCode.name
   private val entryPoints = new mutable.HashSet[Symbol]()

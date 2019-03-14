@@ -56,3 +56,7 @@ object ExplicitNulls {
     }
   }
 }
+
+object ExplicitNullsLanguage {
+  object implicitNulls
+}

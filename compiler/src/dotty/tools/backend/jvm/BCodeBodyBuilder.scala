@@ -40,7 +40,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
     /* ---------------- helper utils for generating methods and code ---------------- */
 
-    def emit(opc: Int): Unit = { mnode.visitInsn(opc) }
+    def emit(opc: Int): Unit = { mnode.nn.visitInsn(opc) }
 
     def emitZeroOf(tk: BType): Unit = {
       tk match {
@@ -287,7 +287,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
           val localVarStart = currProgramPoint()
           bc.store(idx, tk)
           if (!isSynth) { // there are case <synthetic> ValDef's emitted by patmat
-            varsInScope ::= (sym -> localVarStart)
+            varsInScope = (sym -> localVarStart) :: varsInScope.nn
           }
           generatedType = UNIT
 
@@ -348,7 +348,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
             generatedType = genLoadModule(tree)
           }
           else {
-            mnode.visitVarInsn(asm.Opcodes.ALOAD, 0)
+            mnode.nn.visitVarInsn(asm.Opcodes.ALOAD, 0)
             generatedType =
               if (tree.symbol == ArrayClass) ObjectReference
               else classBTypeFromSymbol(claszSymbol)
@@ -468,7 +468,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
       val opc =
         if (isLoad) { if (isStatic) asm.Opcodes.GETSTATIC else asm.Opcodes.GETFIELD }
         else        { if (isStatic) asm.Opcodes.PUTSTATIC else asm.Opcodes.PUTFIELD }
-      mnode.visitFieldInsn(opc, owner, fieldJName, fieldDescr)
+      mnode.nn.visitFieldInsn(opc, owner, fieldJName, fieldDescr)
 
     }
 
@@ -497,7 +497,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
         case StringTag  =>
           assert(const.value != null, const) // TODO this invariant isn't documented in `case class Constant`
-          mnode.visitLdcInsn(const.stringValue) // `stringValue` special-cases null, but not for a const with StringTag
+          mnode.nn.visitLdcInsn(const.stringValue) // `stringValue` special-cases null, but not for a const with StringTag
 
         case NullTag    => emit(asm.Opcodes.ACONST_NULL)
 
@@ -508,14 +508,14 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
               case kind => kind
             }
           }
-          mnode.visitLdcInsn(toPush.toASMType)
+          mnode.nn.visitLdcInsn(toPush.toASMType)
 
         case EnumTag   =>
           val sym       = const.symbolValue
           val ownerName = internalName(sym.owner)
           val fieldName = sym.javaSimpleName.toString
           val fieldDesc = toTypeKind(sym.tpe.underlying).descriptor
-          mnode.visitFieldInsn(
+          mnode.nn.visitFieldInsn(
             asm.Opcodes.GETSTATIC,
             ownerName,
             fieldName,
@@ -554,19 +554,19 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
         // return from enclosing method
         val returnedKind = tpeTK(expr)
         genLoad(expr, returnedKind)
-        adapt(returnedKind, returnType)
+        adapt(returnedKind, returnType.nn)
         val saveReturnValue = (returnType != UNIT)
         lineNumber(r)
 
         cleanups match {
           case Nil =>
             // not an assertion: !shouldEmitCleanup (at least not yet, pendingCleanups() may still have to run, and reset `shouldEmitCleanup`.
-            bc emitRETURN returnType
+            bc emitRETURN returnType.nn
           case nextCleanup :: rest =>
             if (saveReturnValue) {
               // regarding return value, the protocol is: in place of a `return-stmt`, a sequence of `adapt, store, jump` are inserted.
               if (earlyReturnVar == null) {
-                earlyReturnVar = locals.makeLocal(returnType, "earlyReturnVar", expr.tpe, expr.pos)
+                earlyReturnVar = locals.makeLocal(returnType.nn, "earlyReturnVar", expr.tpe, expr.pos)
               }
               locals.store(earlyReturnVar)
             }
@@ -646,7 +646,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
         else if (l.isPrimitive) {
           bc drop l
           if (cast) {
-            mnode.visitTypeInsn(asm.Opcodes.NEW, classCastExceptionReference.internalName)
+            mnode.nn.visitTypeInsn(asm.Opcodes.NEW, classCastExceptionReference.internalName)
             bc dup ObjectReference
             emit(asm.Opcodes.ATHROW)
           } else {
@@ -687,7 +687,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
         case 1 => bc newarray elemKind
         case _ =>
           val descr = ("[" * argsSize) + elemKind.descriptor // denotes the same as: arrayN(elemKind, argsSize).descriptor
-          mnode.visitMultiANewArrayInsn(descr, argsSize)
+          mnode.nn.visitMultiANewArrayInsn(descr, argsSize)
       }
     }
 
@@ -715,7 +715,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
         case Apply(fun @ Select(Super(_, mix), _), args) =>
           val invokeStyle = InvokeStyle.Super
           // if (fun.symbol.isConstructor) Static(true) else SuperCall(mix);
-          mnode.visitVarInsn(asm.Opcodes.ALOAD, 0)
+          mnode.nn.visitVarInsn(asm.Opcodes.ALOAD, 0)
           genLoadArguments(args, paramTKs(app))
           genCallMethod(fun.symbol, invokeStyle, pos = app.pos)
           generatedType = asmMethodType(fun.symbol).returnType
@@ -737,7 +737,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
             case rt: ClassBType =>
               assert(classBTypeFromSymbol(ctor.owner) == rt, s"Symbol ${ctor.owner.fullName} is different from $rt")
-              mnode.visitTypeInsn(asm.Opcodes.NEW, rt.internalName)
+              mnode.nn.visitTypeInsn(asm.Opcodes.NEW, rt.internalName)
               bc dup generatedType
               genLoadArguments(args, paramTKs(app))
               genCallMethod(ctor, InvokeStyle.Special)
@@ -765,7 +765,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
           if (sym.isLabel) {  // jump to a label
             assert(int.hasLabelDefs)
-            genLoadLabelArguments(args, labelDef(sym), app.pos)
+            genLoadLabelArguments(args, labelDef.nn(sym), app.pos)
             bc goTo programPoint(sym)
           } else if (isPrimitive(fun)) { // primitive method call
             generatedType = genPrimitiveOp(app, expectedType)
@@ -920,7 +920,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
       val end = currProgramPoint()
       if (emitVars) {
         // add entries to LocalVariableTable JVM attribute
-        for ((sym, start) <- varsInScope.reverse) {
+        for ((sym, start) <- varsInScope.nn.reverse) {
           emitLocalVarScope(sym, start, end)
         }
       }
@@ -1042,7 +1042,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
       aps.reverse foreach {
         case (_, param) =>
           // TODO FIXME a "this" param results from tail-call xform. If so, the `else` branch seems perfectly fine. And the `then` branch must be wrong.
-          if (param.name == nme_THIS) mnode.visitVarInsn(asm.Opcodes.ASTORE, 0)
+          if (param.name == nme_THIS) mnode.nn.visitVarInsn(asm.Opcodes.ASTORE, 0)
           else locals.store(param)
       }
 
@@ -1068,10 +1068,10 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
     def genLoadModule(module: Symbol): Unit = {
       def inStaticMethod = methSymbol != null && methSymbol.isStaticMember
       if (claszSymbol == module.moduleClass && jMethodName != "readResolve" && !inStaticMethod) {
-        mnode.visitVarInsn(asm.Opcodes.ALOAD, 0)
+        mnode.nn.visitVarInsn(asm.Opcodes.ALOAD, 0)
       } else {
         val mbt = symInfoTK(module).asClassBType
-        mnode.visitFieldInsn(
+        mnode.nn.visitFieldInsn(
           asm.Opcodes.GETSTATIC,
           mbt.internalName /* + "$" */ ,
           MODULE_INSTANCE_FIELD,
@@ -1174,8 +1174,8 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
             jname == INSTANCE_CONSTRUCTOR_NAME &&
           siteSymbol.isStaticModuleClass) {
           isModuleInitialized = true
-          mnode.visitVarInsn(asm.Opcodes.ALOAD, 0)
-          mnode.visitFieldInsn(
+          mnode.nn.visitVarInsn(asm.Opcodes.ALOAD, 0)
+          mnode.nn.visitFieldInsn(
             asm.Opcodes.PUTSTATIC,
             thisName,
             MODULE_INSTANCE_FIELD,

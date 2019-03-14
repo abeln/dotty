@@ -27,6 +27,7 @@ import collection.mutable
 import dotty.tools.io.VirtualFile
 
 import scala.util.control.NonFatal
+import scala.ExplicitNulls._
 
 /** A compiler run. Exports various methods to compile source files */
 class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with ConstraintRunInfo {
@@ -69,14 +70,14 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
   protected[this] implicit def ctx: Context = myCtx
   assert(ctx.runId <= Periods.MaxPossibleRunId)
 
-  private[this] var myUnits: List[CompilationUnit] = _
-  private[this] var myUnitsCached: List[CompilationUnit] = _
-  private[this] var myFiles: Set[AbstractFile] = _
+  private[this] var myUnits: Nullable[List[CompilationUnit]] = _
+  private[this] var myUnitsCached: Nullable[List[CompilationUnit]] = _
+  private[this] var myFiles: Nullable[Set[AbstractFile]] = _
 
   /** The compilation units currently being compiled, this may return different
     *  results over time.
     */
-  def units: List[CompilationUnit] = myUnits
+  def units: Nullable[List[CompilationUnit]] = myUnits
 
   private def units_=(us: List[CompilationUnit]): Unit =
     myUnits = us
@@ -85,10 +86,10 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
     *  These files do not have to be source files since it's possible to compile
     *  from TASTY.
     */
-  def files: Set[AbstractFile] = {
+  def files: Nullable[Set[AbstractFile]] = {
     if (myUnits ne myUnitsCached) {
       myUnitsCached = myUnits
-      myFiles = myUnits.map(_.source.file).toSet
+      myFiles = myUnits.nn.map(_.source.file).toSet
     }
     myFiles
   }
@@ -155,17 +156,17 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
           Stats.trackTime(s"$phase ms ") {
             val start = System.currentTimeMillis
             val profileBefore = profiler.beforePhase(phase)
-            units = phase.runOn(units)
+            units = phase.runOn(units.nn)
             profiler.afterPhase(phase, profileBefore)
             if (ctx.settings.Xprint.value.containsPhase(phase)) {
-              for (unit <- units) {
+              for (unit <- units.nn) {
                 lastPrintedTree =
                   printTree(lastPrintedTree)(ctx.fresh.setPhase(phase.next).setCompilationUnit(unit))
               }
             }
             ctx.informTime(s"$phase ", start)
             Stats.record(s"total trees at end of $phase", ast.Trees.ntrees)
-            for (unit <- units)
+            for (unit <- units.nn)
               Stats.record(s"retained typed trees at end of $phase", unit.tpdTree.treeSize)
           }
 
@@ -190,7 +191,7 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
    *  `rootTreeOrProvider`.
    */
   def lateCompile(file: AbstractFile, typeCheck: Boolean)(implicit ctx: Context): Unit =
-    if (!files.contains(file) && !lateFiles.contains(file)) {
+    if (!files.nn.contains(file) && !lateFiles.contains(file)) {
       lateFiles += file
       val unit = CompilationUnit(ctx.getSource(file.path))
       def process()(implicit ctx: Context) = {

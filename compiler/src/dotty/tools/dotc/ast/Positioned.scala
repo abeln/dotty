@@ -11,6 +11,8 @@ import core.StdNames.nme
 import annotation.constructorOnly
 import annotation.internal.sharable
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** A base class for things that have positions (currently: modifiers and trees)
  */
 abstract class Positioned(implicit @constructorOnly src: SourceFile) extends Product with Cloneable {

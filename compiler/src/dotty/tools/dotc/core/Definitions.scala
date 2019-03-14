@@ -768,6 +768,9 @@ class Definitions {
   lazy val MirrorType: TypeRef                 = ctx.requiredClassRef("scala.reflect.Mirror")
   lazy val GenericClassType: TypeRef           = ctx.requiredClassRef("scala.reflect.GenericClass")
 
+  lazy val ExplicitNullsLanguageModuleRef: TermSymbol = ctx.requiredModule("scala.ExplicitNullsLanguage")
+  def ExplicitNullsLanguageModuleClass(implicit ctx: Context): ClassSymbol = ExplicitNullsLanguageModuleRef.moduleClass.asClass
+
   lazy val LanguageModuleRef: TermSymbol = ctx.requiredModule("scala.language")
   def LanguageModuleClass(implicit ctx: Context): ClassSymbol = LanguageModuleRef.moduleClass.asClass
   lazy val NonLocalReturnControlType: TypeRef   = ctx.requiredClassRef("scala.runtime.NonLocalReturnControl")
