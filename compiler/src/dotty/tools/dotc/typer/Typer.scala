@@ -2862,17 +2862,17 @@ class Typer extends Namer
         //   - if `wtp` is a nullable union (e.g. `String|Null`), then it's safe to strip the null (`tree.asInstanceOf[String]`)
         // By "safe" we mean that the cast will succeed at runtime (because types are nullable in the JVM), but
         // the cast might still be unsound.
-        lazy val caseNullLit = wtp.isRefToNull
-        lazy val caseDowncast = wtp.isNullableUnion && wtp.stripNull.frozen_<:<(pt)
-        if (pt.isValueType &&  pt.frozen_<:<(defn.ObjectType) && (caseNullLit || caseDowncast)) {
+        if (pt.isValueType &&  pt.frozen_<:<(defn.ObjectType)) {
           val pt1 = pt match {
             case tvar: TypeVar => ctx.typeComparer.bounds(tvar.origin).hi
             case tparam: TypeParamRef => ctx.typeComparer.bounds(tparam).hi
             case _ => pt
           }
-          return tree.ensureConforms(pt1)
+          lazy val caseNullLit = wtp.isRefToNull
+          lazy val caseDowncast = wtp.isNullableUnion && wtp.stripNull.frozen_<:<(pt1)
+          if (caseNullLit || caseDowncast) return tree.ensureConforms(pt1)
+          else {} // fall-through
         }
-        // fall-through
       }
       
       // try an implicit conversion
