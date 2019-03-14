@@ -865,7 +865,8 @@ object Trees {
         val x = lzy.complete
         force(x)
         x
-      case x: T @ unchecked => x
+//      case x: T @ unchecked => x
+      case x => x.asInstanceOf[T]
     }
   }
 

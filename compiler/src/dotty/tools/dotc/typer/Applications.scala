@@ -1682,7 +1682,7 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
     def targetClass(ts: List[T], cls: Symbol, intLitSeen: Boolean): Symbol = ts match {
       case t :: ts1 =>
         tpe(t).widenTermRefExpr match {
-          case ConstantType(c: Constant) if c.tag == IntTag =>
+          case ConstantType(c) if c.tag == IntTag =>
             targetClass(ts1, cls, true)
           case t =>
             val sym = t.widen.classSymbol
@@ -1699,7 +1699,7 @@ trait Applications extends Compatibility { self: Typer with Dynamic =>
       var canAdapt = true
       val ts1 = ts.mapConserve { t =>
         tpe(t).widenTermRefExpr match {
-          case ConstantType(c: Constant) if c.tag == IntTag =>
+          case ConstantType(c) if c.tag == IntTag =>
             canAdapt &= c.convertTo(cls.typeRef) != null && !lossOfPrecision(c.intValue)
             if (canAdapt) adapt(t, cls.typeRef) else t
           case _ => t
