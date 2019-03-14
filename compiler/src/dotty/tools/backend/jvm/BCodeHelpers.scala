@@ -5,6 +5,7 @@ package jvm
 import scala.tools.asm
 import scala.collection.mutable
 import dotty.tools.io.AbstractFile
+import scala.ExplicitNulls._
 
 /*
  *  Traits encapsulating functionality to convert Scala AST Trees into ASM ClassNodes.
@@ -36,7 +37,7 @@ trait BCodeHelpers extends BCodeIdiomatic with BytecodeWriters {
   /*
    * must-single-thread
    */
-  def getOutFolder(csym: Symbol, cName: String): AbstractFile = {
+  def getOutFolder(csym: Symbol, cName: String): Nullable[AbstractFile] = {
     try {
       csym.outputDirectory
     } catch {
@@ -306,7 +307,7 @@ trait BCodeHelpers extends BCodeIdiomatic with BytecodeWriters {
      *
      * must-single-thread
      */
-    def getGenericSignature(sym: Symbol, owner: Symbol): String = int.getGenericSignature(sym, owner)
+    def getGenericSignature(sym: Symbol, owner: Symbol): Nullable[String] = int.getGenericSignature(sym, owner)
 
   } // end of trait BCJGenSigGen
 
@@ -345,8 +346,8 @@ trait BCodeHelpers extends BCodeIdiomatic with BytecodeWriters {
         mirrorMethodName,
         mdesc,
         jgensig,
-        mkArrayS(thrownExceptions)
-      )
+        mkArrayS(thrownExceptions).asInstanceOf[Array[Nullable[String]]]
+      ).nn
 
       emitAnnotations(mirrorMethod, others)
       emitParamAnnotations(mirrorMethod, m.info.params.map(_.annotations))
@@ -480,7 +481,7 @@ trait BCodeHelpers extends BCodeIdiomatic with BytecodeWriters {
         mirrorName,
         null /* no java-generic-signature */,
         ObjectReference.internalName,
-        EMPTY_STRING_ARRAY
+        EMPTY_STRING_ARRAY.asInstanceOf[Array[Nullable[String]]]
       )
 
       if (emitSource) {

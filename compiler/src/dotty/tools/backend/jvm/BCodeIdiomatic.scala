@@ -6,6 +6,7 @@ import scala.tools.asm
 import scala.annotation.switch
 import scala.collection.mutable
 import Primitives.{NE, EQ, TestOp, ArithmeticOp}
+import scala.ExplicitNulls._
 
 /*
  *  A high-level facade to the ASM API for bytecode generation.
@@ -436,13 +437,13 @@ trait BCodeIdiomatic {
      *
      * can-multi-thread
      */
-    final def emitSWITCH(keys: Array[Int], branches: Array[asm.Label], defaultBranch: asm.Label, minDensity: Double): Unit = {
+    final def emitSWITCH(keys: Array[Int], branches: Array[asm.Label], defaultBranch: Nullable[asm.Label], minDensity: Double): Unit = {
       assert(keys.length == branches.length)
 
       // For empty keys, it makes sense emitting LOOKUPSWITCH with defaultBranch only.
       // Similar to what javac emits for a switch statement consisting only of a default case.
       if (keys.length == 0) {
-        jmethod.visitLookupSwitchInsn(defaultBranch, keys, branches)
+        jmethod.visitLookupSwitchInsn(defaultBranch, keys, branches.asInstanceOf[Array[Nullable[asm.Label]]])
         return
       }
 
@@ -488,7 +489,7 @@ trait BCodeIdiomatic {
       if (isDenseEnough) {
         // use a table in which holes are filled with defaultBranch.
         val keyRange    = (keyMax - keyMin + 1)
-        val newBranches = new Array[asm.Label](keyRange)
+        val newBranches = new Array[Nullable[asm.Label]](keyRange)
         var oldPos = 0
         var i = 0
         while (i < keyRange) {
@@ -504,7 +505,7 @@ trait BCodeIdiomatic {
         assert(oldPos == keys.length, "emitSWITCH")
         jmethod.visitTableSwitchInsn(keyMin, keyMax, defaultBranch, newBranches: _*)
       } else {
-        jmethod.visitLookupSwitchInsn(defaultBranch, keys, branches)
+        jmethod.visitLookupSwitchInsn(defaultBranch, keys, branches.asInstanceOf[Array[Nullable[asm.Label]]])
       }
     }
 
@@ -654,7 +655,7 @@ trait BCodeIdiomatic {
     @`inline` final def foreachInsn(f: (asm.tree.AbstractInsnNode) => Unit): Unit = {
       val insnIter = lst.iterator()
       while (insnIter.hasNext) {
-        f(insnIter.next())
+        f(insnIter.next().nn)
       }
     }
   }

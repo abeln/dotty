@@ -1,5 +1,6 @@
 package scala
 import java.util.Arrays.{deepEquals, deepHashCode}
+import scala.ExplicitNulls._
 
 final class TupleXXL private (es: Array[Object]) extends Product {
   assert(es.length > 22)
@@ -8,14 +9,14 @@ final class TupleXXL private (es: Array[Object]) extends Product {
   def productArity: Int = es.length
 
   override def toString = elems.mkString("(", ",", ")")
-  override def hashCode = getClass.hashCode * 41 + deepHashCode(elems)
+  override def hashCode = getClass.hashCode * 41 + deepHashCode(elems.asInstanceOf[Array[Nullable[Object]]])
   override def canEqual(that: Any): Boolean = that match {
     case that: TupleXXL => that.productArity == this.productArity
     case _ => false
   }
 
   override def equals(that: Any) = that match {
-    case that: TupleXXL => deepEquals(this.elems, that.elems)
+    case that: TupleXXL => deepEquals(this.elems.asInstanceOf[Array[Nullable[Object]]], that.elems.asInstanceOf[Array[Nullable[Object]]])
     case _ => false
   }
   def elems: Array[Object] = es
