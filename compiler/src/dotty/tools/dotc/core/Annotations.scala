@@ -6,6 +6,7 @@ import config.ScalaVersion
 import StdNames._
 import dotty.tools.dotc.ast.tpd
 import scala.util.Try
+import scala.ExplicitNullsLanguage.implicitNulls
 
 object Annotations {
 

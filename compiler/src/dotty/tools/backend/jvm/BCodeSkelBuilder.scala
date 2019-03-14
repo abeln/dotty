@@ -280,9 +280,9 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     var jumpDest: Nullable[immutable.Map[ /* Labeled or LabelDef */ Symbol, asm.Label ]] = null
     def programPoint(labelSym: Symbol): asm.Label = {
       assert(labelSym.isLabel, s"trying to map a non-label symbol to an asm.Label, at: ${labelSym.pos}")
-      jumpDest.getOrElse(labelSym, {
+      jumpDest.nn.getOrElse(labelSym, {
         val pp = new asm.Label
-        jumpDest += (labelSym -> pp)
+        jumpDest = jumpDest.nn + (labelSym -> pp)
         pp
       })
     }
@@ -430,19 +430,19 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     var varsInScope: Nullable[List[(Symbol, asm.Label)]] = null // (local-var-sym -> start-of-scope)
 
     // helpers around program-points.
-    def lastInsn: asm.tree.AbstractInsnNode = mnode.instructions.getLast
+    def lastInsn: asm.tree.AbstractInsnNode = mnode.nn.instructions.getLast
     def currProgramPoint(): asm.Label = {
       lastInsn match {
         case labnode: asm.tree.LabelNode => labnode.getLabel
         case _ =>
           val pp = new asm.Label
-          mnode visitLabel pp
+          mnode.nn visitLabel pp
           pp
       }
     }
     def markProgramPoint(lbl: asm.Label): Unit = {
       val skip = (lbl == null) || isAtProgramPoint(lbl)
-      if (!skip) { mnode visitLabel lbl }
+      if (!skip) { mnode.nn visitLabel lbl }
     }
     def isAtProgramPoint(lbl: asm.Label): Boolean = {
       def getNonLineNumberNode(a: asm.tree.AbstractInsnNode): asm.tree.AbstractInsnNode  = a match {
@@ -463,7 +463,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
             // overwrite previous landmark as no instructions have been emitted for it
             lnn.line = nr
           case _ =>
-            mnode.visitLineNumber(nr, currProgramPoint())
+            mnode.nn.visitLineNumber(nr, currProgramPoint())
         }
       }
     }
@@ -612,7 +612,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
             val onePastLastProgramPoint = currProgramPoint()
             val hasStaticBitSet = ((flags & asm.Opcodes.ACC_STATIC) != 0)
             if (!hasStaticBitSet) {
-              mnode.visitLocalVariable(
+              mnode.nn.visitLocalVariable(
                 "this",
                 "L" + thisName + ";",
                 null,
@@ -634,7 +634,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
         // The only non-instruction nodes to be found are LabelNode and LineNumberNode.
       }
 
-      if (AsmUtils.traceMethodEnabled && mnode.name.contains(AsmUtils.traceMethodPattern))
+      if (AsmUtils.traceMethodEnabled && mnode.nn.name.contains(AsmUtils.traceMethodPattern))
         AsmUtils.traceMethod(mnode)
 
       mnode = null
@@ -652,8 +652,8 @@ trait BCodeSkelBuilder extends BCodeHelpers {
             i0: asm.tree.AbstractInsnNode,
             i1: asm.tree.AbstractInsnNode): Unit = {
         if (i0 != null) {
-          mnode.instructions.insertBefore(location, i0.clone(null))
-          mnode.instructions.insertBefore(location, i1.clone(null))
+          mnode.nn.instructions.insertBefore(location, i0.clone(null))
+          mnode.nn.instructions.insertBefore(location, i1.clone(null))
         }
       }
 
@@ -711,7 +711,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     def emitLocalVarScope(sym: Symbol, start: asm.Label, end: asm.Label, force: Boolean = false): Unit = {
       val Local(tk, name, idx, isSynth) = locals(sym)
       if (force || !isSynth) {
-        mnode.visitLocalVariable(name, tk.descriptor, null, start, end, idx)
+        mnode.nn.visitLocalVariable(name, tk.descriptor, null, start, end, idx)
       }
     }
 

@@ -6,6 +6,7 @@ import scala.annotation.internal.sharable
 
 import java.io.IOException
 import java.util.jar.Attributes.{ Name => AttributeName }
+import scala.ExplicitNullsLanguage.implicitNulls
 
 /** Loads `library.properties` from the jar. */
 object Properties extends PropertiesTrait {
