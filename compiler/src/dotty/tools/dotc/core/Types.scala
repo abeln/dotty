@@ -1706,7 +1706,7 @@ object Types {
     def hash: Int
 
     /** Compute hashcode relative to enclosing binders `bs` */
-    def computeHash(bs: Binders): Int
+    def computeHash(bs: Nullable[Binders]): Int
 
     /** Is the `hash` of this type the same for all possible sequences of enclosing binders? */
     def stableHash: Boolean = true
@@ -1776,7 +1776,7 @@ object Types {
   /**  Instances of this class are uncached and are not proxies. */
   abstract class UncachedGroundType extends Type {
     final def hash: Int = NotCached
-    final def computeHash(bs: Binders): Int = NotCached
+    override final def computeHash(bs: Nullable[Binders]): Int = NotCached
     if (monitored) {
       record(s"uncachable")
       record(s"uncachable: $getClass")
@@ -1786,7 +1786,7 @@ object Types {
   /**  Instances of this class are uncached and are proxies. */
   abstract class UncachedProxyType extends TypeProxy {
     final def hash: Int = NotCached
-    final def computeHash(bs: Binders): Int = NotCached
+    override final def computeHash(bs: Nullable[Binders]): Int = NotCached
     if (monitored) {
       record(s"uncachable")
       record(s"uncachable: $getClass")
@@ -1822,8 +1822,8 @@ object Types {
     /** If this type is in `bs`, a hashcode based on its position in `bs`.
      *  Otherise the standard identity hash.
      */
-    override def identityHash(bs: Binders): Int = {
-      def recur(n: Int, tp: BindingType, rest: Binders): Int =
+    override def identityHash(bs: Nullable[Binders]): Int = {
+      def recur(n: Int, tp: BindingType, rest: Nullable[Binders]): Int =
         if (this `eq` tp) finishHash(hashing.mix(hashSeed, n), 1)
         else if (rest == null) System.identityHashCode(this)
         else recur(n + 1, rest.tp, rest.next)
@@ -1832,7 +1832,7 @@ object Types {
         else recur(1, bs.tp, bs.next))
     }
 
-    def equalBinder(that: BindingType, bs: BinderPairs): Boolean =
+    def equalBinder(that: BindingType, bs: Nullable[BinderPairs]): Boolean =
       (this `eq` that) || bs != null && bs.matches(this, that)
   }
 
@@ -2378,7 +2378,7 @@ object Types {
 
     override def equals(that: Any): Boolean = equals(that, null)
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: NamedType =>
         designator.equals(that.designator) &&
         prefix.equals(that.prefix, bs)
@@ -2386,7 +2386,7 @@ object Types {
         false
     }
 
-    override def computeHash(bs: Binders): Int = doHash(bs, designator, prefix)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, designator, prefix)
 
     override def stableHash: Boolean = {
       if (myStableHash == 0) myStableHash = if (prefix.stableHash) 1 else -1
@@ -2578,7 +2578,7 @@ object Types {
           // can happen in IDE if `cls` is stale
       }
 
-    override def computeHash(bs: Binders): Int = doHash(bs, tref)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, tref)
 
     override def eql(that: Type): Boolean = that match {
       case that: ThisType => tref.eq(that.tref)
@@ -2606,7 +2606,7 @@ object Types {
       if ((thistpe eq this.thistpe) && (supertpe eq this.supertpe)) this
       else SuperType(thistpe, supertpe)
 
-    override def computeHash(bs: Binders): Int = doHash(bs, thistpe, supertpe)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, thistpe, supertpe)
 
     override def eql(that: Type): Boolean = that match {
       case that: SuperType => thistpe.eq(that.thistpe) && supertpe.eq(that.supertpe)
@@ -2627,7 +2627,7 @@ object Types {
   abstract case class ConstantType(value: Constant) extends CachedProxyType with SingletonType {
     override def underlying(implicit ctx: Context): Type = value.tpe
 
-    override def computeHash(bs: Binders): Int = doHash(value)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(value)
   }
 
   final class CachedConstantType(value: Constant) extends ConstantType(value)
@@ -2692,7 +2692,7 @@ object Types {
       if (parent.member(refinedName).exists) derivedRefinedType(parent, refinedName, refinedInfo)
       else parent
 
-    override def computeHash(bs: Binders): Int = doHash(bs, refinedName, refinedInfo, parent)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, refinedName, refinedInfo, parent)
     override def stableHash: Boolean = refinedInfo.stableHash && parent.stableHash
 
     override def eql(that: Type): Boolean = that match {
@@ -2703,7 +2703,7 @@ object Types {
       case _ => false
     }
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: RefinedType =>
         refinedName.eq(that.refinedName) &&
         refinedInfo.equals(that.refinedInfo, bs) &&
@@ -2791,7 +2791,7 @@ object Types {
       refacc.apply(false, tp)
     }
 
-    override def computeHash(bs: Binders): Int = doHash(new Binders(this, bs), parent)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(new Binders(this, bs), parent)
 
     override def stableHash: Boolean = false
       // this is a conservative observation. By construction RecTypes contain at least
@@ -2802,7 +2802,7 @@ object Types {
 
     override def equals(that: Any): Boolean = equals(that, null)
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: RecType =>
         parent.equals(that.parent, new BinderPairs(this, that, bs))
       case _ => false
@@ -2893,7 +2893,7 @@ object Types {
       if ((tp1 eq this.tp1) && (tp2 eq this.tp2)) this
       else tp1 & tp2
 
-    override def computeHash(bs: Binders): Int = doHash(bs, tp1, tp2)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, tp1, tp2)
 
     override def eql(that: Type): Boolean = that match {
       case that: AndType => tp1.eq(that.tp1) && tp2.eq(that.tp2)
@@ -2972,7 +2972,7 @@ object Types {
       if ((tp1 eq this.tp1) && (tp2 eq this.tp2)) this
       else OrType.make(tp1, tp2)
 
-    override def computeHash(bs: Binders): Int = doHash(bs, tp1, tp2)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, tp1, tp2)
 
     override def eql(that: Type): Boolean = that match {
       case that: OrType => tp1.eq(that.tp1) && tp2.eq(that.tp2)
@@ -3039,7 +3039,7 @@ object Types {
     def derivedExprType(resType: Type)(implicit ctx: Context): ExprType =
       if (resType eq this.resType) this else ExprType(resType)
 
-    override def computeHash(bs: Binders): Int = doHash(bs, resType)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, resType)
     override def stableHash: Boolean = resType.stableHash
 
     override def eql(that: Type): Boolean = that match {
@@ -3047,7 +3047,7 @@ object Types {
       case _ => false
     }
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: ExprType => resType.equals(that.resType, bs)
       case _ => false
     }
@@ -3136,7 +3136,7 @@ object Types {
   abstract class HKLambda extends CachedProxyType with LambdaType {
     final override def underlying(implicit ctx: Context): Type = resType
 
-    override def computeHash(bs: Binders): Int =
+    override def computeHash(bs: Nullable[Binders]): Int =
       doHash(new Binders(this, bs), paramNames, resType, paramInfos)
 
     override def stableHash: Boolean = resType.stableHash && paramInfos.stableHash
@@ -3145,7 +3145,7 @@ object Types {
 
     // No definition of `eql` --> fall back on equals, which calls iso
 
-    final override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    final override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: HKLambda =>
         paramNames.eqElements(that.paramNames) &&
         companion.eq(that.companion) && {
@@ -3165,7 +3165,7 @@ object Types {
 
     // No definition of `eql` --> fall back on equals, which is `eq`
 
-    final override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    final override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: MethodOrPoly =>
         paramNames.eqElements(that.paramNames) &&
         companion.eq(that.companion) && {
@@ -3694,7 +3694,7 @@ object Types {
       if ((tycon eq this.tycon) && (args eq this.args)) this
       else tycon.appliedTo(args)
 
-    override def computeHash(bs: Binders): Int = doHash(bs, tycon, args)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, tycon, args)
 
     override def stableHash: Boolean = {
       if (myStableHash == 0) myStableHash = if (tycon.stableHash && args.stableHash) 1 else -1
@@ -3703,7 +3703,7 @@ object Types {
 
     override def eql(that: Type): Boolean = this `eq` that // safe because applied types are hash-consed separately
 
-    final override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    final override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: AppliedType => tycon.equals(that.tycon, bs) && args.equalElements(that.args, bs)
       case _ => false
     }
@@ -3741,11 +3741,11 @@ object Types {
       else infos(paramNum)
     }
 
-    override def computeHash(bs: Binders): Int = doHash(paramNum, binder.identityHash(bs))
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(paramNum, binder.identityHash(bs))
 
     override def equals(that: Any): Boolean = equals(that, null)
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: ParamRef => paramNum == that.paramNum && binder.equalBinder(that.binder, bs)
       case _ => false
     }
@@ -3807,11 +3807,11 @@ object Types {
 
     // need to customize hashCode and equals to prevent infinite recursion
     // between RecTypes and RecRefs.
-    override def computeHash(bs: Binders): Int = addDelta(binder.identityHash(bs), 41)
+    override def computeHash(bs: Nullable[Binders]): Int = addDelta(binder.identityHash(bs), 41)
 
     override def equals(that: Any): Boolean = equals(that, null)
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: RecThis => binder.equalBinder(that.binder, bs)
       case _ => false
     }
@@ -3932,7 +3932,7 @@ object Types {
       if (inst.exists) inst else origin
     }
 
-    override def computeHash(bs: Binders): Int = identityHash(bs)
+    override def computeHash(bs: Nullable[Binders]): Int = identityHash(bs)
     override def equals(that: Any): Boolean = this.eq(that.asInstanceOf[AnyRef])
 
     override def toString: String = {
@@ -4053,7 +4053,7 @@ object Types {
       myReduced.nn
     }
 
-    override def computeHash(bs: Binders): Int = doHash(bs, scrutinee, bound :: cases)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, scrutinee, bound :: cases)
 
     override def eql(that: Type): Boolean = that match {
       case that: MatchType =>
@@ -4134,7 +4134,7 @@ object Types {
       if ((prefix eq this.prefix) && (classParents eq this.classParents) && (decls eq this.decls) && (selfInfo eq this.selfInfo)) this
       else ClassInfo(prefix, cls, classParents, decls, selfInfo)
 
-    override def computeHash(bs: Binders): Int = doHash(bs, cls, prefix)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, cls, prefix)
     override def stableHash: Boolean = prefix.stableHash && classParents.stableHash
 
     override def eql(that: Type): Boolean = that match {
@@ -4149,7 +4149,7 @@ object Types {
 
     override def equals(that: Any): Boolean = equals(that, null)
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: ClassInfo =>
         prefix.equals(that.prefix, bs) &&
         cls.eq(that.cls) &&
@@ -4230,12 +4230,12 @@ object Types {
       case _ => super.| (that)
     }
 
-    override def computeHash(bs: Binders): Int = doHash(bs, lo, hi)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, lo, hi)
     override def stableHash: Boolean = lo.stableHash && hi.stableHash
 
     override def equals(that: Any): Boolean = equals(that, null)
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: AliasingBounds => false
       case that: TypeBounds => lo.equals(that.lo, bs) && hi.equals(that.hi, bs)
       case _ => false
@@ -4255,10 +4255,10 @@ object Types {
 
     def derivedAlias(alias: Type)(implicit ctx: Context): AliasingBounds
 
-    override def computeHash(bs: Binders): Int = doHash(bs, alias)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, alias)
     override def stableHash: Boolean = alias.stableHash
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: AliasingBounds => this.isTypeAlias == that.isTypeAlias && alias.equals(that.alias, bs)
       case _ => false
     }
@@ -4335,7 +4335,7 @@ object Types {
       isRefiningCache
     }
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: AnnotatedType => parent.equals(that.parent, bs) && (annot `eq` that.annot)
       case _ => false
     }
@@ -4354,7 +4354,7 @@ object Types {
     def derivedJavaArrayType(elemtp: Type)(implicit ctx: Context): JavaArrayType =
       if (elemtp eq this.elemType) this else JavaArrayType(elemtp)
 
-    override def computeHash(bs: Binders): Int = doHash(bs, elemType)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, elemType)
     override def stableHash: Boolean = elemType.stableHash
 
     override def eql(that: Type): Boolean = that match {
@@ -4372,7 +4372,7 @@ object Types {
 
   /** Sentinel for "missing type" */
   @sharable case object NoType extends CachedGroundType {
-    override def computeHash(bs: Binders): Int = hashSeed
+    override def computeHash(bs: Nullable[Binders]): Int = hashSeed
   }
 
   /** The type of untyped trees. No element of this type is ever instantiated: the type
@@ -4383,7 +4383,7 @@ object Types {
 
   /** Missing prefix */
   @sharable case object NoPrefix extends CachedGroundType {
-    override def computeHash(bs: Binders): Int = hashSeed
+    override def computeHash(bs: Nullable[Binders]): Int = hashSeed
   }
 
   /** A common superclass of `ErrorType` and `TryDynamicCallSite`. Instances of this
@@ -4423,7 +4423,7 @@ object Types {
       else if (!optBounds.exists) WildcardType
       else WildcardType(optBounds.asInstanceOf[TypeBounds])
 
-    override def computeHash(bs: Binders): Int = doHash(bs, optBounds)
+    override def computeHash(bs: Nullable[Binders]): Int = doHash(bs, optBounds)
     override def stableHash: Boolean = optBounds.stableHash
 
     override def eql(that: Type): Boolean = that match {
@@ -4431,7 +4431,7 @@ object Types {
       case _ => false
     }
 
-    override def iso(that: Any, bs: BinderPairs): Boolean = that match {
+    override def iso(that: Any, bs: Nullable[BinderPairs]): Boolean = that match {
       case that: WildcardType => optBounds.equals(that.optBounds, bs)
       case _ => false
     }
@@ -5314,7 +5314,7 @@ object Types {
   implicit class typeListDeco(val tps1: List[Type]) extends AnyVal {
     @tailrec def stableHash: Boolean =
       tps1.isEmpty || tps1.head.stableHash && tps1.tail.stableHash
-    @tailrec def equalElements(tps2: List[Type], bs: BinderPairs): Boolean =
+    @tailrec def equalElements(tps2: List[Type], bs: Nullable[BinderPairs]): Boolean =
       (tps1 `eq` tps2) || {
         if (tps1.isEmpty) tps2.isEmpty
         else tps2.nonEmpty && tps1.head.equals(tps2.head, bs) && tps1.tail.equalElements(tps2.tail, bs)

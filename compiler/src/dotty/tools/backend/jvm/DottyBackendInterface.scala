@@ -618,7 +618,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
   }
 
   def assocsFromApply(tree: Tree): List[(Name, Tree)] = {
-    tree match {
+    (tree: @unchecked) match {
       case Block(_, expr) => assocsFromApply(expr)
       case Apply(fun, args) =>
         fun.tpe.nn.widen match {

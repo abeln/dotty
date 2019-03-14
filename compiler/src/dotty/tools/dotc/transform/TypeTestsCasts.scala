@@ -53,7 +53,9 @@ object TypeTestsCasts {
    *  7. if `P` is a refinement type, FALSE
    *  8. otherwise, TRUE
    */
-  def checkable(X: Type, P: Type, span: Span)(implicit ctx: Context): Boolean = {
+  def checkable(X: Type, P1: Type, span: Span)(implicit ctx: Context): Boolean = {
+    val P = P1.stripNull
+
     def isAbstract(P: Type) = !P.dealias.typeSymbol.isClass
     def isPatternTypeSymbol(sym: Symbol) = !sym.isClass && sym.is(Case)
 
