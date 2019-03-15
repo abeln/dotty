@@ -7,7 +7,7 @@ import dotty.tools.io._
 import java.util.jar.Attributes.Name
 import scala.language.postfixOps
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 /** Can't output a file due to the state of the file system. */
 class FileConflictException(msg: String, val file: AbstractFile) extends IOException(msg)
@@ -52,7 +52,7 @@ trait BytecodeWriters {
   }
 
   class DirectToJarfileWriter(jfile: JFile) extends BytecodeWriter {
-    val jarMainAttrs = mainClass.map(nm => List(Name.MAIN_CLASS -> nm)).getOrElse(Nil)
+    val jarMainAttrs = mainClass.map(nm => List(Name.MAIN_CLASS.nn -> nm)).getOrElse(Nil)
 
     val writer = new Jar(jfile).jarWriter(jarMainAttrs: _*)
 
