@@ -526,7 +526,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
         bytecodeName,
         mdesc,
         jgensig,
-        mkArrayS(thrownExceptions)
+        mkArrayS(thrownExceptions).asInstanceOf[Array[Nullable[String]]]
       ).asInstanceOf[asm.tree.MethodNode]
 
       // TODO param names: (m.params map (p => javaName(p.sym)))
@@ -635,7 +635,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
       }
 
       if (AsmUtils.traceMethodEnabled && mnode.nn.name.contains(AsmUtils.traceMethodPattern))
-        AsmUtils.traceMethod(mnode)
+        AsmUtils.traceMethod(mnode.nn)
 
       mnode = null
     } // end of method genDefDef()
@@ -649,21 +649,21 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
       def insertBefore(
             location: asm.tree.AbstractInsnNode,
-            i0: asm.tree.AbstractInsnNode,
-            i1: asm.tree.AbstractInsnNode): Unit = {
+            i0: Nullable[asm.tree.AbstractInsnNode],
+            i1: Nullable[asm.tree.AbstractInsnNode]): Unit = {
         if (i0 != null) {
           mnode.nn.instructions.insertBefore(location, i0.clone(null))
-          mnode.nn.instructions.insertBefore(location, i1.clone(null))
+          mnode.nn.instructions.insertBefore(location, i1.nn.clone(null))
         }
       }
 
       // collect all return instructions
       var rets: List[asm.tree.AbstractInsnNode] = Nil
-      mnode foreachInsn { i => if (i.getOpcode() == asm.Opcodes.RETURN) { rets ::= i  } }
+      mnode.nn foreachInsn { i => if (i.getOpcode() == asm.Opcodes.RETURN) { rets ::= i  } }
       if (rets.isEmpty) { return }
 
-      var insnModA: asm.tree.AbstractInsnNode = null
-      var insnModB: asm.tree.AbstractInsnNode = null
+      var insnModA: Nullable[asm.tree.AbstractInsnNode] = null
+      var insnModB: Nullable[asm.tree.AbstractInsnNode] = null
       // call object's private ctor from static ctor
       if (isCZStaticModule) {
         // NEW `moduleName`
@@ -677,13 +677,13 @@ trait BCodeSkelBuilder extends BCodeHelpers {
         insnModB   = new asm.tree.MethodInsnNode(asm.Opcodes.INVOKESPECIAL, jowner, jname, jtype, false)
       }
 
-      var insnParcA: asm.tree.AbstractInsnNode = null
-      var insnParcB: asm.tree.AbstractInsnNode = null
+      var insnParcA: Nullable[asm.tree.AbstractInsnNode] = null
+      var insnParcB: Nullable[asm.tree.AbstractInsnNode] = null
       // android creator code
       if (isCZParcelable) {
         // add a static field ("CREATOR") to this class to cache android.os.Parcelable$Creator
         val andrFieldDescr = getClassBTypeAndRegisterInnerClass(AndroidCreatorClass).descriptor
-        cnode.visitField(
+        cnode.nn.visitField(
           asm.Opcodes.ACC_STATIC | asm.Opcodes.ACC_FINAL,
           "CREATOR",
           andrFieldDescr,
