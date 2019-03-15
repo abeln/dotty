@@ -34,7 +34,7 @@ import JSEncoding._
 import JSInterop._
 import ScopedVar.withScopedVars
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 /** Main codegen for Scala.js IR.
  *
@@ -64,14 +64,14 @@ class JSCodeGen()(implicit ctx: Context) {
 
   // Some state --------------------------------------------------------------
 
-  private val currentClassSym = new ScopedVar[Symbol]
-  private val currentMethodSym = new ScopedVar[Symbol]
-  private val localNames = new ScopedVar[LocalNameGenerator]
-  private val thisLocalVarIdent = new ScopedVar[Option[js.Ident]]
-  private val undefinedDefaultParams = new ScopedVar[mutable.Set[Symbol]]
+  private val currentClassSym = new ScopedVar[Nullable[Symbol]]
+  private val currentMethodSym = new ScopedVar[Nullable[Symbol]]
+  private val localNames = new ScopedVar[Nullable[LocalNameGenerator]]
+  private val thisLocalVarIdent = new ScopedVar[Nullable[Option[js.Ident]]]
+  private val undefinedDefaultParams = new ScopedVar[Nullable[mutable.Set[Symbol]]]
 
   /** Implicitly materializes the current local name generator. */
-  private implicit def implicitLocalNames: LocalNameGenerator = localNames.get
+  private implicit def implicitLocalNames: LocalNameGenerator = localNames.get.nn
 
   /* See genSuperCall()
    * TODO Can we avoid this unscoped var?
@@ -82,11 +82,11 @@ class JSCodeGen()(implicit ctx: Context) {
 
   /** Returns a new fresh local identifier. */
   private def freshLocalIdent()(implicit pos: Position): js.Ident =
-    localNames.get.freshLocalIdent()
+    localNames.get.nn.freshLocalIdent()
 
   /** Returns a new fresh local identifier. */
   private def freshLocalIdent(base: String)(implicit pos: Position): js.Ident =
-    localNames.get.freshLocalIdent(base)
+    localNames.get.nn.freshLocalIdent(base)
 
   // Compilation unit --------------------------------------------------------
 
@@ -692,7 +692,7 @@ class JSCodeGen()(implicit ctx: Context) {
         val fromSym = from.symbol
         val label =
           if (fromSym.is(Label)) encodeLabelSym(fromSym)
-          else localNames.get.getEnclosingReturnLabel()
+          else localNames.get.nn.getEnclosingReturnLabel()
         js.Return(toIRType(expr.tpe) match {
           case jstpe.NoType => js.Block(genStat(expr), js.Undefined())
           case _            => genExpr(expr)
@@ -813,8 +813,8 @@ class JSCodeGen()(implicit ctx: Context) {
             val qualifier = lhs.qualifier
 
             def ctorAssignment = (
-                currentMethodSym.get.name == nme.CONSTRUCTOR &&
-                currentMethodSym.get.owner == qualifier.symbol &&
+                currentMethodSym.get.nn.name == nme.CONSTRUCTOR &&
+                currentMethodSym.get.nn.owner == qualifier.symbol &&
                 qualifier.isInstanceOf[This]
             )
             if (!sym.is(Mutable) && !ctorAssignment)
@@ -961,7 +961,7 @@ class JSCodeGen()(implicit ctx: Context) {
 
       // Initialize the module instance just after the super constructor call.
       if (isStaticModule(currentClassSym) && !isModuleInitialized &&
-          currentMethodSym.get.isClassConstructor) {
+          currentMethodSym.get.nn.isClassConstructor) {
         isModuleInitialized = true
         val thisType = jstpe.ClassType(encodeClassFullName(currentClassSym))
         val initModule = js.StoreModule(thisType, js.This()(thisType))
@@ -2363,7 +2363,7 @@ class JSCodeGen()(implicit ctx: Context) {
         case _ =>
       }
     }
-    if (found == null) None else Some(found)
+    if (found == null) None else Some(found.nn)
   }
 }
 
