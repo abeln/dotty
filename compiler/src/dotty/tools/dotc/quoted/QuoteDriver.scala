@@ -11,6 +11,8 @@ import scala.quoted.{Expr, Type}
 import scala.quoted.Toolbox
 import java.net.URLClassLoader
 
+import scala.ExplicitNulls._
+
 class QuoteDriver extends Driver {
   import tpd._
 
@@ -32,7 +34,7 @@ class QuoteDriver extends Driver {
     val driver = new QuoteCompiler
     driver.newRun(ctx).compileExpr(expr)
 
-    val classLoader = new AbstractFileClassLoader(outDir, this.getClass.getClassLoader)
+    val classLoader = new AbstractFileClassLoader(outDir, this.getClass.getClassLoader.nn)
 
     val clazz = classLoader.loadClass(driver.outputClassName.toString)
     val method = clazz.getMethod("apply")
@@ -97,9 +99,9 @@ object QuoteDriver {
         // Loads the classes loaded by this class loader
         // When executing `run` or `test` in sbt the classpath is not in the property java.class.path
         import java.nio.file.Paths
-        val newClasspath = cl.getURLs.map(url => Paths.get(url.toURI).toString)
+        val newClasspath = cl.getURLs.map(url => Paths.get(url.nn.toURI).toString)
         newClasspath.mkString("", java.io.File.pathSeparator, if (classpath0 == "") "" else java.io.File.pathSeparator + classpath0)
-      case _ => classpath0
+      case _ => classpath0.nn
     }
   }
 
