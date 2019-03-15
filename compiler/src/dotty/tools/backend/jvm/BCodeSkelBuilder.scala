@@ -317,10 +317,10 @@ trait BCodeSkelBuilder extends BCodeHelpers {
      *  emitted for that purpose as described in `genLoadTry()` and `genSynchronized()`.
      */
     var cleanups: List[asm.Label] = Nil
-    def registerCleanup(finCleanup: asm.Label): Unit = {
-      if (finCleanup != null) { cleanups = finCleanup :: cleanups }
+    def registerCleanup(finCleanup: Nullable[asm.Label]): Unit = {
+      if (finCleanup != null) { cleanups = finCleanup.nn :: cleanups }
     }
-    def unregisterCleanup(finCleanup: asm.Label): Unit = {
+    def unregisterCleanup(finCleanup: Nullable[asm.Label]): Unit = {
       if (finCleanup != null) {
         assert(cleanups.head eq finCleanup,
                s"Bad nesting of cleanup operations: $cleanups trying to unregister: $finCleanup")
@@ -440,9 +440,9 @@ trait BCodeSkelBuilder extends BCodeHelpers {
           pp
       }
     }
-    def markProgramPoint(lbl: asm.Label): Unit = {
+    def markProgramPoint(lbl: Nullable[asm.Label]): Unit = {
       val skip = (lbl == null) || isAtProgramPoint(lbl)
-      if (!skip) { mnode.nn visitLabel lbl }
+      if (!skip) { mnode.nn visitLabel lbl.nn }
     }
     def isAtProgramPoint(lbl: asm.Label): Boolean = {
       def getNonLineNumberNode(a: asm.tree.AbstractInsnNode): asm.tree.AbstractInsnNode  = a match {

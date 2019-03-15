@@ -5,6 +5,8 @@ package jvm
 import scala.collection.immutable
 import scala.tools.asm
 
+import scala.ExplicitNulls._
+
 /*
  *
  *  @author  Miguel Garcia, http://lamp.epfl.ch/~magarcia/ScalaCompilerCornerReloaded/
@@ -91,7 +93,7 @@ trait BCodeSyncAndTry extends BCodeBodyBuilder {
        *            Protected by whatever protects the whole synchronized expression.
        * ------
        */
-      mnode visitLabel postHandler
+      mnode.nn visitLabel postHandler
 
       lineNumber(tree)
 
@@ -269,8 +271,8 @@ trait BCodeSyncAndTry extends BCodeBodyBuilder {
 
         // (2.a) emit case clause proper
         val startHandler = currProgramPoint()
-        var endHandler: asm.Label = null
-        var excType: ClassBType = null
+        var endHandler: Nullable[asm.Label] = null
+        var excType: Nullable[ClassBType] = null
         registerCleanup(finCleanup)
         ch match {
           case NamelessEH(typeToDrop, caseBody) =>
@@ -288,7 +290,7 @@ trait BCodeSyncAndTry extends BCodeBodyBuilder {
             genLoad(caseBody, kind)
             nopIfNeeded(startHandler)
             endHandler = currProgramPoint()
-            emitLocalVarScope(patSymbol, startHandler, endHandler)
+            emitLocalVarScope(patSymbol, startHandler, endHandler.nn)
             excType = patTK.asClassBType
         }
         unregisterCleanup(finCleanup)
@@ -379,21 +381,21 @@ trait BCodeSyncAndTry extends BCodeBodyBuilder {
       }
     }
 
-    def protect(start: asm.Label, end: asm.Label, handler: asm.Label, excType: ClassBType): Unit = {
-      val excInternalName: String =
+    def protect(start: asm.Label, end: asm.Label, handler: asm.Label, excType: Nullable[ClassBType]): Unit = {
+      val excInternalName: Nullable[String] =
         if (excType == null) null
         else excType.internalName
       assert(start != end, "protecting a range of zero instructions leads to illegal class format. Solution: add a NOP to that range.")
-      mnode.visitTryCatchBlock(start, end, handler, excInternalName)
+      mnode.nn.visitTryCatchBlock(start, end, handler, excInternalName)
     }
 
     /* `tmp` (if non-null) is the symbol of the local-var used to preserve the result of the try-body, see `guardResult` */
     def emitFinalizer(finalizer: Tree, tmp: Symbol, isDuplicate: Boolean): Unit = {
-      var saved: immutable.Map[ /* LabelDef */ Symbol, asm.Label ] = null
+      var saved: Nullable[immutable.Map[ /* LabelDef */ Symbol, asm.Label]] = null
       if (isDuplicate) {
         saved = jumpDest
-        for(ldef <- labelDefsAtOrUnder(finalizer)) {
-          jumpDest -= ldef.symbol
+        for(ldef <- labelDefsAtOrUnder.nn(finalizer)) {
+          jumpDest = jumpDest.nn - ldef.symbol
         }
       }
       // when duplicating, the above guarantees new asm.Labels are used for LabelDefs contained in the finalizer (their vars are reused, that's ok)
