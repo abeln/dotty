@@ -19,6 +19,8 @@ import scala.quoted.Types._
 import scala.quoted.Exprs._
 import scala.reflect.ClassTag
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object PickledQuotes {
   import tpd._
 

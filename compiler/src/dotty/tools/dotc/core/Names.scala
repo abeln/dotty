@@ -14,6 +14,8 @@ import java.util.HashMap
 
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object Names {
   import NameKinds._
 

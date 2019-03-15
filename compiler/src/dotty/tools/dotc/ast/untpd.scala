@@ -10,6 +10,8 @@ import language.higherKinds
 import annotation.constructorOnly
 import annotation.internal.sharable
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
 
   // ----- Tree cases that exist in untyped form only ------------------

@@ -20,6 +20,8 @@ import classpath._
 import reporting._, reporting.diagnostic.MessageContainer
 import util._
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** A Driver subclass designed to be used from IDEs */
 class InteractiveDriver(val settings: List[String]) extends Driver {
   import tpd._

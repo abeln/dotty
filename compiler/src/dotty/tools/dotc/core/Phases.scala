@@ -16,6 +16,8 @@ import Periods._
 import typer.{FrontEnd, RefChecks}
 import ast.tpd
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 trait Phases {
   self: Context =>
 

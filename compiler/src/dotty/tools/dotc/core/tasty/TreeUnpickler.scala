@@ -38,6 +38,8 @@ import scala.quoted.Exprs.TastyTreeExpr
 import scala.annotation.constructorOnly
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** Unpickler for typed trees
  *  @param reader              the reader from which to unpickle
  *  @param posUnpicklerOpt     the unpickler for positions, if it exists

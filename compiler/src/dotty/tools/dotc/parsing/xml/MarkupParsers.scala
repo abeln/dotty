@@ -14,6 +14,7 @@ import Constants._
 import util.SourceFile
 import Utility._
 
+import scala.ExplicitNullsLanguage.implicitNulls
 
 // XXX/Note: many/most of the functions in here are almost direct cut and pastes
 // from another file - scala.xml.parsing.MarkupParser, it looks like.

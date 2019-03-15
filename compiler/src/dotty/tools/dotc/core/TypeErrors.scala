@@ -15,6 +15,8 @@ import reporting.diagnostic.messages._
 import ast.untpd
 import config.Printers.cyclicErrors
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 class TypeError(msg: String) extends Exception(msg) {
   def this() = this("")
   def toMessage(implicit ctx: Context): Message = super.getMessage

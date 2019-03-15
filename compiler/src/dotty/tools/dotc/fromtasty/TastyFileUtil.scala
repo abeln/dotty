@@ -11,6 +11,8 @@ import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.tasty.{TastyUnpickler, TreePickler}
 import dotty.tools.dotc.core.StdNames.nme.EMPTY_PACKAGE
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object TastyFileUtil {
 
   /** Get the class path and the class name including packages

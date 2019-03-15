@@ -20,6 +20,8 @@ import util.common._
 import SymDenotations.NoDenotation
 import collection.mutable
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object Scopes {
 
   /** Maximal fill factor of hash table */

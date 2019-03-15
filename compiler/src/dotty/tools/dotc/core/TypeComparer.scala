@@ -17,6 +17,8 @@ import scala.util.control.NonFatal
 import typer.ProtoTypes.constrained
 import reporting.trace
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 final class AbsentContext
 object AbsentContext {
   implicit val absentContext: AbsentContext = new AbsentContext

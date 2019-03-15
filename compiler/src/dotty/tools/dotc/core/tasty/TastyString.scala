@@ -6,6 +6,8 @@ import java.io._
 import java.util.Base64
 import java.nio.charset.StandardCharsets.UTF_8
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** Utils for String representation of TASTY */
 object TastyString {
 

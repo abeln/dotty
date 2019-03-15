@@ -12,6 +12,8 @@ import java.lang.ref.WeakReference
 
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object TyperState {
   @sharable private var nextId: Int = 0
 }

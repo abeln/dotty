@@ -15,6 +15,8 @@ import scala.collection.mutable
 import scala.collection.immutable.{SortedMap, BitSet}
 import rewrites.Rewrites.patch
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object Scanners {
 
   /** Offset into source character array */

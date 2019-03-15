@@ -7,6 +7,8 @@ import dotty.tools.io._
 import java.util.jar.Attributes.Name
 import scala.language.postfixOps
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** Can't output a file due to the state of the file system. */
 class FileConflictException(msg: String, val file: AbstractFile) extends IOException(msg)
 

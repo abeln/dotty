@@ -30,6 +30,8 @@ import scala.annotation.switch
 import reporting.trace
 import dotty.tools.dotc.reporting.diagnostic.messages.FailureToEliminateExistential
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object Scala2Unpickler {
 
   /** Exception thrown if classfile is corrupted */

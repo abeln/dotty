@@ -18,6 +18,8 @@ import typer.ConstFold
 import scala.annotation.tailrec
 import scala.io.Codec
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** Some creators for typed trees */
 object tpd extends Trees.Instance[Type] with TypedTreeInfo {
 

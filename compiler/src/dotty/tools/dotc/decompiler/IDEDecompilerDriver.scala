@@ -8,6 +8,8 @@ import dotty.tools.dotc.core.tasty.TastyHTMLPrinter
 import dotty.tools.dotc.reporting._
 import dotty.tools.dotc.tastyreflect.ReflectionImpl
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /**
   * Decompiler to be used with IDEs
   */

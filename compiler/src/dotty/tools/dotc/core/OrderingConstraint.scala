@@ -12,6 +12,8 @@ import reflect.ClassTag
 import annotation.tailrec
 import annotation.internal.sharable
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 object OrderingConstraint {
 
   type ArrayValuedMap[T] = SimpleIdentityMap[TypeLambda, Array[T]]

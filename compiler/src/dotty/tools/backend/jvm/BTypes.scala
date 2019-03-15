@@ -3,6 +3,7 @@ package backend
 package jvm
 
 import scala.tools.asm
+import scala.ExplicitNullsLanguage.implicitNulls
 
 /**
  * The BTypes component defines The BType class hierarchy. BTypes encapsulates all type information

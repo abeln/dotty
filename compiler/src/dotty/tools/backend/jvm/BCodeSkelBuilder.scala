@@ -263,7 +263,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     var lastEmittedLineNr          = -1
 
     object bc extends JCodeMethodN {
-      override def jmethod = PlainSkelBuilder.this.mnode
+      override def jmethod = PlainSkelBuilder.this.mnode.nn
     }
 
     /* ---------------- Part 1 of program points, ie Labels in the ASM world ---------------- */
@@ -430,10 +430,10 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     var varsInScope: Nullable[List[(Symbol, asm.Label)]] = null // (local-var-sym -> start-of-scope)
 
     // helpers around program-points.
-    def lastInsn: asm.tree.AbstractInsnNode = mnode.nn.instructions.getLast
+    def lastInsn: asm.tree.AbstractInsnNode = mnode.nn.instructions.getLast.nn
     def currProgramPoint(): asm.Label = {
       lastInsn match {
-        case labnode: asm.tree.LabelNode => labnode.getLabel
+        case labnode: asm.tree.LabelNode => labnode.getLabel.nn
         case _ =>
           val pp = new asm.Label
           mnode.nn visitLabel pp
@@ -446,7 +446,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     }
     def isAtProgramPoint(lbl: asm.Label): Boolean = {
       def getNonLineNumberNode(a: asm.tree.AbstractInsnNode): asm.tree.AbstractInsnNode  = a match {
-        case a: asm.tree.LineNumberNode => getNonLineNumberNode(a.getPrevious) // line numbers aren't part of code itself
+        case a: asm.tree.LineNumberNode => getNonLineNumberNode(a.getPrevious.nn) // line numbers aren't part of code itself
         case _ => a
       }
       (getNonLineNumberNode(lastInsn) match {
@@ -477,7 +477,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
       val ldf = getLabelDefOwners(rhs)
       labelDefsAtOrUnder = ldf.withDefaultValue(Nil)
-      labelDef = labelDefsAtOrUnder(rhs).map(ld => (ld.symbol -> ld)).toMap
+      labelDef = labelDefsAtOrUnder.nn(rhs).map(ld => (ld.symbol -> ld)).toMap
       // check previous invocation of genDefDef exited as many varsInScope as it entered.
       assert(varsInScope == null, "Unbalanced entering/exiting of GenBCode's genBlock().")
       // check previous invocation of genDefDef unregistered as many cleanups as it registered.
@@ -521,7 +521,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
         else jMethodName
 
       val mdesc = asmMethodType(methSymbol).descriptor
-      mnode = cnode.visitMethod(
+      mnode = cnode.nn.visitMethod(
         flags,
         bytecodeName,
         mdesc,
@@ -531,8 +531,8 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
       // TODO param names: (m.params map (p => javaName(p.sym)))
 
-      emitAnnotations(mnode, others)
-      emitParamAnnotations(mnode, paramAnnotations)
+      emitAnnotations(mnode.nn, others)
+      emitParamAnnotations(mnode.nn, paramAnnotations)
 
     } // end of method initJMethod
 
@@ -586,7 +586,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
        * but the same vars (given by the LabelDef's params) can be reused,
        * because no LabelDef ends up nested within itself after such duplication.
        */
-      for(ld <- labelDefsAtOrUnder(rhs); LabelDef(_, ldpl ,_) = ld; ldp <- ldpl; if !locals.contains(ldp)) {
+      for(ld <- labelDefsAtOrUnder.nn(rhs); LabelDef(_, ldpl ,_) = ld; ldp <- ldpl; if !locals.contains(ldp)) {
         // the tail-calls xform results in symbols shared btw method-params and labelDef-params, thus the guard above.
         locals.makeLocal(ldp)
       }
@@ -595,7 +595,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
         def emitNormalMethodBody(): Unit = {
           val veryFirstProgramPoint = currProgramPoint()
-          genLoad(rhs, returnType)
+          genLoad(rhs, returnType.nn)
 
           rhs match {
             case Return(_) | Block(_, Return(_)) | Throw(_) | Block(_, Throw(_)) => ()
@@ -605,7 +605,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
                 else "")
               )
             case _ =>
-              bc emitRETURN returnType
+              bc emitRETURN returnType.nn
           }
           if (emitVars) {
             // add entries to LocalVariableTable JVM attribute

@@ -34,6 +34,8 @@ import JSEncoding._
 import JSInterop._
 import ScopedVar.withScopedVars
 
+import scala.ExplicitNullsLanguage.implicitNulls
+
 /** Main codegen for Scala.js IR.
  *
  *  [[GenSJSIR]] creates one instance of `JSCodeGen` per compilation unit.
