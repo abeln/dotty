@@ -152,9 +152,9 @@ object Contexts {
     def nonNullFacts: NonNullFacts = _nonNullFacts
 
     /** The history of implicit searches that are currently active */
-    private[this] var _searchHistory: SearchHistory = null
+    private[this] var _searchHistory: Nullable[SearchHistory] = null
     protected def searchHistory_= (searchHistory: SearchHistory): Unit = _searchHistory = searchHistory
-    def searchHistory: SearchHistory = _searchHistory
+    def searchHistory: Nullable[SearchHistory] = _searchHistory
 
     /** The current type comparer. This ones updates itself automatically for
      *  each new context.
@@ -216,7 +216,7 @@ object Contexts {
     def profiler: Profiler = store(profilerLoc)
 
     /** The new implicit references that are introduced by this scope */
-    protected var implicitsCache: ContextualImplicits = null
+    protected var implicitsCache: Nullable[ContextualImplicits] = null
     def implicits: ContextualImplicits = {
       if (implicitsCache == null )
         implicitsCache = {
@@ -237,7 +237,7 @@ object Contexts {
           if (implicitRefs.isEmpty) outerImplicits
           else new ContextualImplicits(implicitRefs, outerImplicits)(this)
         }
-      implicitsCache
+      implicitsCache.nn
     }
 
     /** Sourcefile corresponding to given abstract file, memoized */
@@ -265,22 +265,22 @@ object Contexts {
       * phasedCtxs is array that uses phaseId's as indexes,
       * contexts are created only on request and cached in this array
       */
-    private[this] var phasedCtx: Context = _
-    private[this] var phasedCtxs: Array[Context] = _
+    private[this] var phasedCtx: Nullable[Context] = _
+    private[this] var phasedCtxs: Nullable[Array[Context]] = _
 
     /** This context at given phase.
      *  This method will always return a phase period equal to phaseId, thus will never return squashed phases
      */
     final def withPhase(phaseId: PhaseId): Context =
       if (this.phaseId == phaseId) this
-      else if (phasedCtx.phaseId == phaseId) phasedCtx
-      else if (phasedCtxs != null && phasedCtxs(phaseId) != null) phasedCtxs(phaseId)
+      else if (phasedCtx.nn.phaseId == phaseId) phasedCtx.nn
+      else if (phasedCtxs != null && phasedCtxs.nn(phaseId) != null) phasedCtxs.nn(phaseId)
       else {
         val ctx1 = fresh.setPhase(phaseId)
         if (phasedCtx eq this) phasedCtx = ctx1
         else {
           if (phasedCtxs == null) phasedCtxs = new Array[Context](base.phases.length)
-          phasedCtxs(phaseId) = ctx1
+          phasedCtxs.nn(phaseId) = ctx1
         }
         ctx1
       }
@@ -445,20 +445,23 @@ object Contexts {
     final def withOwner(owner: Symbol): Context =
       if (owner ne this.owner) fresh.setOwner(owner) else this
 
-    private var sourceCtx: SimpleIdentityMap[SourceFile, Context] = null
+    private var sourceCtx: Nullable[SimpleIdentityMap[SourceFile, Nullable[Context]]] = null
 
     final def withSource(source: SourceFile): Context =
       if (source `eq` this.source) this
       else if ((source `eq` outer.source) &&
                outer.sourceCtx != null &&
-               (outer.sourceCtx(this.source) `eq` this)) outer
+               (outer.sourceCtx.nn(this.source) `eq` this)) outer
       else {
         if (sourceCtx == null) sourceCtx = SimpleIdentityMap.Empty
-        val prev = sourceCtx(source)
+        // TODO(abeln): this is a hack. If I do `sourceCtx.nn()`, then there's an error
+        // saying `nn` takes no arguments.
+        val srcCtx = sourceCtx.nn
+        val prev = srcCtx(source)
         if (prev != null) prev
         else {
           val newCtx = fresh.setSource(source)
-          sourceCtx = sourceCtx.updated(source, newCtx)
+          sourceCtx = sourceCtx.nn.updated(source, newCtx)
           newCtx
         }
       }
@@ -628,7 +631,8 @@ object Contexts {
 
   @sharable object NoContext extends Context {
     override def source = NoSource
-    val base: ContextBase = null
+    // TODO(abeln): annotate the field in the base context as nullable
+    val base: ContextBase = null.asInstanceOf[ContextBase]
     override val implicits: ContextualImplicits = new ContextualImplicits(Nil, null)(this)
   }
 
@@ -774,7 +778,7 @@ object Contexts {
     // Test that access is single threaded
 
     /** The thread on which `checkSingleThreaded was invoked last */
-    @sharable private[this] var thread: Thread = null
+    @sharable private[this] var thread: Nullable[Thread] = null
 
     /** Check that we are on the same thread as before */
     def checkSingleThreaded(): Unit =
@@ -785,7 +789,7 @@ object Contexts {
   sealed abstract class GADTMap {
     def addEmptyBounds(sym: Symbol)(implicit ctx: Context): Unit
     def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(implicit ctx: Context): Boolean
-    def bounds(sym: Symbol)(implicit ctx: Context): TypeBounds
+    def bounds(sym: Symbol)(implicit ctx: Context): Nullable[TypeBounds]
     def contains(sym: Symbol)(implicit ctx: Context): Boolean
     def approximation(sym: Symbol, fromBelow: Boolean)(implicit ctx: Context): Type
     def debugBoundsDescription(implicit ctx: Context): String
@@ -796,9 +800,9 @@ object Contexts {
 
   final class SmartGADTMap private (
     private var myConstraint: Constraint,
-    private var mapping: SimpleIdentityMap[Symbol, TypeVar],
-    private var reverseMapping: SimpleIdentityMap[TypeParamRef, Symbol],
-    private var boundCache: SimpleIdentityMap[Symbol, TypeBounds]
+    private var mapping: SimpleIdentityMap[Symbol, Nullable[TypeVar]],
+    private var reverseMapping: SimpleIdentityMap[TypeParamRef, Nullable[Symbol]],
+    private var boundCache: SimpleIdentityMap[Symbol, Nullable[TypeBounds]]
   ) extends GADTMap with ConstraintHandling[Context] {
     import dotty.tools.dotc.config.Printers.{gadts, gadtsConstr}
 
@@ -873,12 +877,12 @@ object Contexts {
       }, gadts)
     } finally boundAdditionInProgress = false
 
-    override def bounds(sym: Symbol)(implicit ctx: Context): TypeBounds = {
+    override def bounds(sym: Symbol)(implicit ctx: Context): Nullable[TypeBounds] = {
       mapping(sym) match {
         case null => null
         case tv =>
           def retrieveBounds: TypeBounds = {
-            val tb = constraint.fullBounds(tv.origin)
+            val tb = constraint.fullBounds(tv.nn.origin)
             removeTypeVars(tb).asInstanceOf[TypeBounds]
           }
           (
@@ -948,7 +952,7 @@ object Contexts {
       }
     }
 
-    private def insertTypeVars(tp: Type, map: TypeMap = null)(implicit ctx: Context) = tp match {
+    private def insertTypeVars(tp: Type, map: Nullable[TypeMap] = null)(implicit ctx: Context) = tp match {
       case tp: TypeRef =>
         val sym = tp.typeSymbol
         if (contains(sym)) tvar(sym) else tp
@@ -959,16 +963,16 @@ object Contexts {
       override def apply(tp: Type): Type = insertTypeVars(tp, this)
     }
 
-    private def removeTypeVars(tp: Type, map: TypeMap = null)(implicit ctx: Context) = tp match {
+    private def removeTypeVars(tp: Type, map: Nullable[TypeMap] = null)(implicit ctx: Context) = tp match {
       case tpr: TypeParamRef =>
         reverseMapping(tpr) match {
           case null => tpr
-          case sym => sym.typeRef
+          case sym => sym.nn.typeRef
         }
       case tv: TypeVar =>
         reverseMapping(tv.origin) match {
           case null => tv
-          case sym => sym.typeRef
+          case sym => sym.nn.typeRef
         }
       case _ =>
         (if (map != null) map else new TypeVarRemovingMap()).mapOver(tp)
@@ -997,7 +1001,7 @@ object Contexts {
   @sharable object EmptyGADTMap extends GADTMap {
     override def addEmptyBounds(sym: Symbol)(implicit ctx: Context): Unit = unsupported("EmptyGADTMap.addEmptyBounds")
     override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(implicit ctx: Context): Boolean = unsupported("EmptyGADTMap.addBound")
-    override def bounds(sym: Symbol)(implicit ctx: Context): TypeBounds = null
+    override def bounds(sym: Symbol)(implicit ctx: Context): Nullable[TypeBounds] = null
     override def contains(sym: Symbol)(implicit ctx: Context) = false
     override def approximation(sym: Symbol, fromBelow: Boolean)(implicit ctx: Context): Type = unsupported("EmptyGADTMap.approximation")
     override def debugBoundsDescription(implicit ctx: Context): String = "EmptyGADTMap"

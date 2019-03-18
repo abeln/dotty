@@ -37,6 +37,8 @@ import annotation.tailrec
 
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNulls._
+
 /** Implicit resolution */
 object Implicits {
   import tpd._
@@ -254,7 +256,7 @@ object Implicits {
    *                   name, b, whereas the name of the symbol is the original name, a.
    *  @param outerCtx  the next outer context that makes visible further implicits
    */
-  class ContextualImplicits(val refs: List[ImplicitRef], val outerImplicits: ContextualImplicits)(initctx: Context) extends ImplicitRefs(initctx) {
+  class ContextualImplicits(val refs: List[ImplicitRef], val outerImplicits: Nullable[ContextualImplicits])(initctx: Context) extends ImplicitRefs(initctx) {
     private val eligibleCache = new java.util.IdentityHashMap[Type, List[Candidate]]
 
     /** The level increases if current context has a different owner or scope than

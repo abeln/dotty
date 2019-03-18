@@ -12,11 +12,11 @@ import reflect.ClassTag
 import annotation.tailrec
 import annotation.internal.sharable
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 object OrderingConstraint {
 
-  type ArrayValuedMap[T] = SimpleIdentityMap[TypeLambda, Array[T]]
+  type ArrayValuedMap[T] = SimpleIdentityMap[TypeLambda, Nullable[Array[T]]]
 
   /** The type of `OrderingConstraint#boundsMap` */
   type ParamBounds = ArrayValuedMap[Type]

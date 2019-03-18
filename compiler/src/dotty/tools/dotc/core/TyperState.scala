@@ -12,13 +12,13 @@ import java.lang.ref.WeakReference
 
 import scala.annotation.internal.sharable
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 object TyperState {
   @sharable private var nextId: Int = 0
 }
 
-class TyperState(previous: TyperState /* | Null */) {
+class TyperState(previous: Nullable[TyperState] /* | Null */) {
 
   val id: Int = TyperState.nextId
   TyperState.nextId += 1

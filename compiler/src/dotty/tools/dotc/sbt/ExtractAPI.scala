@@ -23,6 +23,8 @@ import xsbti.api.DefinitionType
 
 import scala.collection.mutable
 
+import scala.ExplicitNulls._
+
 /** This phase sends a representation of the API of classes to sbt via callbacks.
  *
  *  This is used by sbt for incremental recompilation.
