@@ -34,7 +34,7 @@ class TypeComparer(initctx: Context) extends ConstraintHandling[AbsentContext] {
   def constraint: Constraint = state.constraint
   def constraint_=(c: Constraint): Unit = state.constraint = c
 
-  private[this] var pendingSubTypes: mutable.Set[(Type, Type)] = null
+  private[this] var pendingSubTypes: Nullable[mutable.Set[(Type, Type)]] = null
   private[this] var recCount = 0
   private[this] var monitored = false
 
@@ -58,46 +58,46 @@ class TypeComparer(initctx: Context) extends ConstraintHandling[AbsentContext] {
   private[this] var successCount = 0
   private[this] var totalCount = 0
 
-  private[this] var myAnyClass: ClassSymbol = null
-  private[this] var myAnyKindClass: ClassSymbol = null
-  private[this] var myNothingClass: ClassSymbol = null
-  private[this] var myNullClass: ClassSymbol = null
-  private[this] var myObjectClass: ClassSymbol = null
-  private[this] var myAnyType: TypeRef = null
-  private[this] var myAnyKindType: TypeRef = null
-  private[this] var myNothingType: TypeRef = null
+  private[this] var myAnyClass: Nullable[ClassSymbol] = null
+  private[this] var myAnyKindClass: Nullable[ClassSymbol] = null
+  private[this] var myNothingClass: Nullable[ClassSymbol] = null
+  private[this] var myNullClass: Nullable[ClassSymbol] = null
+  private[this] var myObjectClass: Nullable[ClassSymbol] = null
+  private[this] var myAnyType: Nullable[TypeRef] = null
+  private[this] var myAnyKindType: Nullable[TypeRef] = null
+  private[this] var myNothingType: Nullable[TypeRef] = null
 
   def AnyClass: ClassSymbol = {
     if (myAnyClass == null) myAnyClass = defn.AnyClass
-    myAnyClass
+    myAnyClass.nn
   }
   def AnyKindClass: ClassSymbol = {
     if (myAnyKindClass == null) myAnyKindClass = defn.AnyKindClass
-    myAnyKindClass
+    myAnyKindClass.nn
   }
   def NothingClass: ClassSymbol = {
     if (myNothingClass == null) myNothingClass = defn.NothingClass
-    myNothingClass
+    myNothingClass.nn
   }
   def NullClass: ClassSymbol = {
     if (myNullClass == null) myNullClass = defn.NullClass
-    myNullClass
+    myNullClass.nn
   }
   def ObjectClass: ClassSymbol = {
     if (myObjectClass == null) myObjectClass = defn.ObjectClass
-    myObjectClass
+    myObjectClass.nn
   }
   def AnyType: TypeRef = {
     if (myAnyType == null) myAnyType = AnyClass.typeRef
-    myAnyType
+    myAnyType.nn
   }
   def AnyKindType: TypeRef = {
     if (myAnyKindType == null) myAnyKindType = AnyKindClass.typeRef
-    myAnyKindType
+    myAnyKindType.nn
   }
   def NothingType: TypeRef = {
     if (myNothingType == null) myNothingType = NothingClass.typeRef
-    myNothingType
+    myNothingType.nn
   }
 
   /** Indicates whether a previous subtype check used GADT bounds */
@@ -210,13 +210,13 @@ class TypeComparer(initctx: Context) extends ConstraintHandling[AbsentContext] {
         }
       }
       val p = (normalize(tp1), normalize(tp2))
-      !pendingSubTypes(p) && {
+      !pendingSubTypes.nn(p) && {
         try {
-          pendingSubTypes += p
+          pendingSubTypes = pendingSubTypes.nn + p
           firstTry
         }
         finally {
-          pendingSubTypes -= p
+          pendingSubTypes = pendingSubTypes.nn - p
         }
       }
     }
@@ -1937,9 +1937,9 @@ object TypeComparer {
 
   /** Like [[explaining]], but returns the trace instead */
   def explained[T](op: Context => T)(implicit ctx: Context): String = {
-    var trace: String = null
+    var trace: Nullable[String] = null
     explaining(trace = _)(op)
-    trace
+    trace.nn
   }
 }
 
@@ -1958,7 +1958,7 @@ class TrackingTypeComparer(initctx: Context) extends TypeComparer(initctx) {
     super.addOneBound(param, bound, isUpper)
   }
 
-  override def gadtBounds(sym: Symbol)(implicit ctx: Context): TypeBounds = {
+  override def gadtBounds(sym: Symbol)(implicit ctx: Context): Nullable[TypeBounds] = {
     footprint += sym.typeRef
     super.gadtBounds(sym)
   }

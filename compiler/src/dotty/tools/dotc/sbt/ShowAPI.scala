@@ -13,6 +13,8 @@ import xsbti.api._
 
 import scala.util.Try
 
+import scala.ExplicitNulls._
+
 object DefaultShowAPI {
   private lazy val defaultNesting = Try { java.lang.Integer.parseInt(sys.props.get("sbt.inc.apidiff.depth").get) } getOrElse 2
 
@@ -31,35 +33,35 @@ object ShowAPI {
     showDefinition(c)
 
   def showDefinition(d: Definition)(implicit nesting: Int): String = d match {
-    case v: Val              => showMonoDef(v, "val") + ": " + showType(v.tpe)
-    case v: Var              => showMonoDef(v, "var") + ": " + showType(v.tpe)
-    case d: Def              => showPolyDef(d, "def") + showValueParams(d.valueParameters) + ": " + showType(d.returnType)
-    case ta: TypeAlias       => showPolyDef(ta, "type") + " = " + showType(ta.tpe)
-    case td: TypeDeclaration => showPolyDef(td, "type") + showBounds(td.lowerBound, td.upperBound)
-    case cl: ClassLike => showMonoDef(d, showDefinitionType(cl.definitionType)) +
-      showTypeParameters(cl.typeParameters) + " extends " + showTemplate(cl)
-    case cl: ClassLikeDef => showPolyDef(cl, showDefinitionType(cl.definitionType))
+    case v: Val              => showMonoDef(v, "val") + ": " + showType(v.tpe.nn)
+    case v: Var              => showMonoDef(v, "var") + ": " + showType(v.tpe.nn)
+    case d: Def              => showPolyDef(d, "def") + showValueParams(d.valueParameters.asInstanceOf[Array[xsbti.api.ParameterList]]) + ": " + showType(d.returnType.nn)
+    case ta: TypeAlias       => showPolyDef(ta, "type") + " = " + showType(ta.tpe.nn)
+    case td: TypeDeclaration => showPolyDef(td, "type") + showBounds(td.lowerBound.nn, td.upperBound.nn)
+    case cl: ClassLike => showMonoDef(d, showDefinitionType(cl.definitionType.nn)) +
+      showTypeParameters(cl.typeParameters.asInstanceOf[Array[xsbti.api.TypeParameter]]) + " extends " + showTemplate(cl)
+    case cl: ClassLikeDef => showPolyDef(cl, showDefinitionType(cl.definitionType.nn))
   }
 
   private def showTemplate(cl: ClassLike)(implicit nesting: Int) =
     if (nesting <= 0) "<nesting level reached>"
     else {
-      val showSelf = if (cl.selfType.isInstanceOf[EmptyType]) "" else " self: " + showNestedType(cl.selfType) + " =>"
+      val showSelf = if (cl.selfType.isInstanceOf[EmptyType]) "" else " self: " + showNestedType(cl.selfType.nn) + " =>"
 
       cl.structure.parents.map(showNestedType).mkString("", " with ", " {") + showSelf +
-        lines(truncateDecls(cl.structure.inherited).map(d => "^inherited^ " + showNestedDefinition(d))) +
-        lines(truncateDecls(cl.structure.declared).map(showNestedDefinition)) +
+        lines(truncateDecls(cl.structure.inherited.asInstanceOf[Array[xsbti.api.ClassDefinition]]).map(d => "^inherited^ " + showNestedDefinition(d))) +
+        lines(truncateDecls(cl.structure.declared.asInstanceOf[Array[xsbti.api.ClassDefinition]]).map(showNestedDefinition)) +
         "}"
     }
 
-  def showType(t: Type)(implicit nesting: Int): String = t match {
-    case st: Projection   => showType(st.prefix) + "#" + st.id
+  def showType(t: Nullable[Type])(implicit nesting: Int): String = t match {
+    case st: Projection   => showType(st.prefix.nn) + "#" + st.id
     case st: ParameterRef => "<" + st.id + ">"
-    case st: Singleton    => showPath(st.path)
+    case st: Singleton    => showPath(st.path.nn)
     case st: EmptyType    => "<empty>"
-    case p: Parameterized => showType(p.baseType) + p.typeArguments.map(showType).mkString("[", ", ", "]")
+    case p: Parameterized => showType(p.baseType.nn) + p.typeArguments.map(showType).mkString("[", ", ", "]")
     case c: Constant      => showType(c.baseType) + "(" + c.value + ")"
-    case a: Annotated     => showAnnotations(a.annotations) + " " + showType(a.baseType)
+    case a: Annotated     => showAnnotations(a.annotations.asInstanceOf[Array[xsbti.api.Annotation]]) + " " + showType(a.baseType)
     case s: Structure =>
       s.parents.map(showType).mkString(" with ") + (
         if (nesting <= 0) "{ <nesting level reached> }"
@@ -101,7 +103,7 @@ object ShowAPI {
   private def showAnnotation(a: Annotation)(implicit nesting: Int) =
     "@" + showType(a.base) + (
       if (a.arguments.isEmpty) ""
-      else a.arguments.map(a => a.name + " = " + a.value).mkString("(", ", ", ")")
+      else a.arguments.map(a => a.nn.name + " = " + a.value).mkString("(", ", ", ")")
     )
 
   private def showBounds(lower: Type, upper: Type)(implicit nesting: Int): String = ">: " + showType(lower) + " <: " + showType(upper)
