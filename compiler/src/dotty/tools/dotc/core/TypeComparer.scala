@@ -17,7 +17,7 @@ import scala.util.control.NonFatal
 import typer.ProtoTypes.constrained
 import reporting.trace
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 final class AbsentContext
 object AbsentContext {
@@ -790,7 +790,8 @@ class TypeComparer(initctx: Context) extends ConstraintHandling[AbsentContext] {
                     touchedGADTs = true
                     val b = gadtBounds(sym)
                     b != null && inFrozenConstraint {
-                      (b.lo =:= tp) && (b.hi =:= tp)
+                      val b1 = b.nn
+                      (b1.lo =:= tp) && (b1.hi =:= tp)
                     }
                   }
 
