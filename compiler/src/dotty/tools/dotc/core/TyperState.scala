@@ -85,9 +85,9 @@ class TyperState(previous: Nullable[TyperState] /* | Null */) {
    *  which is not yet committed, or which does not have a parent.
    */
   def uncommittedAncestor: TyperState =
-    if (isCommitted) previous.uncommittedAncestor else this
+    if (isCommitted) previous.nn.uncommittedAncestor else this
 
-  private[this] var testReporter: TestReporter = null
+  private[this] var testReporter: Nullable[TestReporter] = null
 
   /** Test using `op`. If current typerstate is shared, run `op` in a fresh exploration
    *  typerstate. If it is unshared, run `op` in current typerState, restoring typerState
@@ -103,17 +103,17 @@ class TyperState(previous: Nullable[TyperState] /* | Null */) {
       val savedCommitted = isCommitted
       myIsCommittable = false
       myReporter = {
-        if (testReporter == null || testReporter.inUse) {
+        if (testReporter == null || testReporter.nn.inUse) {
           testReporter = new TestReporter(reporter)
         } else {
-          testReporter.reset()
+          testReporter.nn.reset()
         }
-        testReporter.inUse = true
-        testReporter
+        testReporter.nn.inUse = true
+        testReporter.nn
       }
       try op(ctx)
       finally {
-        testReporter.inUse = false
+        testReporter.nn.inUse = false
         resetConstraintTo(savedConstraint)
         myReporter = savedReporter
         myIsCommittable = savedCommittable
@@ -146,7 +146,7 @@ class TyperState(previous: Nullable[TyperState] /* | Null */) {
       if (targetState.constraint eq previousConstraint) constraint
       else targetState.constraint & (constraint, otherHasErrors = reporter.errorsReported)
     constraint foreachTypeVar { tvar =>
-      if (tvar.owningState.get eq this) tvar.owningState = new WeakReference(targetState)
+      if (tvar.owningState.nn.get eq this) tvar.owningState = new WeakReference(targetState)
     }
     targetState.ownedVars ++= ownedVars
     targetState.gc()
@@ -163,7 +163,7 @@ class TyperState(previous: Nullable[TyperState] /* | Null */) {
     constraint foreachTypeVar { tvar =>
       if (!tvar.inst.exists) {
         val inst = ctx.typeComparer.instType(tvar)
-        if (inst.exists && (tvar.owningState.get eq this)) {
+        if (inst.exists && (tvar.owningState.nn.get eq this)) {
           tvar.inst = inst
           val lam = tvar.origin.binder
           if (constraint.isRemovable(lam)) toCollect += lam

@@ -15,12 +15,12 @@ import reporting.diagnostic.messages._
 import ast.untpd
 import config.Printers.cyclicErrors
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 class TypeError(msg: String) extends Exception(msg) {
   def this() = this("")
   def toMessage(implicit ctx: Context): Message = super.getMessage
-  override def getMessage: String = super.getMessage
+  override def getMessage: Nullable[String] = super.getMessage
 }
 
 class MalformedType(pre: Type, denot: Denotation, absMembers: Set[Name]) extends TypeError {
@@ -79,7 +79,7 @@ class RecursionOverflow(val op: String, details: => String, val previous: Throwa
   }
 
   override def fillInStackTrace(): Throwable = this
-  override def getStackTrace(): Array[StackTraceElement] = previous.getStackTrace()
+  override def getStackTrace(): Array[StackTraceElement] = previous.getStackTrace().asInstanceOf[Array[StackTraceElement]]
 }
 
 /** Post-process exceptions that might result from StackOverflow to add
@@ -96,9 +96,9 @@ object handleRecursive {
         case _: RecursionOverflow =>
           throw new RecursionOverflow(op, details, exc, weight)
         case _ =>
-          var e = exc
-          while (e != null && !e.isInstanceOf[StackOverflowError]) e = e.getCause
-          if (e != null) throw new RecursionOverflow(op, details, e, weight)
+          var e: Nullable[Throwable] = exc
+          while (e != null && !e.isInstanceOf[StackOverflowError]) e = e.nn.getCause.nn
+          if (e != null) throw new RecursionOverflow(op, details, e.nn, weight)
           else throw exc
       }
     }
@@ -158,7 +158,7 @@ object CyclicReference {
   def apply(denot: SymDenotation)(implicit ctx: Context): CyclicReference = {
     val ex = new CyclicReference(denot)
     if (!(ctx.mode is Mode.CheckCyclic)) {
-      cyclicErrors.println(ex.getMessage)
+      cyclicErrors.println(ex.getMessage.nn)
       for (elem <- ex.getStackTrace take 200)
         cyclicErrors.println(elem.toString)
     }
