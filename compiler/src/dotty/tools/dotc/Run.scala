@@ -62,12 +62,12 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
 
   private[this] var compiling = false
 
-  private[this] var myCtx = rootContext(ictx)
+  private[this] var myCtx: Nullable[Context] = rootContext(ictx)
 
   /** The context created for this run */
-  def runContext: Context = myCtx
+  def runContext: Context = myCtx.nn
 
-  protected[this] implicit def ctx: Context = myCtx
+  protected[this] implicit def ctx: Context = myCtx.nn
   assert(ctx.runId <= Periods.MaxPossibleRunId)
 
   private[this] var myUnits: Nullable[List[CompilationUnit]] = _
