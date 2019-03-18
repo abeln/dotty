@@ -7,11 +7,13 @@ import java.net.URL
 
 import dotty.tools.io.ClassPath
 
+import scala.ExplicitNulls._
+
 case class VirtualDirectoryClassPath(dir: VirtualDirectory) extends ClassPath with DirectoryLookup[ClassFileEntryImpl] with NoSourcePaths {
   type F = AbstractFile
 
   // From AbstractFileClassLoader
-  private final def lookupPath(base: AbstractFile)(pathParts: Seq[String], directory: Boolean): AbstractFile = {
+  private final def lookupPath(base: AbstractFile)(pathParts: Seq[String], directory: Boolean): Nullable[AbstractFile] = {
     var file: AbstractFile = base
     for (dirPart <- pathParts.init) {
       file = file.lookupName(dirPart, directory = true)
@@ -24,7 +26,7 @@ case class VirtualDirectoryClassPath(dir: VirtualDirectory) extends ClassPath wi
 
   protected def emptyFiles: Array[AbstractFile] = Array.empty
   protected def getSubDir(packageDirName: String): Option[AbstractFile] =
-    Option(lookupPath(dir)(packageDirName.split(java.io.File.separator), directory = true))
+    Option(lookupPath(dir)(packageDirName.split(java.io.File.separator), directory = true).asInstanceOf[AbstractFile])
   protected def listChildren(dir: AbstractFile, filter: Option[AbstractFile => Boolean] = None): Array[F] = filter match {
     case Some(f) => dir.iterator.filter(f).toArray
     case _ => dir.toArray
@@ -41,7 +43,7 @@ case class VirtualDirectoryClassPath(dir: VirtualDirectory) extends ClassPath wi
 
   def findClassFile(className: String): Option[AbstractFile] = {
     val relativePath = FileUtils.dirPath(className) + ".class"
-    Option(lookupPath(dir)(relativePath.split(java.io.File.separator), directory = false))
+    Option(lookupPath(dir)(relativePath.split(java.io.File.separator), directory = false).asInstanceOf[AbstractFile])
   }
 
   private[dotty] def classes(inPackage: String): Seq[ClassFileEntry] = files(inPackage)
