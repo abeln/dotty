@@ -227,16 +227,16 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     ).toArray
 
     val cl = api.ClassLike.of(
-      name, acc, modifiers, anns, defType, api.SafeLazy.strict(selfType), api.SafeLazy.strict(structure), Constants.emptyStringArray,
-      childrenOfSealedClass, topLevel, tparams)
+      name, acc, modifiers, anns, defType, api.SafeLazy.strict(selfType), api.SafeLazy.strict(structure), Constants.emptyStringArray.asInstanceOf[Array[Nullable[String]]],
+      childrenOfSealedClass.asInstanceOf[Array[Nullable[xsbti.api.Type]]], topLevel, tparams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]])
 
-    allNonLocalClassesInSrc += cl
+    allNonLocalClassesInSrc += cl.nn
 
     if (sym.isStatic && defType == DefinitionType.Module && ctx.platform.hasMainMethod(sym)) {
       _mainClasses += name
     }
 
-    api.ClassLikeDef.of(name, acc, modifiers, anns, tparams, defType)
+    api.ClassLikeDef.of(name, acc, modifiers, anns.asInstanceOf[Array[Nullable[xsbti.api.Annotation]]], tparams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], defType)
   }
 
   private[this] val LegacyAppClass = ctx.requiredClass("dotty.runtime.LegacyApp")
@@ -285,7 +285,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     // this works because of `classLikeCache`
     val apiInherited = lzy(apiDefinitions(inherited).toArray)
 
-    api.Structure.of(api.SafeLazy.strict(apiBases.toArray), api.SafeLazy.strict(apiDecls.toArray), apiInherited)
+    api.Structure.of(api.SafeLazy.strict(apiBases.toArray), api.SafeLazy.strict(apiDecls.toArray), apiInherited.nn)
   }
 
   def linearizedAncestorTypes(info: ClassInfo): List[Type] = {

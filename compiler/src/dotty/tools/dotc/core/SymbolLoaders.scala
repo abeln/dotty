@@ -19,6 +19,8 @@ import parsing.JavaParsers.OutlineJavaParser
 import parsing.Parsers.OutlineParser
 import reporting.trace
 
+import scala.ExplicitNulls._
+
 object SymbolLoaders {
   import ast.untpd._
 
@@ -307,7 +309,7 @@ abstract class SymbolLoader extends LazyType {
   /** Load source or class file for `root`, return */
   def doComplete(root: SymDenotation)(implicit ctx: Context): Unit
 
-  def sourceFileOrNull: AbstractFile = null
+  def sourceFileOrNull: Nullable[AbstractFile] = null
 
   /** Description of the resource (ClassPath, AbstractFile)
    *  being processed by this loader
@@ -377,7 +379,7 @@ abstract class SymbolLoader extends LazyType {
 
 class ClassfileLoader(val classfile: AbstractFile) extends SymbolLoader {
 
-  override def sourceFileOrNull: AbstractFile = classfile
+  override def sourceFileOrNull: Nullable[AbstractFile] = classfile
 
   def description(implicit ctx: Context): String = "class file " + classfile.toString
 
@@ -404,7 +406,7 @@ class ClassfileLoader(val classfile: AbstractFile) extends SymbolLoader {
 
 class SourcefileLoader(val srcfile: AbstractFile) extends SymbolLoader {
   def description(implicit ctx: Context): String = "source file " + srcfile.toString
-  override def sourceFileOrNull: AbstractFile = srcfile
+  override def sourceFileOrNull: Nullable[AbstractFile] = srcfile
   def doComplete(root: SymDenotation)(implicit ctx: Context): Unit =
     ctx.run.lateCompile(srcfile, typeCheck = ctx.settings.YretainTrees.value)
 }
