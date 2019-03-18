@@ -11,6 +11,8 @@ import dotty.tools.io.{AbstractFile, PlainFile, ClassPath, ClassRepresentation}
 import FileUtils._
 import scala.collection.JavaConverters._
 
+import scala.ExplicitNulls._
+
 /**
  * A trait allowing to look for classpath entries in directories. It provides common logic for
  * classes handling class and source files.
@@ -112,16 +114,16 @@ trait JFileDirectoryLookup[FileEntryType <: ClassRepresentation] extends Directo
         new java.util.Comparator[JFile] {
           def compare(o1: JFile, o2: JFile) = o1.getName.compareTo(o2.getName)
         })
-      listing
+      listing.asInstanceOf[Array[JFile]]
     } else Array()
   }
   protected def getName(f: JFile): String = f.getName
-  protected def toAbstractFile(f: JFile): AbstractFile = new PlainFile(new dotty.tools.io.File(f.toPath))
+  protected def toAbstractFile(f: JFile): AbstractFile = new PlainFile(new dotty.tools.io.File(f.toPath.nn))
   protected def isPackage(f: JFile): Boolean = f.isPackage
 
   assert(dir != null, "Directory file in DirectoryFileLookup cannot be null")
 
-  def asURLs: Seq[URL] = Seq(dir.toURI.toURL)
+  def asURLs: Seq[URL] = Seq(dir.toURI.toURL.nn)
   def asClassPathStrings: Seq[String] = Seq(dir.getPath)
 }
 
@@ -129,7 +131,7 @@ object JrtClassPath {
   import java.nio.file._, java.net.URI
   def apply(): Option[ClassPath] = {
     try {
-      val fs = FileSystems.getFileSystem(URI.create("jrt:/"))
+      val fs = FileSystems.getFileSystem(URI.create("jrt:/")).nn
       Some(new JrtClassPath(fs))
     } catch {
       case _: ProviderNotFoundException | _: FileSystemNotFoundException =>
@@ -149,13 +151,14 @@ object JrtClassPath {
 final class JrtClassPath(fs: java.nio.file.FileSystem) extends ClassPath with NoSourcePaths {
   import java.nio.file.Path, java.nio.file._
   type F = Path
-  private val dir: Path = fs.getPath("/packages")
+  private val dir: Path = fs.getPath("/packages").nn
 
   // e.g. "java.lang" -> Seq("/modules/java.base")
   private val packageToModuleBases: Map[String, Seq[Path]] = {
     val ps = Files.newDirectoryStream(dir).iterator().asScala
     def lookup(pack: Path): Seq[Path] = {
-      Files.list(pack).iterator().asScala.map(l => if (Files.isSymbolicLink(l)) Files.readSymbolicLink(l) else l).toList
+      Files.list(pack).iterator().asScala.map(
+        l => if (Files.isSymbolicLink(l)) Files.readSymbolicLink(l) else l).toList.asInstanceOf[List[java.nio.file.Path]]
     }
     ps.map(p => (p.toString.stripPrefix("/packages/"), lookup(p))).toMap
   }
@@ -183,7 +186,7 @@ final class JrtClassPath(fs: java.nio.file.FileSystem) extends ClassPath with No
     if (inPackage == "") ClassPathEntries(packages(inPackage), Nil)
     else ClassPathEntries(packages(inPackage), classes(inPackage))
 
-  def asURLs: Seq[URL] = Seq(dir.toUri.toURL)
+  def asURLs: Seq[URL] = Seq(dir.toUri.toURL.nn)
   // We don't yet have a scheme to represent the JDK modules in our `-classpath`.
   // java models them as entries in the new "module path", we'll probably need to follow this.
   def asClassPathStrings: Seq[String] = Nil
@@ -193,7 +196,7 @@ final class JrtClassPath(fs: java.nio.file.FileSystem) extends ClassPath with No
     else {
       val inPackage = packageOf(className)
       packageToModuleBases.getOrElse(inPackage, Nil).iterator.flatMap{x =>
-        val file = x.resolve(FileUtils.dirPath(className) + ".class")
+        val file = x.resolve(FileUtils.dirPath(className) + ".class").nn
         if (Files.exists(file)) new PlainFile(new dotty.tools.io.File(file)) :: Nil else Nil
       }.take(1).toList.headOption
     }
@@ -209,7 +212,7 @@ case class DirectoryClassPath(dir: JFile) extends JFileDirectoryLookup[ClassFile
     val relativePath = FileUtils.dirPath(className)
     val classFile = new JFile(dir, relativePath + ".class")
     if (classFile.exists) {
-      val wrappedClassFile = new dotty.tools.io.File(classFile.toPath)
+      val wrappedClassFile = new dotty.tools.io.File(classFile.toPath.nn)
       val abstractClassFile = new PlainFile(wrappedClassFile)
       Some(abstractClassFile)
     } else None
@@ -236,7 +239,7 @@ case class DirectorySourcePath(dir: JFile) extends JFileDirectoryLookup[SourceFi
       .collectFirst { case file if file.exists() => file }
 
     sourceFile.map { file =>
-      val wrappedSourceFile = new dotty.tools.io.File(file.toPath)
+      val wrappedSourceFile = new dotty.tools.io.File(file.toPath.nn)
       val abstractSourceFile = new PlainFile(wrappedSourceFile)
       abstractSourceFile
     }
