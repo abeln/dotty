@@ -30,7 +30,7 @@ object ScopedVar {
     }
   }
 
-  implicit def toValue[T](scVar: ScopedVar[Nullable[T]]): T = scVar.get
+  implicit def toValue[T](scVar: ScopedVar[Nullable[T]]): T = scVar.get.nn
 
   def withScopedVars[T](ass: Assignment[_]*)(body: => T): T = {
     val stack = ass.map(_.push())
