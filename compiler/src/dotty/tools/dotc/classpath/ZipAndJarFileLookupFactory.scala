@@ -13,6 +13,8 @@ import dotty.tools.io.{AbstractFile, ClassPath, ClassRepresentation, FileZipArch
 import dotty.tools.dotc.core.Contexts.Context
 import FileUtils._
 
+import scala.ExplicitNulls._
+
 /**
  * A trait providing an optional cache for classpath entries obtained from zip and jar files.
  * It allows us to e.g. reduce significantly memory used by PresentationCompilers in Scala IDE
@@ -29,7 +31,7 @@ sealed trait ZipAndJarFileLookupFactory {
   protected def createForZipFile(zipFile: AbstractFile): ClassPath
 
   private def createUsingCache(zipFile: AbstractFile): ClassPath =
-    cache.getOrCreate(zipFile.file.toPath, () => createForZipFile(zipFile))
+    cache.getOrCreate(zipFile.file.toPath.nn, () => createForZipFile(zipFile))
 }
 
 /**
@@ -180,9 +182,9 @@ final class FileBasedCache[T] {
 
   def getOrCreate(path: java.nio.file.Path, create: () => T): T = cache.synchronized {
     val attrs = Files.readAttributes(path, classOf[BasicFileAttributes])
-    val lastModified = attrs.lastModifiedTime()
+    val lastModified = attrs.lastModifiedTime().nn
     // only null on some platforms, but that's okay, we just use the last modified timestamp as our stamp
-    val fileKey = attrs.fileKey()
+    val fileKey = attrs.fileKey().nn
     val stamp = Stamp(lastModified, fileKey)
     cache.get(path) match {
       case Some((cachedStamp, cached)) if cachedStamp == stamp => cached
