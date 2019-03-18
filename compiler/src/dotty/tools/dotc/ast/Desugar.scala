@@ -15,6 +15,8 @@ import reporting.diagnostic.messages._
 import reporting.trace
 import annotation.constructorOnly
 
+import scala.ExplicitNulls._
+
 import scala.annotation.internal.sharable
 
 object desugar {
@@ -1039,7 +1041,7 @@ object desugar {
    *      def $anonfun(params) = body
    *      Closure($anonfun)
    */
-  def makeClosure(params: List[ValDef], body: Tree, tpt: Tree = null, isContextual: Boolean)(implicit ctx: Context): Block =
+  def makeClosure(params: List[ValDef], body: Tree, tpt: Nullable[Tree] = null, isContextual: Boolean)(implicit ctx: Context): Block =
     Block(
       DefDef(nme.ANON_FUN, Nil, params :: Nil, if (tpt == null) TypeTree() else tpt, body)
         .withMods(synthetic | Artifact),
