@@ -14,7 +14,7 @@ import java.util.HashMap
 
 import scala.annotation.internal.sharable
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 object Names {
   import NameKinds._
@@ -170,7 +170,7 @@ object Names {
     override def asTermName: TermName = this
 
     @sharable // because it is only modified in the synchronized block of toTypeName.
-    @volatile private[this] var _typeName: TypeName = null
+    @volatile private[this] var _typeName: Nullable[TypeName] = null
 
     override def toTypeName: TypeName = {
       if (_typeName == null)
@@ -178,7 +178,7 @@ object Names {
           if (_typeName == null)
             _typeName = new TypeName(this)
         }
-      _typeName
+      _typeName.nn
     }
 
     override def likeSpaced(name: Name): TermName = name.toTermName
@@ -190,7 +190,7 @@ object Names {
     private[this] var derivedNames: AnyRef /* immutable.Map[NameInfo, DerivedName] | j.u.HashMap */ =
       immutable.Map.empty[NameInfo, DerivedName]
 
-    private def getDerived(info: NameInfo): DerivedName /* | Null */ = derivedNames match {
+    private def getDerived(info: NameInfo): Nullable[DerivedName] /* | Null */ = derivedNames match {
       case derivedNames: immutable.AbstractMap[NameInfo, DerivedName] @unchecked =>
         if (derivedNames.contains(info)) derivedNames(info) else null
       case derivedNames: HashMap[NameInfo, DerivedName] @unchecked =>
@@ -217,7 +217,7 @@ object Names {
     private def add(info: NameInfo): TermName = synchronized {
       getDerived(info) match {
         case null        => putDerived(info, new DerivedName(this, info))
-        case derivedName => derivedName
+        case derivedName => derivedName.nn
       }
     }
 
@@ -255,22 +255,22 @@ object Names {
     }
 
     @sharable // because it's just a cache for performance
-    private[this] var myMangledString: String = null
+    private[this] var myMangledString: Nullable[String] = null
 
     @sharable // because it's just a cache for performance
-    private[this] var myMangled: Name = null
+    private[this] var myMangled: Nullable[Name] = null
 
     protected[Names] def mangle: ThisName
 
     final def mangled: ThisName = {
       if (myMangled == null) myMangled = mangle
-      myMangled.asInstanceOf[ThisName]
+      myMangled.nn.asInstanceOf[ThisName]
     }
 
     final def mangledString: String = {
       if (myMangledString == null)
         myMangledString = qualToString(_.mangledString, _.mangled.toString)
-      myMangledString
+      myMangledString.nn
     }
 
     /** If this a qualified name, split it into underlyng, last part, and separator
@@ -289,7 +289,7 @@ object Names {
   }
 
   /** A simple name is essentially an interned string */
-  final class SimpleName(val start: Int, val length: Int, @sharable private[Names] var next: SimpleName) extends TermName {
+  final class SimpleName(val start: Int, val length: Int, @sharable private[Names] var next: Nullable[SimpleName]) extends TermName {
     // `next` is @sharable because it is only modified in the synchronized block of termName.
 
     /** The n'th character */
@@ -412,7 +412,7 @@ object Names {
      */
     private def toStringOK = {
       val trace = Thread.currentThread.getStackTrace
-      !trace.exists(_.getClassName.endsWith("GenBCode")) ||
+      !trace.exists(_.nn.getClassName.endsWith("GenBCode")) ||
       trace.exists(elem =>
           List(
               "mangledString",
@@ -424,7 +424,7 @@ object Names {
               "$plus$plus",
               "readConstant",
               "extractedName")
-            .contains(elem.getMethodName))
+            .contains(elem.nn.getMethodName))
     }
 
     def debugString: String = toString
@@ -594,7 +594,7 @@ object Names {
     }
 
     /** Rehash chain of names */
-    def rehash(name: SimpleName): Unit =
+    def rehash(name: Nullable[SimpleName]): Unit =
       if (name != null) {
         val oldNext = name.next
         val h = hashValue(chrs, name.start, name.length) & (table.size - 1)
@@ -618,7 +618,7 @@ object Names {
     while (name ne null) {
       if (name.length == len && equals(name.start, cs, offset, len))
         return name
-      name = name.next
+      name = name.next.nn
     }
     name = new SimpleName(nc, len, next)
     enterChars()
