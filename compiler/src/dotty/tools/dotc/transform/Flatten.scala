@@ -10,6 +10,8 @@ import collection.mutable
 import MegaPhase.MiniPhase
 import util.Store
 
+import scala.ExplicitNulls._
+
 /** Lift nested classes to toplevel */
 class Flatten extends MiniPhase with SymTransformer {
   import ast.tpd._

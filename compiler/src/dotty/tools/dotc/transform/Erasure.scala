@@ -29,6 +29,8 @@ import ExplicitOuter._
 import core.Mode
 import reporting.trace
 
+import scala.ExplicitNulls._
+
 class Erasure extends Phase with DenotTransformer {
 
   override def phaseName: String = Erasure.name
@@ -418,7 +420,7 @@ object Erasure {
         def recur(owner: Symbol): Symbol =
           if (defn.specialErasure.contains(owner)) {
             assert(sym.isConstructor, s"${sym.showLocated}")
-            defn.specialErasure(owner)
+            defn.specialErasure(owner).nn
           } else if (defn.isSyntheticFunctionClass(owner))
             defn.erasedFunctionClass(owner)
           else

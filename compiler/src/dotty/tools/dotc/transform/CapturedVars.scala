@@ -14,6 +14,8 @@ import ast.Trees._
 import util.Store
 import collection.mutable
 
+import scala.ExplicitNulls._
+
 /** This phase translates variables that are captured in closures to
  *  heap-allocated refs.
  */
@@ -44,10 +46,10 @@ class CapturedVars extends MiniPhase with IdentityDenotTransformer { thisPhase =
       refClassKeys.flatMap(k => Set(refClass(k), volatileRefClass(k)))
   }
 
-  private[this] var myRefInfo: RefInfo = null
+  private[this] var myRefInfo: Nullable[RefInfo] = null
   private def refInfo(implicit ctx: Context) = {
     if (myRefInfo == null) myRefInfo = new RefInfo()
-    myRefInfo
+    myRefInfo.nn
   }
 
   private class CollectCaptured extends TreeTraverser {
