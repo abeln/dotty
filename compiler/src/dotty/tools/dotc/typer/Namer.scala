@@ -22,6 +22,8 @@ import transform.TypeUtils._
 import transform.SymUtils._
 import reporting.diagnostic.messages._
 
+import scala.ExplicitNulls._
+
 trait NamerContextOps { this: Context =>
   import NamerContextOps._
 
@@ -586,7 +588,7 @@ class Namer { typer: Typer =>
      *  body and derived clause of the synthetic module class `fromCls`.
      */
     def mergeModuleClass(mdef: Tree, modCls: TypeDef, fromCls: TypeDef): TypeDef = {
-      var res: TypeDef = null
+      var res: Nullable[TypeDef] = null
       val Thicket(trees) = expanded(mdef)
       val merged = trees.map { tree =>
         if (tree == modCls) {
@@ -599,16 +601,16 @@ class Namer { typer: Typer =>
           if (fromTempl.derived.nonEmpty) {
             if (modTempl.derived.nonEmpty)
               ctx.error(em"a class and its companion cannot both have `derives' clauses", mdef.sourcePos)
-            res.putAttachment(desugar.DerivingCompanion, fromTempl.sourcePos.startPos)
+            res.nn.putAttachment(desugar.DerivingCompanion, fromTempl.sourcePos.startPos)
           }
-          res
+          res.nn
         }
         else tree
       }
 
       mdef.putAttachment(ExpandedTree, Thicket(merged))
 
-      res
+      res.nn
     }
 
     /** Merge `fromCls` of `fromStat` into `toCls` of `toStat`
@@ -908,8 +910,8 @@ class Namer { typer: Typer =>
   }
 
   class TypeDefCompleter(original: TypeDef)(ictx: Context) extends Completer(original)(ictx) with TypeParamsCompleter {
-    private[this] var myTypeParams: List[TypeSymbol] = null
-    private[this] var nestedCtx: Context = null
+    private[this] var myTypeParams: Nullable[List[TypeSymbol]] = null
+    private[this] var nestedCtx: Nullable[Context] = null
     assert(!original.isClassDef)
 
     override def completerTypeParams(sym: Symbol)(implicit ctx: Context): List[TypeSymbol] = {
@@ -932,11 +934,11 @@ class Namer { typer: Typer =>
           tparams.map(symbolOfTree(_).asType)
         }
       }
-      myTypeParams
+      myTypeParams.nn
     }
 
     override protected def typeSig(sym: Symbol, completionCtx: Context): Type =
-      typeDefSig(original, sym, completerTypeParams(sym)(ictx))(nestedCtx)
+      typeDefSig(original, sym, completerTypeParams(sym)(ictx))(nestedCtx.nn)
   }
 
   class ClassCompleter(cls: ClassSymbol, original: TypeDef)(ictx: Context) extends Completer(original)(ictx) {

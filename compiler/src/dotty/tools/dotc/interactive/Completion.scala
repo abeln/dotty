@@ -22,6 +22,8 @@ import dotty.tools.dotc.util.{NameTransformer, NoSourcePosition, SourcePosition}
 
 import scala.collection.mutable
 
+import scala.ExplicitNulls._
+
 /**
  * One of the results of a completion query.
  *
@@ -299,8 +301,8 @@ object Completion {
           addMember(imp.site, name.toTypeName, nameInScope.toTypeName)
         }
         imp.reverseMapping.foreachBinding { (nameInScope, original) =>
-          if (original != nameInScope || !imp.excluded.contains(original)) {
-            addImport(original, nameInScope)
+            if (original != nameInScope || !imp.excluded.contains(original.nn)) {
+            addImport(original.nn, nameInScope)
           }
         }
         if (imp.isWildcardImport)

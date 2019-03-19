@@ -26,6 +26,8 @@ import collection.mutable
 import reporting.trace
 import util.Spans.Span
 
+import scala.ExplicitNulls._
+
 object Inliner {
   import tpd._
 
@@ -746,7 +748,7 @@ class Inliner(call: tpd.Tree, rhsToInline: tpd.Tree)(implicit ctx: Context) {
           }
         }
 
-        type TypeBindsMap = SimpleIdentityMap[TypeSymbol, java.lang.Boolean]
+        type TypeBindsMap = SimpleIdentityMap[TypeSymbol, Nullable[java.lang.Boolean]]
 
         def getTypeBindsMap(pat: Tree, tpt: Tree): TypeBindsMap = {
           val getBinds = new TreeAccumulator[Set[TypeSymbol]] {

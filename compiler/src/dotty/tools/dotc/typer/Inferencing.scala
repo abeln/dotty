@@ -18,6 +18,8 @@ import collection.mutable
 
 import scala.annotation.internal.sharable
 
+import scala.ExplicitNulls._
+
 object Inferencing {
 
   import tpd._
@@ -291,7 +293,8 @@ object Inferencing {
   def maximizeType(tp: Type, span: Span, fromScala2x: Boolean)(implicit ctx: Context): List[Symbol] = Stats.track("maximizeType") {
     val vs = variances(tp)
     val patternBound = new mutable.ListBuffer[Symbol]
-    vs foreachBinding { (tvar, v) =>
+    vs foreachBinding { (tvar, v1) =>
+      val v = v1.nn
       if (v == 1) tvar.instantiate(fromBelow = false)
       else if (v == -1) tvar.instantiate(fromBelow = true)
       else {
@@ -308,7 +311,7 @@ object Inferencing {
     patternBound.toList
   }
 
-  type VarianceMap = SimpleIdentityMap[TypeVar, Integer]
+  type VarianceMap = SimpleIdentityMap[TypeVar, Nullable[Integer]]
 
   /** All occurrences of type vars in this type that satisfy predicate
    *  `include` mapped to their variances (-1/0/1) in this type, where
@@ -356,7 +359,8 @@ object Inferencing {
     def propagate(vmap: VarianceMap): VarianceMap = {
       var vmap1 = vmap
       def traverse(tp: Type) = { vmap1 = accu(vmap1, tp) }
-      vmap.foreachBinding { (tvar, v) =>
+      vmap.foreachBinding { (tvar, v1) =>
+        val v = v1.nn
         val param = tvar.origin
         val e = constraint.entry(param)
         accu.setVariance(v)
