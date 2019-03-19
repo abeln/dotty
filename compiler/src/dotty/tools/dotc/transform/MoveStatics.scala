@@ -13,6 +13,8 @@ import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Types.MethodType
 import dotty.tools.dotc.transform.MegaPhase.MiniPhase
 
+import scala.ExplicitNulls._
+
 object MoveStatics {
   val name: String = "moveStatic"
 }
@@ -57,7 +59,7 @@ class MoveStatics extends MiniPhase with SymTransformer {
         cpy.TypeDef(orig)(rhs = cpy.Template(oldTemplate)(body = newBodyWithStaticConstr))
       }
 
-      def move(module: TypeDef, companion: TypeDef): List[Tree] = {
+      def move(module: TypeDef, companion: Nullable[TypeDef]): List[Tree] = {
         assert(companion != module)
         if (!module.symbol.is(Flags.Module)) move(companion, module)
         else {
