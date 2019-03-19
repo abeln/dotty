@@ -19,6 +19,8 @@ import config.NoScalaVersion
 import Decorators._
 import typer.ErrorReporting._
 
+import scala.ExplicitNulls._
+
 object RefChecks {
   import tpd._
   import reporting.diagnostic.messages._
@@ -838,7 +840,7 @@ object RefChecks {
         case scala.util.Success(symVersion) if xMigrationValue < symVersion=>
           ctx.warning(SymbolChangedSemanticsInVersion(sym, symVersion), pos)
         case Failure(ex) =>
-          ctx.warning(SymbolHasUnparsableVersionNumber(sym, ex.getMessage()), pos)
+          ctx.warning(SymbolHasUnparsableVersionNumber(sym, ex.getMessage().nn), pos)
         case _ =>
       }
     }
