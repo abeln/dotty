@@ -10,6 +10,8 @@ import reporting.diagnostic.MessageContainer
 import util.DiffUtil
 import Highlighting._
 
+import scala.ExplicitNulls._
+
 object Formatting {
 
   /** General purpose string formatter, with the following features:
@@ -169,7 +171,7 @@ object Formatting {
       case sym: Symbol =>
         val info =
           if (ctx.gadt.contains(sym))
-            sym.info & ctx.gadt.bounds(sym)
+            sym.info & ctx.gadt.bounds(sym).nn
           else
             sym.info
         s"is a ${ctx.printer.kindString(sym)}${sym.showExtendedLocation}${addendum("bounds", info)}"

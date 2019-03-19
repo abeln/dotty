@@ -12,6 +12,8 @@ import dotty.tools.dotc.util.SourceFile
 
 import java.util.Arrays
 
+import scala.ExplicitNulls._
+
 /** This object provides functions for syntax highlighting in the REPL */
 object SyntaxHighlighting {
 
@@ -37,7 +39,7 @@ object SyntaxHighlighting {
       val colorAt = Array.fill(in.length)(NoColor)
 
       def highlightRange(from: Int, to: Int, color: String) =
-        Arrays.fill(colorAt.asInstanceOf[Array[AnyRef]], from, to, color)
+        Arrays.fill(colorAt.asInstanceOf[Array[Nullable[AnyRef]]], from, to, color)
 
       def highlightPosition(span: Span, color: String) = if (span.exists) {
         if (span.start < 0 || span.end > in.length) {

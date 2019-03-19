@@ -4,6 +4,8 @@ package xml
 
 import scala.collection.mutable
 
+import scala.ExplicitNulls._
+
 
 /**
  * The `Utility` object provides utility functions for processing instances
@@ -28,12 +30,12 @@ object Utility {
    *
    * @return    `'''null'''` if `ref` was not a predefined entity.
    */
-  private final def unescape(ref: String, s: StringBuilder): StringBuilder =
+  private final def unescape(ref: String, s: StringBuilder): Nullable[StringBuilder] =
     ((unescMap get ref) map (s append _)).orNull
 
   def parseAttributeValue[T](value: String, text: String => T, entityRef: String => T): List[T] = {
     val sb  = new StringBuilder
-    var rfb: StringBuilder = null
+    var rfb: Nullable[StringBuilder] = null
     val nb = new mutable.ListBuffer[T]()
 
     val it = value.iterator
@@ -49,14 +51,14 @@ object Utility {
         }
         else {
           if (rfb eq null) rfb = new StringBuilder()
-          rfb append c
+          rfb.nn.append(c)
           c = it.next()
           while (c != ';') {
-            rfb.append(c)
+            rfb.nn.append(c)
             c = it.next()
           }
-          val ref = rfb.toString()
-          rfb.clear()
+          val ref = rfb.nn.toString()
+          rfb.nn.clear()
           unescape(ref,sb) match {
             case null =>
               if (!sb.isEmpty) {  // flush buffer

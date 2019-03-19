@@ -13,6 +13,8 @@ import java.util.Properties
 import scala.collection.mutable
 import scala.util.{ Try, Success, Failure }
 
+import scala.ExplicitNulls._
+
 trait PluginPhase extends MiniPhase {
   def runsBefore: Set[String] = Set.empty
 }
@@ -123,7 +125,7 @@ object Plugin {
         else fromFile(is, jarp)
 
       val fileEntry = new java.util.jar.JarEntry(PluginFile)
-      Try(read(new Jar(jarp.jpath.toFile).getEntryStream(fileEntry)))
+      Try(read(new Jar(jarp.jpath.toFile.nn).getEntryStream(fileEntry)))
     }
 
     // List[(jar, Try(descriptor))] in dir
@@ -181,7 +183,7 @@ object Plugin {
   def instantiate(clazz: AnyClass): Plugin = clazz.getConstructor().newInstance().asInstanceOf[Plugin]
 }
 
-class PluginLoadException(val path: String, message: String, cause: Exception) extends Exception(message, cause) {
+class PluginLoadException(val path: String, message: String, cause: Nullable[Exception]) extends Exception(message, cause) {
   def this(path: String, message: String) = this(path, message, null)
 }
 
