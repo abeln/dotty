@@ -11,6 +11,8 @@ import dotty.tools.dotc.core.tasty.TastyPrinter
 import dotty.tools.dotc.tastyreflect.ReflectionImpl
 import dotty.tools.io.File
 
+import scala.ExplicitNulls._
+
 /** Phase that prints the trees in all loaded compilation units.
  *
  *  @author Nicolas Stucki
@@ -23,15 +25,15 @@ class DecompilationPrinter extends Phase {
     if (ctx.settings.outputDir.isDefault) printToOutput(System.out)
     else {
       val outputDir = ctx.settings.outputDir.value
-      var os: OutputStream = null
-      var ps: PrintStream = null
+      var os: Nullable[OutputStream] = null
+      var ps: Nullable[PrintStream] = null
       try {
         os = File(outputDir.fileNamed("decompiled.scala").path)(Codec.UTF8).outputStream(append = true)
         ps = new PrintStream(os, /* autoFlush = */ false, "UTF-8")
-        printToOutput(ps)
+        printToOutput(ps.nn)
       } finally {
-        if (os ne null) os.close()
-        if (ps ne null) ps.close()
+        if (os ne null) os.nn.close()
+        if (ps ne null) ps.nn.close()
       }
     }
   }

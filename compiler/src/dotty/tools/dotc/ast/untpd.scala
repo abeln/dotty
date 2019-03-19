@@ -10,7 +10,7 @@ import language.higherKinds
 import annotation.constructorOnly
 import annotation.internal.sharable
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
 
@@ -411,7 +411,7 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
   def makeParameter(pname: TermName, tpe: Tree, mods: Modifiers = EmptyModifiers)(implicit ctx: Context): ValDef =
     ValDef(pname, tpe, EmptyTree).withMods(mods | Param)
 
-  def makeSyntheticParameter(n: Int = 1, tpt: Tree = null, flags: FlagSet = EmptyFlags)(implicit ctx: Context): ValDef =
+  def makeSyntheticParameter(n: Int = 1, tpt: Nullable[Tree] = null, flags: FlagSet = EmptyFlags)(implicit ctx: Context): ValDef =
     ValDef(nme.syntheticParamName(n), if (tpt == null) TypeTree() else tpt, EmptyTree)
       .withFlags(flags | SyntheticTermParam)
 
