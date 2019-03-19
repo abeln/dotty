@@ -71,8 +71,8 @@ class ExtractDependencies extends Phase {
     if (ctx.settings.YdumpSbtInc.value) {
       val deps = collector.dependencies.map(_.toString).toArray[Object]
       val names = collector.usedNames.map { case (clazz, names) => s"$clazz: $names" }.toArray[Object]
-      Arrays.sort(deps)
-      Arrays.sort(names)
+      Arrays.sort(deps.asInstanceOf[Array[Nullable[Object]]])
+      Arrays.sort(names.asInstanceOf[Array[Nullable[Object]]])
 
       val pw = io.File(unit.source.file.jpath).changeExtension("inc").toFile.printWriter()
       // val pw = Console.out
