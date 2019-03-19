@@ -6,6 +6,8 @@ package diagnostic
 import util.SourcePosition
 import core.Contexts.Context
 
+import scala.ExplicitNulls._
+
 import java.util.Optional
 
 object MessageContainer {
@@ -29,9 +31,9 @@ class MessageContainer(
   val level: Int
 ) extends Exception with interfaces.Diagnostic {
   import MessageContainer._
-  private[this] var myMsg: String = null
+  private[this] var myMsg: Nullable[String] = null
   private[this] var myIsNonSensical: Boolean = false
-  private[this] var myContained: Message = null
+  private[this] var myContained: Nullable[Message] = null
 
   override def position: Optional[interfaces.SourcePosition] =
     if (pos.exists && pos.source.exists) Optional.of(pos) else Optional.empty()
@@ -40,17 +42,17 @@ class MessageContainer(
   def message: String = {
     if (myMsg == null) {
       myMsg = contained().msg.replaceAll("\u001B\\[[;\\d]*m", "")
-      if (myMsg.contains(nonSensicalStartTag)) {
+      if (myMsg.nn.contains(nonSensicalStartTag)) {
         myIsNonSensical = true
         // myMsg might be composed of several d"..." invocations -> nested
         // nonsensical tags possible
         myMsg =
-          myMsg
+          myMsg.nn
           .replaceAllLiterally(nonSensicalStartTag, "")
           .replaceAllLiterally(nonSensicalEndTag, "")
       }
     }
-    myMsg
+    myMsg.nn
   }
 
   /** This function forces the contained message and returns it */
@@ -58,7 +60,7 @@ class MessageContainer(
     if (myContained == null)
       myContained = msgFn
 
-    myContained
+    myContained.nn
   }
 
   /** A message is non-sensical if it contains references to <nonsensical>

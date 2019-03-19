@@ -16,6 +16,8 @@ import scala.annotation.switch
 
 import scala.collection.mutable
 
+import scala.ExplicitNulls._
+
 trait MessageRendering {
 
   /** Remove ANSI coloring from `str`, useful for getting real length of
@@ -104,7 +106,7 @@ trait MessageRendering {
 
     msg.linesIterator
       .map { line => " " * (offset - 1) + "|" + padding + line}
-      .mkString(EOL)
+      .mkString(EOL.nn)
   }
 
   /** The separator between errors containing the source file and error type
@@ -149,7 +151,7 @@ trait MessageRendering {
       val (srcBefore, srcAfter, offset) = sourceLines(pos)
       val marker = columnMarker(pos, offset)
       val err = errorMsg(pos, msg.msg, offset)
-      sb.append((srcBefore ::: marker :: err :: outer(pos, " " * (offset - 1)) ::: srcAfter).mkString(EOL))
+      sb.append((srcBefore ::: marker :: err :: outer(pos, " " * (offset - 1)) ::: srcAfter).mkString(EOL.nn))
     } else sb.append(msg.msg)
     sb.toString
   }

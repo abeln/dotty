@@ -7,6 +7,8 @@ import util.SourcePosition
 
 import messages._
 
+import scala.ExplicitNulls._
+
 object Message {
   /** This implicit conversion provides a fallback for error messages that have
     * not yet been ported to the new scheme. Comment out this `implicit def` to
@@ -120,7 +122,7 @@ class ExtendMessage(_msg: () => Message)(f: String => String) { self =>
 }
 
 /** The fallback `Message` containing no explanation and having no `kind` */
-class NoExplanation(val msg: String) extends Message(ErrorMessageID.NoExplanationID) {
+class NoExplanation(val msg: String) extends Message(ErrorMessageID.NoExplanationID.nn) {
   val explanation: String = ""
   val kind: String = ""
 

@@ -24,6 +24,7 @@ import xsbti.api.DependencyContext._
 
 import scala.collection.{Set, mutable}
 
+import scala.ExplicitNulls._
 
 /** This phase sends information on classes' dependencies to sbt via callbacks.
  *

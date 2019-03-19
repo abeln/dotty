@@ -140,7 +140,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
    *  see the comment in the `RefinedType` case in `computeType`
    *  The cache key is (api of RefinedType#parent, api of RefinedType#refinedInfo).
     */
-  private[this] val refinedTypeCache = new mutable.HashMap[(api.Type, api.Definition), api.Structure]
+  private[this] val refinedTypeCache = new mutable.HashMap[(api.Type, Nullable[api.Definition]), api.Structure]
 
   private[this] val allNonLocalClassesInSrc = new mutable.HashSet[xsbti.api.ClassLike]
   private[this] val _mainClasses = new mutable.HashSet[String]
@@ -227,7 +227,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     ).toArray
 
     val cl = api.ClassLike.of(
-      name, acc, modifiers, anns, defType, api.SafeLazy.strict(selfType), api.SafeLazy.strict(structure), Constants.emptyStringArray.asInstanceOf[Array[Nullable[String]]],
+      name, acc, modifiers, anns.asInstanceOf[Array[Nullable[xsbti.api.Annotation]]], defType, api.SafeLazy.strict(selfType), api.SafeLazy.strict(structure), Constants.emptyStringArray.asInstanceOf[Array[Nullable[String]]],
       childrenOfSealedClass.asInstanceOf[Array[Nullable[xsbti.api.Type]]], topLevel, tparams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]])
 
     allNonLocalClassesInSrc += cl.nn
@@ -236,7 +236,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
       _mainClasses += name
     }
 
-    api.ClassLikeDef.of(name, acc, modifiers, anns.asInstanceOf[Array[Nullable[xsbti.api.Annotation]]], tparams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], defType)
+    api.ClassLikeDef.of(name, acc, modifiers, anns.asInstanceOf[Array[Nullable[xsbti.api.Annotation]]], tparams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], defType).nn
   }
 
   private[this] val LegacyAppClass = ctx.requiredClass("dotty.runtime.LegacyApp")
@@ -285,7 +285,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     // this works because of `classLikeCache`
     val apiInherited = lzy(apiDefinitions(inherited).toArray)
 
-    api.Structure.of(api.SafeLazy.strict(apiBases.toArray), api.SafeLazy.strict(apiDecls.toArray), apiInherited.nn)
+    api.Structure.of(api.SafeLazy.strict(apiBases.toArray), api.SafeLazy.strict(apiDecls.toArray), apiInherited.nn).nn
   }
 
   def linearizedAncestorTypes(info: ClassInfo): List[Type] = {
@@ -363,7 +363,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
         val params = (pnames, ptypes, defaults).zipped.map((pname, ptype, isDefault) =>
           api.MethodParameter.of(pname.toString, apiType(ptype),
             isDefault, api.ParameterModifier.Plain))
-        api.ParameterList.of(params.toArray, mt.isImplicitMethod) :: paramLists(restpe, params.length).nn
+        api.ParameterList.of(params.toArray, mt.isImplicitMethod).nn :: paramLists(restpe, params.length)
       case _ =>
         Nil
     }
@@ -391,10 +391,10 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     val tpe = sym.info
 
     if (sym.isAliasType)
-      api.TypeAlias.of(name, access, modifiers, as.toArray, typeParams, apiType(tpe.bounds.hi)).nn
+      api.TypeAlias.of(name, access, modifiers, as.toArray, typeParams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], apiType(tpe.bounds.hi)).nn
     else {
       assert(sym.isAbstractType)
-      api.TypeDeclaration.of(name, access, modifiers, as.toArray, typeParams, apiType(tpe.bounds.lo), apiType(tpe.bounds.hi)).nn
+      api.TypeDeclaration.of(name, access, modifiers, as.toArray, typeParams.asInstanceOf[Array[Nullable[xsbti.api.TypeParameter]]], apiType(tpe.bounds.lo), apiType(tpe.bounds.hi)).nn
     }
   }
 
@@ -496,7 +496,7 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
         // `refinedTypeCache` is for.
         refinedTypeCache.getOrElseUpdate((parent, decl), {
           val adecl: Array[api.ClassDefinition] = if (decl == null) Array() else Array(decl)
-          api.Structure.of(api.SafeLazy.strict(Array(parent)), api.SafeLazy.strict(adecl), api.SafeLazy.strict(Array()))
+          api.Structure.of(api.SafeLazy.strict(Array(parent)), api.SafeLazy.strict(adecl), api.SafeLazy.strict(Array())).nn
         })
       case tp: RecType =>
         apiType(tp.parent)
@@ -629,6 +629,6 @@ private class ExtractAPICollector(implicit val ctx: Context) extends ThunkHolder
     // junit tests are annotated @org.junit.Test).
     api.Annotation.of(
       apiType(annot.tree.tpe), // Used by sbt to find tests to run
-      Array(api.AnnotationArgument.of("FULLTREE", annot.tree.show)))
+      Array(api.AnnotationArgument.of("FULLTREE", annot.tree.show))).nn
   }
 }
