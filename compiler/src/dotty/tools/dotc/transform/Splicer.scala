@@ -25,6 +25,8 @@ import dotty.tools.repl.AbstractFileClassLoader
 
 import scala.reflect.ClassTag
 
+import scala.ExplicitNulls._
+
 /** Utility class to splice quoted expressions */
 object Splicer {
   import tpd._
@@ -52,7 +54,7 @@ object Splicer {
           val msg =
             s"""Failed to evaluate macro.
                |  Caused by ${ex.getClass}: ${if (ex.getMessage == null) "" else ex.getMessage}
-               |    ${ex.getStackTrace.takeWhile(_.getClassName != "dotty.tools.dotc.transform.Splicer$").init.mkString("\n    ")}
+               |    ${ex.getStackTrace.takeWhile(_.nn.getClassName != "dotty.tools.dotc.transform.Splicer$").init.mkString("\n    ")}
              """.stripMargin
           ctx.error(msg, pos)
           EmptyTree
@@ -129,7 +131,7 @@ object Splicer {
 
       val name = getDirectName(fn.info.finalResultType, fn.name.asTermName)
       val method = getMethod(clazz, name, paramsSig(fn))
-      stopIfRuntimeException(method.invoke(inst, args: _*))
+      stopIfRuntimeException(method.invoke(inst, args: _*).nn)
     }
 
     protected def interpretModuleAccess(fn: Symbol)(implicit env: Env): Object =
@@ -148,7 +150,7 @@ object Splicer {
       if (sym.owner.is(Package)) {
         // is top level object
         val moduleClass = loadClass(sym.fullName)
-        moduleClass.getField(str.MODULE_INSTANCE_FIELD).get(null)
+        moduleClass.getField(str.MODULE_INSTANCE_FIELD).get(null).nn
       } else {
         // nested object in an object
         val clazz = loadClass(sym.fullNameSeparated(FlatName))

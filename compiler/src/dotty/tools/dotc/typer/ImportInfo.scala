@@ -11,6 +11,8 @@ import Symbols._, Names._, Types._, Contexts._, StdNames._, Flags._
 import Implicits.RenamedImplicitRef
 import printing.Texts.Text
 
+import scala.ExplicitNulls._
+
 object ImportInfo {
   /** The import info for a root import from given symbol `sym` */
   def rootImport(refFn: () => TermRef)(implicit ctx: Context): ImportInfo = {
@@ -64,9 +66,9 @@ class ImportInfo(symf: Context => Symbol, val selectors: List[untpd.Tree],
   /** Does the import clause end with wildcard? */
   def isWildcardImport: Boolean = { ensureInitialized(); myWildcardImport }
 
-  private[this] var myExcluded: Set[TermName] = null
-  private[this] var myMapped: SimpleIdentityMap[TermName, TermName] = null
-  private[this] var myOriginals: Set[TermName] = null
+  private[this] var myExcluded: Nullable[Set[TermName]] = null
+  private[this] var myMapped: Nullable[SimpleIdentityMap[TermName, TermName]] = null
+  private[this] var myOriginals: Nullable[Set[TermName]] = null
   private[this] var myWildcardImport: Boolean = false
 
   /** Compute info relating to the selector list */
@@ -78,16 +80,16 @@ class ImportInfo(symf: Context => Symbol, val selectors: List[untpd.Tree],
       case sel :: sels1 =>
         sel match {
           case Thicket(Ident(name: TermName) :: Ident(nme.WILDCARD) :: Nil) =>
-            myExcluded += name
+            myExcluded = myExcluded.nn + name
           case Thicket(Ident(from: TermName) :: Ident(to: TermName) :: Nil) =>
-            myMapped = myMapped.updated(to, from)
-            myExcluded += from
-            myOriginals += from
+            myMapped = myMapped.nn.updated(to, from)
+            myExcluded = myExcluded.nn + from
+            myOriginals = myOriginals.nn + from
           case Ident(nme.WILDCARD) =>
             myWildcardImport = true
           case Ident(name: TermName) =>
-            myMapped = myMapped.updated(name, name)
-            myOriginals += name
+            myMapped = myMapped.nn.updated(name, name)
+            myOriginals = myOriginals.nn + name
         }
         recur(sels1)
       case nil =>

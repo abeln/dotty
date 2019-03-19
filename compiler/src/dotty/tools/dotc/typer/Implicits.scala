@@ -78,13 +78,13 @@ object Implicits {
     /** The implicit references */
     def refs: List[ImplicitRef]
 
-    private[this] var SingletonClass: ClassSymbol = null
+    private[this] var SingletonClass: Nullable[ClassSymbol] = null
 
     /** Widen type so that it is neither a singleton type nor a type that inherits from scala.Singleton. */
     private def widenSingleton(tp: Type)(implicit ctx: Context): Type = {
       if (SingletonClass == null) SingletonClass = defn.SingletonClass
       val wtp = tp.widenSingleton
-      if (wtp.derivesFrom(SingletonClass)) defn.AnyType else wtp
+      if (wtp.derivesFrom(SingletonClass.nn)) defn.AnyType else wtp
     }
 
     /** Return those references in `refs` that are compatible with type `pt`. */
@@ -288,7 +288,7 @@ object Implicits {
           def elided(ci: ContextualImplicits): Int = {
             val n = ci.refs.length
             if (ci.isOuterMost) n
-            else n + elided(ci.outerImplicits)
+            else n + elided(ci.outerImplicits.nn)
           }
           if (monitored) record(s"elided eligible refs", elided(this))
           eligibles
@@ -308,7 +308,7 @@ object Implicits {
       if (isOuterMost) ownEligible
       else ownEligible ::: {
         val shadowed = ownEligible.map(_.ref.implicitName).toSet
-        outerImplicits.eligible(tp).filterNot(cand => shadowed.contains(cand.ref.implicitName))
+        outerImplicits.nn.eligible(tp).filterNot(cand => shadowed.contains(cand.ref.implicitName))
       }
     }
 
@@ -323,7 +323,7 @@ object Implicits {
     def exclude(root: Symbol): ContextualImplicits =
       if (this == NoContext.implicits) this
       else {
-        val outerExcluded = outerImplicits exclude root
+        val outerExcluded = outerImplicits.nn exclude root
         if (ctx.importInfo.site.termSymbol == root) outerExcluded
         else if (outerExcluded eq outerImplicits) this
         else new ContextualImplicits(refs, outerExcluded)(ctx)
@@ -1034,7 +1034,7 @@ trait Implicits { self: Typer =>
             result0
         }
       // If we are at the outermost implicit search then emit the implicit dictionary, if any.
-      ctx.searchHistory.emitDictionary(span, result)
+      ctx.searchHistory.nn.emitDictionary(span, result)
     }
   }
 
@@ -1110,15 +1110,15 @@ trait Implicits { self: Typer =>
       * a diverging search
       */
     def tryImplicit(cand: Candidate, contextual: Boolean): SearchResult = {
-      if (ctx.searchHistory.checkDivergence(cand, pt))
+      if (ctx.searchHistory.nn.checkDivergence(cand, pt))
         SearchFailure(new DivergingImplicit(cand.ref, pt.widenExpr, argument))
       else {
-        val history = ctx.searchHistory.nest(cand, pt)
+        val history = ctx.searchHistory.nn.nest(cand, pt)
         val result =
           typedImplicit(cand, contextual)(nestedContext().setNewTyperState().setFreshGADTBounds.setSearchHistory(history))
         result match {
           case res: SearchSuccess =>
-            ctx.searchHistory.defineBynameImplicit(pt.widenExpr, res)
+            ctx.searchHistory.nn.defineBynameImplicit(pt.widenExpr, res)
           case _ =>
             result
         }
@@ -1290,7 +1290,7 @@ trait Implicits { self: Typer =>
       // effectively in a more inner context than any other definition provided by
       // explicit definitions. Consequently these terms have the highest priority and no
       // other candidates need to be considered.
-      ctx.searchHistory.recursiveRef(pt) match {
+      ctx.searchHistory.nn.recursiveRef(pt) match {
         case ref: TermRef =>
           SearchSuccess(tpd.ref(ref).withSpan(span.startPos), ref, 0)(ctx.typerState, ctx.gadt)
         case _ =>
@@ -1454,7 +1454,7 @@ abstract class SearchHistory { outer =>
 
         loop(open, bynamePt) match {
           case NoType => NoType
-          case tp => ctx.searchHistory.linkBynameImplicit(tp.widenExpr)
+          case tp => ctx.searchHistory.nn.linkBynameImplicit(tp.widenExpr)
         }
       }
     }
@@ -1480,11 +1480,11 @@ final class SearchRoot extends SearchHistory {
   val byname = false
 
   /** The dictionary of recursive implicit types and corresponding terms for this search. */
-  var implicitDictionary0: mutable.Map[Type, (TermRef, tpd.Tree)] = null
+  var implicitDictionary0: Nullable[mutable.Map[Type, (TermRef, tpd.Tree)]] = null
   def implicitDictionary = {
     if (implicitDictionary0 == null)
       implicitDictionary0 = mutable.Map.empty[Type, (TermRef, tpd.Tree)]
-    implicitDictionary0
+    implicitDictionary0.nn
   }
 
   /**
