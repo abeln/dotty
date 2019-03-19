@@ -7,6 +7,8 @@ import collection.mutable
 import collection.immutable.BitSet
 import scala.annotation.tailrec
 
+import scala.ExplicitNulls._
+
 /** A module that can produce a kind of iterator (`Cursor`),
  *  which yields all pairs of overriding/overridden symbols
  *  that are visible in some baseclass, unless there's a parent class
@@ -72,7 +74,7 @@ object OverridingPairs {
     }
 
     private def hasCommonParentAsSubclass(cls1: Symbol, cls2: Symbol): Boolean =
-      (subParents(cls1) intersect subParents(cls2)).nonEmpty
+      (subParents(cls1).nn intersect subParents(cls2).nn).nonEmpty
 
     /** The scope entries that have already been visited as overridden
      *  (maybe excluded because of hasCommonParentAsSubclass).
