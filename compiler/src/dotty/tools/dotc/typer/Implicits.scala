@@ -1646,7 +1646,7 @@ final class SearchRoot extends SearchHistory {
 
 /** A set of term references where equality is =:= */
 final class TermRefSet(implicit ctx: Context) {
-  private[this] val elems = new java.util.LinkedHashMap[TermSymbol, List[Type]]
+  private[this] val elems = new java.util.LinkedHashMap[TermSymbol, Nullable[List[Type]]]
 
   def += (ref: TermRef): Unit = {
     val pre = ref.prefix
@@ -1655,17 +1655,25 @@ final class TermRefSet(implicit ctx: Context) {
       case null =>
         elems.put(sym, pre :: Nil)
       case prefixes =>
-        if (!prefixes.exists(_ =:= pre))
-          elems.put(sym, pre :: prefixes)
+        if (!prefixes.nn.exists(_ =:= pre))
+          elems.put(sym, pre :: prefixes.nn)
     }
   }
 
   def ++= (that: TermRefSet): Unit =
     that.foreach(+=)
 
-  def foreach[U](f: TermRef => U): Unit =
-    elems.forEach((sym: TermSymbol, prefixes: List[Type]) =>
-      prefixes.foreach(pre => f(TermRef(pre, sym))))
+  def foreach[U](f: TermRef => U): Unit = {
+    // TODO(abeln): this used to be written as a lambda, but something's broken
+    // in the conversion of the lambda to the nullable BiConsumer functional interface.
+    // So declare the function in the java style directly.
+    val fn = new java.util.function.BiConsumer[TermSymbol, Nullable[List[Type]]] {
+      override def accept(sym: TermSymbol, prefixes: Nullable[List[Type]]): Unit = {
+        prefixes.nn.foreach(pre => f(TermRef(pre, sym)))
+      }
+    }
+    elems.forEach(fn)
+  }
 
   // used only for debugging
   def toList: List[TermRef] = {
