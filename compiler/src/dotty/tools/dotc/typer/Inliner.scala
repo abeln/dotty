@@ -802,7 +802,7 @@ class Inliner(call: tpd.Tree, rhsToInline: tpd.Tree)(implicit ctx: Context) {
 
         def addTypeBindings(typeBinds: TypeBindsMap)(implicit ctx: Context): Unit =
           typeBinds.foreachBinding { case (sym, shouldBeMinimized) =>
-            val copied = sym.copy(info = TypeAlias(ctx.gadt.approximation(sym, fromBelow = shouldBeMinimized))).asType
+            val copied = sym.copy(info = TypeAlias(ctx.gadt.approximation(sym, fromBelow = shouldBeMinimized.nn))).asType
             fromBuf += sym
             toBuf += copied
           }
