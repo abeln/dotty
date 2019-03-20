@@ -237,17 +237,19 @@ final class ManifestResources(val url: URL) extends ZipArchive(null) {
     case _                => false
   }
 
+  // TODO(abeln): the two uses of `asInstanceOf` below are hacks
+  // somehow we don't recognize `in` as nullable. Need to debug.
   private def resourceInputStream(path: String): InputStream = {
     new FilterInputStream(null) {
       override def read(): Int = {
-        if(in == null) in = Thread.currentThread().getContextClassLoader().getResourceAsStream(path)
+        if(in == null) in = Thread.currentThread().getContextClassLoader().getResourceAsStream(path).asInstanceOf[InputStream]
         if(in == null) throw new RuntimeException(path + " not found")
         super.read()
       }
 
       override def close(): Unit = {
         super.close()
-        in = null
+        in = null.asInstanceOf[InputStream]
       }
     }
   }
