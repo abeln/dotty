@@ -3717,7 +3717,7 @@ object Types {
   object AppliedType {
     def apply(tycon: Type, args: List[Type])(implicit ctx: Context): AppliedType = {
       assertUnerased()
-      ctx.base.uniqueAppliedTypes.enterIfNew(tycon, args)
+      ctx.base.uniqueAppliedTypes.enterIfNew(tycon, args).nn
     }
   }
 

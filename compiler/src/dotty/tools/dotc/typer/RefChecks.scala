@@ -649,8 +649,8 @@ object RefChecks {
         //    (this is done for efficiency)
         //  - members in a prefix of inherited parents that all come from Java or Scala2
         //    (this is done to avoid false positives since Scala2's rules for checking are different)
-        val membersToCheck = new util.HashSet[Name](4096)
-        val seenClasses = new util.HashSet[Symbol](256)
+        val membersToCheck = new util.HashSet[Nullable[Name]](4096)
+        val seenClasses = new util.HashSet[Nullable[Symbol]](256)
         def addDecls(cls: Symbol): Unit =
           if (!seenClasses.contains(cls)) {
             seenClasses.addEntry(cls)
@@ -668,7 +668,7 @@ object RefChecks {
         // For each member, check that the type of its symbol, as seen from `self`
         // can override the info of this member
         for (name <- membersToCheck) {
-          for (mbrd <- self.member(name).alternatives) {
+          for (mbrd <- self.member(name.nn).alternatives) {
             val mbr = mbrd.symbol
             val mbrType = mbr.info.asSeenFrom(self, mbr.owner)
             if (!mbrType.overrides(mbrd.info, matchLoosely = true))

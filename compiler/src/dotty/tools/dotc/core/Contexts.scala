@@ -501,7 +501,7 @@ object Contexts {
     def platform: Platform                 = base.platform
     def pendingUnderlying: mutable.HashSet[Type]   = base.pendingUnderlying
     def uniqueNamedTypes: Uniques.NamedTypeUniques = base.uniqueNamedTypes
-    def uniques: util.HashSet[Type]                = base.uniques
+    def uniques: util.HashSet[Nullable[Type]]                = base.uniques
     def nextSymId: Int                     = base.nextSymId
 
     def initialize()(implicit ctx: Context): Unit = base.initialize()(ctx)
@@ -701,9 +701,9 @@ object Contexts {
 
     // Types state
     /** A table for hash consing unique types */
-    private[core] val uniques: util.HashSet[Type] = new util.HashSet[Type](Config.initialUniquesCapacity) {
-      override def hash(x: Type): Int = x.hash
-      override def isEqual(x: Type, y: Type) = x.eql(y)
+    private[core] val uniques: util.HashSet[Nullable[Type]] = new util.HashSet[Nullable[Type]](Config.initialUniquesCapacity) {
+      override def hash(x: Nullable[Type]): Int = x.nn.hash
+      override def isEqual(x: Nullable[Type], y: Nullable[Type]) = x.nn.eql(y.nn)
     }
 
     /** A table for hash consing unique applied types */

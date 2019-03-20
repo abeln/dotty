@@ -344,7 +344,10 @@ trait BCodeSkelBuilder extends BCodeHelpers {
      */
     object locals {
 
-      private val slots = mutable.AnyRefMap.empty[Symbol, Local] // (local-or-param-sym -> Local(BType, name, idx, isSynth))
+      // TODO(abeln): this used to be
+      // private val slots = mutable.AnyRefMap.empty[Symbol, Local]
+      // but Symbol is not longer a subtype of AnyRef (it's now a subtype of AnyRef|Null)
+      private val slots = mutable.AnyRefMap.empty[AnyRef, Local] // (local-or-param-sym -> Local(BType, name, idx, isSynth))
 
       private var nxtIdx = -1 // next available index for local-var
 
@@ -353,9 +356,9 @@ trait BCodeSkelBuilder extends BCodeHelpers {
         nxtIdx = if (isStaticMethod) 0 else 1
       }
 
-      def contains(locSym: Symbol): Boolean = { slots.contains(locSym) }
+      def contains(locSym: Symbol): Boolean = { slots.contains(locSym.asInstanceOf[AnyRef]) }
 
-      def apply(locSym: Symbol): Local = { slots.apply(locSym) }
+      def apply(locSym: Symbol): Local = { slots.apply(locSym.asInstanceOf[AnyRef]) }
 
       /* Make a fresh local variable, ensuring a unique name.
        * The invoker must make sure inner classes are tracked for the sym's tpe.
@@ -373,13 +376,13 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
       def getOrMakeLocal(locSym: Symbol): Local = {
         // `getOrElse` below has the same effect as `getOrElseUpdate` because `makeLocal()` adds an entry to the `locals` map.
-        slots.getOrElse(locSym, makeLocal(locSym))
+        slots.getOrElse(locSym.asInstanceOf[AnyRef], makeLocal(locSym))
       }
 
       private def makeLocal(sym: Symbol, tk: BType): Local = {
         assert(nxtIdx != -1, "not a valid start index")
         val loc = Local(tk, sym.javaSimpleName.toString, nxtIdx, sym.isSynthetic)
-        val existing = slots.put(sym, loc)
+        val existing = slots.put(sym.asInstanceOf[AnyRef], loc)
         if (existing.isDefined)
           error(sym.pos, "attempt to create duplicate local var.")
         assert(tk.size > 0, "makeLocal called for a symbol whose type is Unit.")
@@ -389,12 +392,12 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
       // not to be confused with `fieldStore` and `fieldLoad` which also take a symbol but a field-symbol.
       def store(locSym: Symbol): Unit = {
-        val Local(tk, _, idx, _) = slots(locSym)
+        val Local(tk, _, idx, _) = slots(locSym.asInstanceOf[AnyRef])
         bc.store(idx, tk)
       }
 
       def load(locSym: Symbol): Unit = {
-        val Local(tk, _, idx, _) = slots(locSym)
+        val Local(tk, _, idx, _) = slots(locSym.asInstanceOf[AnyRef])
         bc.load(idx, tk)
       }
 
