@@ -291,7 +291,7 @@ object Implicits {
             else n + elided(ci.outerImplicits.nn)
           }
           if (monitored) record(s"elided eligible refs", elided(this))
-          eligibles
+          eligibles.nn
         }
         else if (ctx eq NoContext) Nil
         else {
