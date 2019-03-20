@@ -108,7 +108,7 @@ class InteractiveDriver(val settings: List[String]) extends Driver {
       val classNames = new mutable.ListBuffer[TypeName]
       val output = ctx.settings.outputDir.value
       if (output.isDirectory) {
-        classesFromDir(output.jpath, classNames)
+        classesFromDir(output.jpath.nn, classNames)
       } else {
         classesFromZip(output.file.nn, classNames)
       }

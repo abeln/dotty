@@ -74,7 +74,7 @@ class ExtractDependencies extends Phase {
       Arrays.sort(deps.asInstanceOf[Array[Nullable[Object]]])
       Arrays.sort(names.asInstanceOf[Array[Nullable[Object]]])
 
-      val pw = io.File(unit.source.file.jpath).changeExtension("inc").toFile.printWriter()
+      val pw = io.File(unit.source.file.jpath.nn).changeExtension("inc").toFile.printWriter()
       // val pw = Console.out
       try {
         pw.println("Used Names:")

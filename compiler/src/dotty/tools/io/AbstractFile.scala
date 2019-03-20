@@ -94,7 +94,7 @@ abstract class AbstractFile extends Iterable[AbstractFile] {
   def absolutePath: String = path
 
   /** Returns the path of this abstract file in a canonical form. */
-  def canonicalPath: String = if (jpath == null) path else jpath.normalize.toString
+  def canonicalPath: String = if (jpath == null) path else jpath.nn.normalize.toString
 
   /** Checks extension case insensitively. */
   def hasExtension(other: String): Boolean = extension == other.toLowerCase
@@ -109,13 +109,13 @@ abstract class AbstractFile extends Iterable[AbstractFile] {
   /** Returns the underlying File if any and null otherwise. */
   def file: Nullable[JFile] = try {
     if (jpath == null) null
-    else jpath.toFile
+    else jpath.nn.toFile
   } catch {
     case _: UnsupportedOperationException => null
   }
 
   /** Returns the underlying Path if any and null otherwise. */
-  def jpath: JPath
+  def jpath: Nullable[JPath]
 
   /** An underlying source, if known.  Mostly, a zip/jar file. */
   def underlyingSource: Option[AbstractFile] = None
@@ -155,7 +155,7 @@ abstract class AbstractFile extends Iterable[AbstractFile] {
   /** size of this file if it is a concrete file. */
   def sizeOption: Option[Int] = None
 
-  def toURL: Nullable[URL] = if (jpath == null) null else jpath.toUri.toURL
+  def toURL: Nullable[URL] = if (jpath == null) null else jpath.nn.toUri.toURL
 
   /** Returns contents of file (if applicable) in a Char array.
    *  warning: use `Global.getSourceFile()` to use the proper
@@ -201,7 +201,7 @@ abstract class AbstractFile extends Iterable[AbstractFile] {
    *  `directory` tells whether to look for a directory or
    *  a regular file.
    */
-  def lookupName(name: String, directory: Boolean): AbstractFile
+  def lookupName(name: String, directory: Boolean): Nullable[AbstractFile]
 
   /** Returns an abstract file with the given name. It does not
    *  check that it exists.
@@ -241,7 +241,7 @@ abstract class AbstractFile extends Iterable[AbstractFile] {
     if (lookup != null) lookup
     else {
       Files.createDirectories(jpath)
-      val path = jpath.resolve(name).nn
+      val path = jpath.nn.resolve(name).nn
       if (isDir) Files.createDirectory(path)
       else Files.createFile(path)
       new PlainFile(new File(path))

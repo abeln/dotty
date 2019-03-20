@@ -831,7 +831,7 @@ class ClassfileParser(
                 Array.empty
               }
             case _ =>
-              val plainFile = new PlainFile(io.File(classfile.jpath).changeExtension("tasty"))
+              val plainFile = new PlainFile(io.File(classfile.jpath.nn).changeExtension("tasty"))
               if (plainFile.exists) plainFile.toByteArray
               else {
                 ctx.error("Could not find " + plainFile)

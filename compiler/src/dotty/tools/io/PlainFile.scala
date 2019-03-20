@@ -7,6 +7,7 @@ package dotty.tools
 package io
 
 import java.io.{InputStream, OutputStream}
+import scala.ExplicitNulls._
 
 /** ''Note:  This library is considered experimental and should not be used unless you know what you are doing.'' */
 class PlainDirectory(givenPath: Directory) extends PlainFile(givenPath) {
@@ -74,7 +75,7 @@ class PlainFile(val givenPath: Path) extends AbstractFile {
    * argument "directory" tells whether to look for a directory or
    * or a regular file.
    */
-  def lookupName(name: String, directory: Boolean): AbstractFile = {
+  def lookupName(name: String, directory: Boolean): Nullable[AbstractFile] = {
     val child = givenPath / name
     if ((child.isDirectory && directory) || (child.isFile && !directory)) new PlainFile(child)
     else null

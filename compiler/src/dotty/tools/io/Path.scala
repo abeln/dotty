@@ -147,7 +147,7 @@ class Path private[io] (val jpath: JPath) {
   // returns the filename without the extension.
   def stripExtension: String = name stripSuffix ("." + extension)
   // returns the Path with the extension.
-  def addExtension(ext: String): Path = new Path(jpath.resolveSibling(name + ext))
+  def addExtension(ext: String): Path = new Path(jpath.resolveSibling(name + ext).nn)
   // changes the existing extension out for a new one, or adds it
   // if the current path has none.
   def changeExtension(ext: String): Path =
@@ -180,7 +180,7 @@ class Path private[io] (val jpath: JPath) {
 
   // creations
   def createDirectory(force: Boolean = true, failIfExists: Boolean = false): Directory = {
-    val res = tryCreate(if (force) Files.createDirectories(jpath).nn else Files.createDirectory(jpath))
+    val res = tryCreate(if (force) Files.createDirectories(jpath).nn else Files.createDirectory(jpath).nn)
     if (!res && failIfExists && exists) fail("Directory '%s' already exists." format name)
     else if (isDirectory) toDirectory
     else new Directory(jpath)

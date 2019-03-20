@@ -144,7 +144,7 @@ object Jar {
     def initialMainAttrs: Map[Attributes.Name, String] = {
       import scala.util.Properties._
       Map(
-        Name.MANIFEST_VERSION -> "1.0",
+        Name.MANIFEST_VERSION.nn -> "1.0",
         ScalaCompilerVersion  -> versionNumberString
       )
     }
@@ -154,8 +154,8 @@ object Jar {
     def update(key: Attributes.Name, value: String): Option[Nullable[String]] = attrs.put(key, value)
     def update(key: String, value: String): Option[Nullable[String]]          = attrs.put(new Attributes.Name(key), value)
 
-    def mainClass: String = apply(Name.MAIN_CLASS)
-    def mainClass_=(value: String): Option[String] = update(Name.MAIN_CLASS, value)
+    def mainClass: String = apply(Name.MAIN_CLASS.nn)
+    def mainClass_=(value: String): Option[Nullable[String]] = update(Name.MAIN_CLASS.nn, value)
   }
 
   // See http://download.java.net/jdk7/docs/api/java/nio/file/Path.html
@@ -168,7 +168,7 @@ object Jar {
     f.hasExtension("zip", "jar") || (examineFile && magicNumberIsZip(f))
 
   def create(file: File, sourceDir: Directory, mainClass: String): Unit =  {
-    val writer = new Jar(file).jarWriter(Name.MAIN_CLASS -> mainClass)
+    val writer = new Jar(file).jarWriter(Name.MAIN_CLASS.nn -> mainClass)
     writer writeAllFrom sourceDir
   }
 }

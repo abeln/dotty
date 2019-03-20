@@ -19,7 +19,7 @@ object NoAbstractFile extends AbstractFile {
   def create(): Unit = ???
   def delete(): Unit = ???
   def jpath: JPath = null
-  def input: InputStream = null
+  def input: InputStream = null.asInstanceOf[InputStream]
   def isDirectory: Boolean = false
   override def isVirtual: Boolean = true
   def iterator: Iterator[AbstractFile] = Iterator.empty
