@@ -4,6 +4,7 @@ package repl
 import java.io.Reader
 import javax.script.{AbstractScriptEngine, Bindings, ScriptContext, ScriptEngine => JScriptEngine, ScriptEngineFactory, ScriptException, SimpleBindings}
 import dotc.core.StdNames.str
+import scala.ExplicitNulls._
 
 /** A JSR 223 (Scripting API) compatible wrapper around the REPL for improved
  *  interoperability with software that supports it.
@@ -27,13 +28,13 @@ class ScriptEngine extends AbstractScriptEngine {
 
   /* Evaluate with the given context. */
   @throws[ScriptException]
-  def eval(script: String, context: ScriptContext): Object = {
+  def eval(script: String, context: ScriptContext): Nullable[Object] = {
     val vid = state.valIndex
     state = driver.run(script)(state)
     val oid = state.objectIndex
     Class.forName(s"${str.REPL_SESSION_LINE}$oid", true, rendering.classLoader()(state.context))
-      .getDeclaredMethods.find(_.getName == s"${str.REPL_RES_PREFIX}$vid")
-      .map(_.invoke(null))
+      .getDeclaredMethods.find(_.nn.getName == s"${str.REPL_RES_PREFIX}$vid")
+      .map(_.nn.invoke(null))
       .getOrElse(null)
   }
 
@@ -58,7 +59,7 @@ object ScriptEngine {
 
     def getOutputStatement(toDisplay: String) = s"""print("$toDisplay")"""
 
-    def getParameter(key: String): Object = key match {
+    def getParameter(key: String): Nullable[Object] = key match {
       case JScriptEngine.ENGINE           => getEngineName
       case JScriptEngine.ENGINE_VERSION   => getEngineVersion
       case JScriptEngine.LANGUAGE         => getLanguageName

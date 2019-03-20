@@ -16,7 +16,7 @@ case class VirtualDirectoryClassPath(dir: VirtualDirectory) extends ClassPath wi
   private final def lookupPath(base: AbstractFile)(pathParts: Seq[String], directory: Boolean): Nullable[AbstractFile] = {
     var file: Nullable[AbstractFile] = base
     for (dirPart <- pathParts.init) {
-      file = file.lookupName(dirPart, directory = true)
+      file = file.nn.lookupName(dirPart, directory = true)
       if (file == null)
         return null
     }
