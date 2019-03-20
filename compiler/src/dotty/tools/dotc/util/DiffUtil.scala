@@ -3,6 +3,8 @@ package dotty.tools.dotc.util
 import scala.annotation.tailrec
 import scala.collection.mutable
 
+import scala.ExplicitNulls._
+
 object DiffUtil {
 
   val EOF: String = new String("EOF") // Unique string up to reference
@@ -72,7 +74,7 @@ object DiffUtil {
     val expectedSize = EOF.length max expected.maxBy(_.length).length
     actual.padTo(expected.length, "").zip(expected.padTo(actual.length, "")).map { case (act, exp) =>
       mkColoredLineDiff(exp, act, expectedSize)
-    }.mkString(System.lineSeparator)
+    }.mkString(System.lineSeparator.nn)
   }
 
   def mkColoredLineDiff(expected: String, actual: String, expectedSize: Int): String = {

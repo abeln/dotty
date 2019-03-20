@@ -34,9 +34,9 @@ trait MessageRendering {
     * @return a list of strings with inline locations
     */
   def outer(pos: SourcePosition, prefix: String)(implicit ctx: Context): List[String] =
-    if (pos.outer.exists) {
+    if (pos.outer.nn.exists) {
        i"$prefix| This location is in code that was inlined at ${pos.outer}" ::
-       outer(pos.outer, prefix)
+       outer(pos.outer.nn, prefix)
     } else Nil
 
   /** Get the sourcelines before and after the position, as well as the offset

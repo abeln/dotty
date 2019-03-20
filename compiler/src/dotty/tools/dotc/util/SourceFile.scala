@@ -18,6 +18,8 @@ import scala.collection.mutable
 
 import java.util.Optional
 
+import scala.ExplicitNulls._
+
 object ScriptSourceFile {
   @sharable private val headerPattern = Pattern.compile("""^(::)?!#.*(\r|\n|\r\n)""", Pattern.MULTILINE)
   private val headerStarts  = List("#!", "::#!")
@@ -42,11 +44,11 @@ object ScriptSourceFile {
 class SourceFile(val file: AbstractFile, computeContent: => Array[Char]) extends interfaces.SourceFile {
   import SourceFile._
 
-  private var myContent: Array[Char] = null
+  private var myContent: Nullable[Array[Char]] = null
 
   def content(): Array[Char] = {
     if (myContent == null) myContent = computeContent
-    myContent
+    myContent.nn
   }
 
   def this(file: AbstractFile, codec: Codec) = this(file, new String(file.toByteArray, codec.charSet).toCharArray)
