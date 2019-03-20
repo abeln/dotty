@@ -125,7 +125,7 @@ object Plugin {
         else fromFile(is, jarp)
 
       val fileEntry = new java.util.jar.JarEntry(PluginFile)
-      Try(read(new Jar(jarp.jpath.toFile.nn).getEntryStream(fileEntry)))
+      Try(read(new Jar(jarp.jpath.toFile.nn).getEntryStream(fileEntry).nn))
     }
 
     // List[(jar, Try(descriptor))] in dir

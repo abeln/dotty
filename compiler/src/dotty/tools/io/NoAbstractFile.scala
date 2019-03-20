@@ -6,6 +6,7 @@
 package dotty.tools.io
 
 import java.io.InputStream
+import scala.ExplicitNulls._
 
 /** A distinguished object so you can avoid both null
  *  and Option.
@@ -23,10 +24,10 @@ object NoAbstractFile extends AbstractFile {
   override def isVirtual: Boolean = true
   def iterator: Iterator[AbstractFile] = Iterator.empty
   def lastModified: Long = 0L
-  def lookupName(name: String, directory: Boolean): AbstractFile = null
-  def lookupNameUnchecked(name: String, directory: Boolean): AbstractFile = null
+  def lookupName(name: String, directory: Boolean): AbstractFile = null.asInstanceOf[AbstractFile]
+  def lookupNameUnchecked(name: String, directory: Boolean): AbstractFile = null.asInstanceOf[AbstractFile]
   def name: String = ""
-  def output: java.io.OutputStream = null
+  def output: java.io.OutputStream = null.asInstanceOf[java.io.OutputStream]
   def path: String = ""
   override def toByteArray: Array[Byte] = Array[Byte]()
   override def toString: String = "<no file>"

@@ -54,7 +54,7 @@ class File(jpath: JPath)(implicit constructorCodec: Codec) extends Path(jpath) w
   /** Obtains a OutputStream. */
   def outputStream(append: Boolean = false): OutputStream =
     if (append) Files.newOutputStream(jpath, CREATE, APPEND).nn
-    else Files.newOutputStream(jpath, CREATE, TRUNCATE_EXISTING.nn)
+    else Files.newOutputStream(jpath, CREATE, TRUNCATE_EXISTING.nn).nn
   def bufferedOutput(append: Boolean = false): BufferedOutputStream = new BufferedOutputStream(outputStream(append))
 
   /** Obtains an OutputStreamWriter wrapped around a FileOutputStream.
