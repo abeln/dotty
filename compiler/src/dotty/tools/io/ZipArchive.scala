@@ -13,7 +13,7 @@ import java.util.jar.Manifest
 import scala.collection.mutable
 import scala.collection.JavaConverters._
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 
 /** An abstraction for zip files and streams.  Everything is written the way
@@ -55,7 +55,7 @@ object ZipArchive {
 }
 import ZipArchive._
 /** ''Note:  This library is considered experimental and should not be used unless you know what you are doing.'' */
-abstract class ZipArchive(override val jpath: JPath) extends AbstractFile with Equals {
+abstract class ZipArchive(override val jpath: Nullable[JPath]) extends AbstractFile with Equals {
   self =>
 
   override def underlyingSource: Option[ZipArchive] = Some(this)
@@ -71,7 +71,7 @@ abstract class ZipArchive(override val jpath: JPath) extends AbstractFile with E
   /** ''Note:  This library is considered experimental and should not be used unless you know what you are doing.'' */
   sealed abstract class Entry(path: String) extends VirtualFile(baseName(path), path) {
     // have to keep this name for compat with sbt's compiler-interface
-    def getArchive: ZipFile = null
+    def getArchive: Nullable[ZipFile] = null
     override def underlyingSource: Option[ZipArchive] = Some(self)
     override def toString: String = self.path + "(" + path + ")"
   }
@@ -82,13 +82,13 @@ abstract class ZipArchive(override val jpath: JPath) extends AbstractFile with E
 
     override def isDirectory: Boolean = true
     override def iterator: Iterator[Entry] = entries.valuesIterator
-    override def lookupName(name: String, directory: Boolean): Entry = {
+    override def lookupName(name: String, directory: Boolean): Nullable[Entry] = {
       if (directory) entries.get(name + "/").orNull
       else entries.get(name).orNull
     }
   }
 
-  private def ensureDir(dirs: mutable.Map[String, DirEntry], path: String, zipEntry: ZipEntry): DirEntry =
+  private def ensureDir(dirs: mutable.Map[String, DirEntry], path: String, zipEntry: Nullable[ZipEntry]): DirEntry =
     //OPT inlined from getOrElseUpdate; saves ~50K closures on test run.
     // was:
     // dirs.getOrElseUpdate(path, {
@@ -117,7 +117,7 @@ final class FileZipArchive(jpath: JPath) extends ZipArchive(jpath) {
   private[this] def openZipFile(): ZipFile = try {
     new ZipFile(file)
   } catch {
-    case ioe: IOException => throw new IOException("Error accessing " + file.getPath, ioe)
+    case ioe: IOException => throw new IOException("Error accessing " + file.nn.getPath, ioe)
   }
 
   private[this] class LazyEntry(
@@ -146,7 +146,7 @@ final class FileZipArchive(jpath: JPath) extends ZipArchive(jpath) {
     zipEntry: ZipEntry
   ) extends Entry(zipEntry.getName) {
     override def lastModified: Long = zipEntry.getTime
-    override def input: InputStream = zipFile.getInputStream(zipEntry)
+    override def input: InputStream = zipFile.getInputStream(zipEntry).nn
     override def sizeOption: Option[Int] = Some(zipEntry.getSize.toInt)
   }
 
@@ -159,7 +159,7 @@ final class FileZipArchive(jpath: JPath) extends ZipArchive(jpath) {
     try {
       while (entries.hasMoreElements) {
         val zipEntry = entries.nextElement
-        val dir = getDir(dirs, zipEntry)
+        val dir = getDir(dirs, zipEntry.nn)
         if (!zipEntry.isDirectory) {
           val f =
             if (ZipArchive.closeZipFile)
@@ -169,7 +169,7 @@ final class FileZipArchive(jpath: JPath) extends ZipArchive(jpath) {
                 zipEntry.getSize().toInt
               )
             else
-              new LeakyEntry(zipFile, zipEntry)
+              new LeakyEntry(zipFile, zipEntry.nn)
 
           dir.entries(f.name) = f
         }
@@ -184,14 +184,14 @@ final class FileZipArchive(jpath: JPath) extends ZipArchive(jpath) {
 
   def name: String       = jpath.getFileName.toString
   def path: String       = jpath.toString
-  def input: InputStream = Files.newInputStream(jpath)
+  def input: InputStream = Files.newInputStream(jpath).nn
   def lastModified: Long = Files.getLastModifiedTime(jpath).toMillis
 
   override def sizeOption: Option[Int] = Some(Files.size(jpath).toInt)
   override def canEqual(other: Any): Boolean = other.isInstanceOf[FileZipArchive]
   override def hashCode(): Int = jpath.hashCode
   override def equals(that: Any): Boolean = that match {
-    case x: FileZipArchive => jpath.toAbsolutePath == x.jpath.toAbsolutePath
+    case x: FileZipArchive => jpath.toAbsolutePath == x.jpath.nn.toAbsolutePath
     case _                 => false
   }
 }

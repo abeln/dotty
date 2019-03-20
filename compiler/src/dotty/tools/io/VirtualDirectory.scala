@@ -30,7 +30,7 @@ extends AbstractFile {
   override def isVirtual: Boolean = true
   val lastModified: Long = System.currentTimeMillis
 
-  override def jpath: JPath = null
+  override def jpath: Nullable[JPath] = null
   override def input: InputStream = sys.error("directories cannot be read")
   override def output: OutputStream = sys.error("directories cannot be written")
 

@@ -6,6 +6,7 @@
 package dotty.tools.io
 
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream }
+import scala.ExplicitNulls._
 
 /** This class implements an in-memory file.
  *
@@ -43,7 +44,7 @@ class VirtualFile(val name: String, override val path: String) extends AbstractF
   def absolute: AbstractFile = this
 
   /** Returns null. */
-  def jpath: JPath = null
+  def jpath: Nullable[JPath] = null
 
   override def sizeOption: Option[Int] = Some(content.length)
 
@@ -92,7 +93,7 @@ class VirtualFile(val name: String, override val path: String) extends AbstractF
    * argument "directory" tells whether to look for a directory or
    * or a regular file.
    */
-  def lookupName(name: String, directory: Boolean): AbstractFile = {
+  def lookupName(name: String, directory: Boolean): Nullable[AbstractFile] = {
     assert(isDirectory, "not a directory '" + this + "'")
     null
   }

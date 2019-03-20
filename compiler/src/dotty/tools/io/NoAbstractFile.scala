@@ -18,7 +18,7 @@ object NoAbstractFile extends AbstractFile {
   def container: AbstractFile = this
   def create(): Unit = ???
   def delete(): Unit = ???
-  def jpath: JPath = null
+  def jpath: Nullable[JPath] = null
   def input: InputStream = null.asInstanceOf[InputStream]
   def isDirectory: Boolean = false
   override def isVirtual: Boolean = true
