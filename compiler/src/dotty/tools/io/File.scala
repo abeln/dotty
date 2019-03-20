@@ -13,6 +13,7 @@ import java.nio.file.{Files, Paths}
 import java.nio.file.StandardOpenOption._
 
 import scala.io.Codec
+import scala.ExplicitNulls._
 /**
  * ''Note:  This library is considered experimental and should not be used unless you know what you are doing.''
  */
@@ -20,7 +21,7 @@ object File {
   def pathSeparator: String = JavaIoFile.pathSeparator
   def separator: String     = JavaIoFile.separator
 
-  def apply(path: String)(implicit codec: Codec): File = apply(Paths.get(path))
+  def apply(path: String)(implicit codec: Codec): File = apply(Paths.get(path).nn)
   def apply(path: JPath)(implicit codec: Codec): File = new File(path)
 }
 
@@ -48,12 +49,12 @@ class File(jpath: JPath)(implicit constructorCodec: Codec) extends Path(jpath) w
     if (cond(this)) Iterator.single(this) else Iterator.empty
 
   /** Obtains an InputStream. */
-  def inputStream(): InputStream = Files.newInputStream(jpath)
+  def inputStream(): InputStream = Files.newInputStream(jpath).nn
 
   /** Obtains a OutputStream. */
   def outputStream(append: Boolean = false): OutputStream =
-    if (append) Files.newOutputStream(jpath, CREATE, APPEND)
-    else Files.newOutputStream(jpath, CREATE, TRUNCATE_EXISTING)
+    if (append) Files.newOutputStream(jpath, CREATE, APPEND).nn
+    else Files.newOutputStream(jpath, CREATE, TRUNCATE_EXISTING.nn)
   def bufferedOutput(append: Boolean = false): BufferedOutputStream = new BufferedOutputStream(outputStream(append))
 
   /** Obtains an OutputStreamWriter wrapped around a FileOutputStream.

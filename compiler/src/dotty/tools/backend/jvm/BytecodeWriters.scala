@@ -56,7 +56,7 @@ trait BytecodeWriters {
 
     val writer = new Jar(jfile).jarWriter(jarMainAttrs: _*)
 
-    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       assert(outfile == null,
              "The outfile formal param is there just because ClassBytecodeWriter overrides this method and uses it.")
       val path = jclassName + ".class"

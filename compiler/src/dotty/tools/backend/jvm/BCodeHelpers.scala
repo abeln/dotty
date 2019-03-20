@@ -96,7 +96,7 @@ trait BCodeHelpers extends BCodeIdiomatic with BytecodeWriters {
         }
         else log(s"Main-Class was specified: ${mainClass.get}")
 
-        new DirectToJarfileWriter(f.file)
+        new DirectToJarfileWriter(f.file.nn)
 
       case _ => factoryNonJarBytecodeWriter()
     }

@@ -31,7 +31,7 @@ sealed trait ZipAndJarFileLookupFactory {
   protected def createForZipFile(zipFile: AbstractFile): ClassPath
 
   private def createUsingCache(zipFile: AbstractFile): ClassPath =
-    cache.getOrCreate(zipFile.file.toPath.nn, () => createForZipFile(zipFile))
+    cache.getOrCreate(zipFile.file.nn.toPath.nn, () => createForZipFile(zipFile))
 }
 
 /**
@@ -145,7 +145,7 @@ object ZipAndJarClassPathFactory extends ZipAndJarFileLookupFactory {
 
   override protected def createForZipFile(zipFile: AbstractFile): ClassPath =
     if (zipFile.file == null) createWithoutUnderlyingFile(zipFile)
-    else ZipArchiveClassPath(zipFile.file)
+    else ZipArchiveClassPath(zipFile.file.nn)
 
   private def createWithoutUnderlyingFile(zipFile: AbstractFile) = zipFile match {
     case manifestRes: ManifestResources =>
@@ -173,7 +173,7 @@ object ZipAndJarSourcePathFactory extends ZipAndJarFileLookupFactory {
     override protected def isRequiredFileType(file: AbstractFile): Boolean = file.isScalaOrJavaSource
   }
 
-  override protected def createForZipFile(zipFile: AbstractFile): ClassPath = ZipArchiveSourcePath(zipFile.file)
+  override protected def createForZipFile(zipFile: AbstractFile): ClassPath = ZipArchiveSourcePath(zipFile.file.nn)
 }
 
 final class FileBasedCache[T] {

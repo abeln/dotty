@@ -14,6 +14,7 @@ import scala.collection.mutable
 import Attributes.Name
 import scala.language.postfixOps
 import scala.annotation.tailrec
+import scala.ExplicitNulls._
 
 // Attributes.Name instances:
 //
@@ -36,7 +37,7 @@ import scala.annotation.tailrec
 // static Attributes.Name   SPECIFICATION_VERSION
 
 class Jar(file: File) extends Iterable[JarEntry] {
-  def this(jfile: JFile) = this(File(jfile.toPath))
+  def this(jfile: JFile) = this(File(jfile.toPath.nn))
   def this(path: String) = this(File(path))
 
   protected def errorFn(msg: String): Unit = Console println msg
@@ -44,7 +45,7 @@ class Jar(file: File) extends Iterable[JarEntry] {
   import Jar._
 
   lazy val jarFile: JarFile  = new JarFile(file.jpath.toFile)
-  lazy val manifest: Option[Manifest] = withJarInput(s => Option(s.getManifest))
+  lazy val manifest: Option[Manifest] = withJarInput(s => Option(s.getManifest.asInstanceOf[Manifest]))
 
   def mainClass: Option[String]     = manifest map (f => f(Name.MAIN_CLASS))
   /** The manifest-defined classpath String if available. */

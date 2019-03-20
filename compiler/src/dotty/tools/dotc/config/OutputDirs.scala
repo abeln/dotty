@@ -3,6 +3,7 @@ package dotc
 package config
 
 import io._
+import scala.ExplicitNulls._
 
 /** A class for holding mappings from source directories to
  *  their output location. This functionality can be accessed
@@ -27,14 +28,15 @@ class OutputDirs {
       checkDir(AbstractFile.getDirectory(outDir), outDir))
 
   /** Check that dir is exists and is a directory. */
-  private def checkDir(dir: AbstractFile, name: String, allowJar: Boolean = false): AbstractFile = (
+  private def checkDir(dir: Nullable[AbstractFile], name: String, allowJar: Boolean = false): AbstractFile = {
     if (dir != null && dir.isDirectory)
       dir
     // was:      else if (allowJar && dir == null && Path.isJarOrZip(name, false))
     else if (allowJar && dir == null && Jar.isJarOrZip(File(name), false))
       new PlainFile(Path(name))
     else
-      throw new FatalError(name + " does not exist or is not a directory"))
+      throw new FatalError(name + " does not exist or is not a directory")
+  }
 
   /** Set the single output directory. From now on, all files will
    *  be dumped in there, regardless of previous calls to 'add'.

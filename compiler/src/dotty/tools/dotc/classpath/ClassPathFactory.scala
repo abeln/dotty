@@ -7,6 +7,7 @@ import dotty.tools.io.{AbstractFile, VirtualDirectory}
 import FileUtils.AbstractFileOps
 import dotty.tools.io.ClassPath
 import dotty.tools.dotc.core.Contexts.Context
+import scala.ExplicitNulls._
 
 /**
  * Provides factory methods for classpath. When creating classpath instances for a given path,
@@ -24,7 +25,7 @@ class ClassPathFactory {
   def sourcesInPath(path: String)(implicit ctx: Context): List[ClassPath] =
     for {
       file <- expandPath(path, expandStar = false)
-      dir <- Option(AbstractFile getDirectory file)
+      dir <- Option(AbstractFile.getDirectory(file).asInstanceOf[AbstractFile])
     } yield createSourcePath(dir)
 
 
@@ -36,7 +37,7 @@ class ClassPathFactory {
     for {
       dir <- expandPath(path, expandStar = false)
       name <- expandDir(dir)
-      entry <- Option(AbstractFile.getDirectory(name))
+      entry <- Option(AbstractFile.getDirectory(name).asInstanceOf[AbstractFile])
     } yield newClassPath(entry)
 
   def classesInExpandedPath(path: String)(implicit ctx: Context): IndexedSeq[ClassPath] =
@@ -53,8 +54,8 @@ class ClassPathFactory {
     for {
       file <- expandPath(path, expand)
       dir <- {
-        def asImage = if (file.endsWith(".jimage")) Some(AbstractFile.getFile(file)) else None
-        Option(AbstractFile.getDirectory(file)).orElse(asImage)
+        def asImage = if (file.endsWith(".jimage")) Some(AbstractFile.getFile(file).nn) else None
+        Option(AbstractFile.getDirectory(file).asInstanceOf[AbstractFile]).orElse(asImage)
       }
     } yield newClassPath(dir)
 
@@ -62,7 +63,7 @@ class ClassPathFactory {
     if (file.isJarOrZip)
       ZipAndJarSourcePathFactory.create(file)
     else if (file.isDirectory)
-      new DirectorySourcePath(file.file)
+      new DirectorySourcePath(file.file.nn)
     else
       sys.error(s"Unsupported sourcepath element: $file")
 }
@@ -74,7 +75,7 @@ object ClassPathFactory {
       if (file.isJarOrZip)
         ZipAndJarClassPathFactory.create(file)
       else if (file.isDirectory)
-        new DirectoryClassPath(file.file)
+        new DirectoryClassPath(file.file.nn)
       else
         sys.error(s"Unsupported classpath element: $file")
   }

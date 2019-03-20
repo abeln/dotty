@@ -110,7 +110,7 @@ class InteractiveDriver(val settings: List[String]) extends Driver {
       if (output.isDirectory) {
         classesFromDir(output.jpath, classNames)
       } else {
-        classesFromZip(output.file, classNames)
+        classesFromZip(output.file.nn, classNames)
       }
       classNames.flatMap { cls =>
         treesFromClassName(cls, id)

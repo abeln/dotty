@@ -52,7 +52,7 @@ class JSPositions()(implicit ctx: Context) {
               null                  // Fragment
           )
         case file =>
-          val srcURI = file.toURI
+          val srcURI = file.nn.toURI
           def matches(pat: java.net.URI) = pat.relativize(srcURI) != srcURI
 
           // TODO

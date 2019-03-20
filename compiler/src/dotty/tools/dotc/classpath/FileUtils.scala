@@ -7,6 +7,7 @@ package dotc.classpath
 import java.io.{File => JFile, FileFilter}
 import java.net.URL
 import dotty.tools.io.AbstractFile
+import scala.ExplicitNulls._
 
 /**
  * Common methods related to Java files and abstract files used in the context of classpath
@@ -27,7 +28,7 @@ object FileUtils {
      * Safe method returning a sequence containing one URL representing this file, when underlying file exists,
      * and returning given default value in other case
      */
-    def toURLs(default: => Seq[URL] = Seq.empty): Seq[URL] = if (file.file == null) default else Seq(file.toURL)
+    def toURLs(default: => Seq[URL] = Seq.empty): Seq[URL] = if (file.file == null) default else Seq(file.toURL.nn)
   }
 
   implicit class FileOps(val file: JFile) extends AnyVal {

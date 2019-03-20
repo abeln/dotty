@@ -9,6 +9,7 @@
 package dotty.tools.io
 
 import java.nio.file.{Files, Paths}
+import scala.ExplicitNulls._
 
 
 /**
@@ -22,12 +23,12 @@ object Directory {
     else Some(apply(userDir).normalize)
 
   def inTempDirectory[T](fn: Directory => T): T = {
-    val temp = Directory(Files.createTempDirectory("temp"))
+    val temp = Directory(Files.createTempDirectory("temp").nn)
     try fn(temp)
     finally temp.deleteRecursively()
   }
 
-  def apply(path: String): Directory = apply(Paths.get(path))
+  def apply(path: String): Directory = apply(Paths.get(path).nn)
   def apply(path: JPath): Directory = new Directory(path)
 }
 
@@ -51,7 +52,7 @@ class Directory(jpath: JPath) extends Path(jpath) {
       val fileStream = Files.list(jpath)
       val files = fileStream.toArray(size => new Array[JPath](size))
       fileStream.close()
-      files.iterator.map(Path.apply)
+      files.iterator.map(f => Path.apply(f.nn))
     }
     else Iterator.empty
 
