@@ -888,7 +888,7 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
 
     def <:<(other: Type): Boolean = tp <:< other
 
-    def memberInfo(s: Symbol): Type = tp.memberInfo(s)
+    def memberInfo(s: Symbol): Type = tp.memberInfo(s.nn)
 
     def decls: List[Symbol] = tp.decls.toList
 
