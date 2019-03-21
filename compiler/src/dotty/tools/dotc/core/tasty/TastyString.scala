@@ -6,7 +6,7 @@ import java.io._
 import java.util.Base64
 import java.nio.charset.StandardCharsets.UTF_8
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 /** Utils for String representation of TASTY */
 object TastyString {
@@ -24,7 +24,7 @@ object TastyString {
   def unpickle(strings: Pickled): Array[Byte] = {
     val string = new StringBuilder
     strings.foreach(string.append)
-    Base64.getDecoder().decode(string.result().getBytes(UTF_8))
+    Base64.getDecoder().decode(string.result().getBytes(UTF_8)).nn
   }
 
 }
