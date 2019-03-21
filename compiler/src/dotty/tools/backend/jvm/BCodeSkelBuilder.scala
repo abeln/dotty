@@ -433,7 +433,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     var varsInScope: Nullable[List[(Symbol, asm.Label)]] = null // (local-var-sym -> start-of-scope)
 
     // helpers around program-points.
-    def lastInsn: asm.tree.AbstractInsnNode = mnode.nn.instructions.getLast.nn
+    def lastInsn: Nullable[asm.tree.AbstractInsnNode] = mnode.nn.instructions.getLast
     def currProgramPoint(): asm.Label = {
       lastInsn match {
         case labnode: asm.tree.LabelNode => labnode.getLabel.nn
@@ -448,7 +448,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
       if (!skip) { mnode.nn visitLabel lbl.nn }
     }
     def isAtProgramPoint(lbl: asm.Label): Boolean = {
-      def getNonLineNumberNode(a: asm.tree.AbstractInsnNode): asm.tree.AbstractInsnNode  = a match {
+      def getNonLineNumberNode(a: Nullable[asm.tree.AbstractInsnNode]): Nullable[asm.tree.AbstractInsnNode]  = a match {
         case a: asm.tree.LineNumberNode => getNonLineNumberNode(a.getPrevious.nn) // line numbers aren't part of code itself
         case _ => a
       }

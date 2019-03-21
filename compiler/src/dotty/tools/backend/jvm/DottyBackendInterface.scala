@@ -571,7 +571,8 @@ class DottyBackendInterface(outputDirectory: AbstractFile, val superCallsMap: Ma
     def finalPosition: Position = a
   }
 
-  implicit def constantHelper(a: Constant): ConstantHelper = new ConstantHelper {
+  implicit def constantHelper(a1: Constant): ConstantHelper = new ConstantHelper {
+    val a: Constants.Constant = a1.nn
     def booleanValue: Boolean = a.booleanValue
     def longValue: Long = a.longValue
     def byteValue: Byte = a.byteValue

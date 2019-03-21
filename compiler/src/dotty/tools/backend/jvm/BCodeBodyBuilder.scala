@@ -978,7 +978,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
          * emitted instruction was an ATHROW. As explained above, it is OK to emit a second ATHROW,
          * the verifiers will be happy.
          */
-        if (lastInsn.getOpcode != asm.Opcodes.ATHROW)
+        if (lastInsn.nn.getOpcode != asm.Opcodes.ATHROW)
           emit(asm.Opcodes.ATHROW)
       } else if (from.isNullType) {
         /* After loading an expression of type `scala.runtime.Null$`, introduce POP; ACONST_NULL.
@@ -992,7 +992,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
          * In order to fix the above problem, the value returned by nl is dropped and ACONST_NULL is
          * inserted instead - after all, an expression of type scala.runtime.Null$ can only be null.
          */
-        if (lastInsn.getOpcode != asm.Opcodes.ACONST_NULL) {
+        if (lastInsn.nn.getOpcode != asm.Opcodes.ACONST_NULL) {
           bc drop from
           emit(asm.Opcodes.ACONST_NULL)
         }
