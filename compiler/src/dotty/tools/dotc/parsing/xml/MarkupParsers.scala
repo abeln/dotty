@@ -14,7 +14,7 @@ import Constants._
 import util.SourceFile
 import Utility._
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 // XXX/Note: many/most of the functions in here are almost direct cut and pastes
 // from another file - scala.xml.parsing.MarkupParser, it looks like.
@@ -323,7 +323,7 @@ object MarkupParsers {
       try output = f()
       catch {
         case c @ TruncatedXMLControl  =>
-          ifTruncated(c.getMessage)
+          ifTruncated(c.getMessage.nn)
         case c @ (MissingEndTagControl | ConfusedAboutBracesControl) =>
           parser.syntaxError(c.getMessage + debugLastElem + ">", debugLastPos)
         case _: ArrayIndexOutOfBoundsException =>

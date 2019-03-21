@@ -14,7 +14,7 @@ import java.util.regex.PatternSyntaxException
 import File.pathSeparator
 import Jar.isJarOrZip
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 /**
   * A representation of the compiler's class- or sourcepath.
