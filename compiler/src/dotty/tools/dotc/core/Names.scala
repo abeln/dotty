@@ -540,7 +540,7 @@ object Names {
 
   /** Hashtable for finding term names quickly. */
   @sharable // because it's only mutated in synchronized block of termName
-  private[this] var table = new Array[SimpleName](InitialHashSize)
+  private[this] var table = new Array[Nullable[SimpleName]](InitialHashSize)
 
   /** The number of defined names. */
   @sharable // because it's only mutated in synchronized block of termName
@@ -608,7 +608,7 @@ object Names {
       size += 1
       if (size.toDouble / table.size > fillFactor) {
         val oldTable = table
-        table = new Array[SimpleName](table.size * 2)
+        table = new Array[Nullable[SimpleName]](table.size * 2)
         for (i <- 0 until oldTable.size) rehash(oldTable(i))
       }
     }
@@ -616,15 +616,17 @@ object Names {
     val next = table(h)
     var name = next
     while (name ne null) {
-      if (name.length == len && equals(name.start, cs, offset, len))
-        return name
-      name = name.next.nn
+      if (name.nn.length == len && equals(name.nn.start, cs, offset, len))
+        return name.nn
+      // TODO(abeln): `.nn` doesn't work. Hack.
+      val name1: SimpleName = name.nn
+      name = name1.next
     }
     name = new SimpleName(nc, len, next)
     enterChars()
     table(h) = name
     incTableSize()
-    name
+    name.nn
   }
 
   /** Create a type name from the characters in cs[offset..offset+len-1].
@@ -656,7 +658,7 @@ object Names {
   table(0) = new SimpleName(-1, 0, null)
 
   /** The term name represented by the empty string */
-  val EmptyTermName: TermName = table(0)
+  val EmptyTermName: TermName = table(0).nn
 
   /** The type name represented by the empty string */
   val EmptyTypeName: TypeName = EmptyTermName.toTypeName
