@@ -105,8 +105,8 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
 
     /* ---------------- q2 ---------------- */
 
-    case class SubItem2(classNode: asm.tree.ClassNode,
-                        file:      dotty.tools.io.AbstractFile)
+    case class SubItem2(classNode: Nullable[asm.tree.ClassNode],
+                        file:      Nullable[dotty.tools.io.AbstractFile])
 
     case class Item2(arrivalPos: Int,
                      mirror:     Nullable[SubItem2],
@@ -291,8 +291,8 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
 
         val item2 =
           Item2(arrivalPos,
-            SubItem2(mirrorC.nn, classFiles(0).nn),
-            SubItem2(plainC.nn, classFiles(1).nn))
+            SubItem2(mirrorC, classFiles(0)),
+            SubItem2(plainC, classFiles(1)))
 
         q2 add item2 // at the very end of this method so that no Worker2 thread starts mutating before we're done.
 
@@ -410,7 +410,7 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
           }
           else {
             try {
-              val plainNode = item.plain.nn.classNode
+              val plainNode = item.plain.nn.classNode.nn
               localOptimizations(plainNode)
               val serializableLambdas = collectSerializableLambdas(plainNode)
               if (serializableLambdas.nonEmpty)
@@ -419,7 +419,7 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
             } catch {
               case ex: Throwable =>
                 ex.printStackTrace()
-                ctx.error(s"Error while emitting ${item.plain.nn.classNode.name}\n${ex.getMessage}")
+                ctx.error(s"Error while emitting ${item.plain.nn.classNode.nn.name}\n${ex.getMessage}")
             }
           }
         }
@@ -435,10 +435,10 @@ class GenBCodePipeline(val entryPoints: List[Symbol], val int: DottyBackendInter
 
         val Item2(arrivalPos, SubItem2(mirror, mirrorFile), SubItem2(plain, plainFile)) = item
 
-        val mirrorC = if (mirror == null) null else SubItem3(mirror.name.nn, getByteArray(mirror), mirrorFile)
-        val plainC  = SubItem3(plain.name.nn, getByteArray(plain), plainFile)
+        val mirrorC = if (mirror == null) null else SubItem3(mirror.name.nn, getByteArray(mirror), mirrorFile.nn)
+        val plainC  = SubItem3(plain.nn.name.nn, getByteArray(plain.nn), plainFile.nn)
 
-        if (AsmUtils.traceSerializedClassEnabled && plain.name.contains(AsmUtils.traceSerializedClassPattern)) {
+        if (AsmUtils.traceSerializedClassEnabled && plain.nn.name.contains(AsmUtils.traceSerializedClassPattern)) {
           if (mirrorC != null) AsmUtils.traceClass(mirrorC.jclassBytes)
           AsmUtils.traceClass(plainC.jclassBytes)
         }
