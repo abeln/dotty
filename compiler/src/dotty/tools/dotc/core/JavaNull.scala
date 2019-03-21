@@ -192,7 +192,11 @@ object JavaNull {
     if (sym.is(Flags.Method)) {
       stats.getMethod(sym, tp) match {
         case Some(mstats) =>
-          MethodP(_ == sym, /*mstats.nnParams*/ Seq.empty, mstats.nnRet, nnShallow = true)
+          def triggerAndLog(s: Symbol): Boolean = {
+//            if (mstats.nnRet) println(s">>> ${sym.name.show} with type ${tp.show}")
+            s == sym
+          }
+          MethodP(triggerAndLog, /*mstats.nnParams*/ Seq.empty, mstats.nnRet, nnShallow = true)
         case None => FalseP
       }
     } else {

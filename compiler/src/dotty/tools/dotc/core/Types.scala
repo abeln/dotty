@@ -653,6 +653,7 @@ object Types {
             // This can throw at runtime, but we trade soundness for usability.
             // We need to strip JavaNull from both the type and the prefix so that
             // `pre <: tp` continues to hold.
+//            println(s">>> ${tp.show}")
             tp.stripJavaNull.findMember(name, pre.stripJavaNull, required, excluded)
           } else {
             // we need to keep the invariant that `pre <: tp`. Branch `union-types-narrow-prefix`
