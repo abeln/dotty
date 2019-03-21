@@ -83,7 +83,7 @@ object TypeErasure {
    */
   abstract case class ErasedValueType(tycon: TypeRef, erasedUnderlying: Type)
   extends CachedGroundType with ValueType {
-    override def computeHash(bs: Hashable.Binders): Int = doHash(bs, tycon, erasedUnderlying)
+    override def computeHash(bs: Nullable[Hashable.Binders]): Int = doHash(bs, tycon, erasedUnderlying)
   }
 
   final class CachedErasedValueType(tycon: TypeRef, erasedUnderlying: Type)

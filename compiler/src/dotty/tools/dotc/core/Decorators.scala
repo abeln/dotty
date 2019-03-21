@@ -58,7 +58,10 @@ object Decorators {
       def loop(mapped: Nullable[ListBuffer[U]], unchanged: List[U], pending: List[T]): List[U] =
         if (pending.isEmpty) {
           if (mapped eq null) unchanged
-          else mapped.prependToList(unchanged)
+          else {
+            // TODO(abeln): flow inference causes a crash here without the `nn`.
+            mapped.nn.prependToList(unchanged)
+          }
         } else {
           val head0 = pending.head
           val head1 = f(head0)

@@ -20,7 +20,8 @@ import scala.ExplicitNulls._
 class TypeError(msg: String) extends Exception(msg) {
   def this() = this("")
   def toMessage(implicit ctx: Context): Message = super.getMessage
-  override def getMessage: Nullable[String] = super.getMessage
+  // TODO(abeln): hack
+  override def getMessage: String = super.getMessage.asInstanceOf[String]
 }
 
 class MalformedType(pre: Type, denot: Denotation, absMembers: Set[Name]) extends TypeError {

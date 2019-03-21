@@ -43,7 +43,7 @@ object Uniques {
  */
 
   final class NamedTypeUniques extends HashSet[Nullable[NamedType]](Config.initialUniquesCapacity) with Hashable {
-    override def hash(x: NamedType): Int = x.hash
+    override def hash(x: Nullable[NamedType]): Int = x.nn.hash
 
     private def findPrevious(h: Int, prefix: Type, designator: Designator): Nullable[NamedType] = {
       var e = findEntryByHash(h)
@@ -69,7 +69,7 @@ object Uniques {
   }
 
   final class AppliedUniques extends HashSet[Nullable[AppliedType]](Config.initialUniquesCapacity) with Hashable {
-    override def hash(x: AppliedType): Int = x.hash
+    override def hash(x: Nullable[AppliedType]): Int = x.nn.hash
 
     private def findPrevious(h: Int, tycon: Type, args: List[Type]): Nullable[AppliedType] = {
       var e = findEntryByHash(h)

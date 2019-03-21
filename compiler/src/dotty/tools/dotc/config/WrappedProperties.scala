@@ -17,7 +17,7 @@ trait WrappedProperties extends PropertiesTrait {
   protected def pickJarBasedOn: Class[_] = this.getClass
 
   override def propIsSet(name: String): Boolean              = wrap(super.propIsSet(name)) exists (x => x)
-  override def propOrElse(name: String, alt: String): String = wrap(super.propOrElse(name, alt)) getOrElse alt
+  override def propOrElse(name: String, alt: Nullable[String]): Nullable[String] = wrap(super.propOrElse(name, alt)) getOrElse alt
   override def setProp(name: String, value: String): Nullable[String]  = wrap(super.setProp(name, value)).orNull
   override def clearProp(name: String): Nullable[String]     = wrap(super.clearProp(name)).orNull
   override def envOrElse(name: String, alt: String): String  = wrap(super.envOrElse(name, alt)) getOrElse alt

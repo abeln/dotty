@@ -6,7 +6,7 @@ import scala.annotation.internal.sharable
 
 import java.io.IOException
 import java.util.jar.Attributes.{ Name => AttributeName }
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 /** Loads `library.properties` from the jar. */
 object Properties extends PropertiesTrait {
@@ -44,21 +44,21 @@ trait PropertiesTrait {
 
   def propIsSet(name: String): Boolean                  = System.getProperty(name) != null
   def propIsSetTo(name: String, value: String): Boolean = propOrNull(name) == value
-  def propOrElse(name: String, alt: String): String     = System.getProperty(name, alt)
-  def propOrEmpty(name: String): String                 = propOrElse(name, "")
-  def propOrNull(name: String): String                  = propOrElse(name, null)
-  def propOrNone(name: String): Option[String]          = Option(propOrNull(name))
+  def propOrElse(name: String, alt: Nullable[String]): Nullable[String]     = System.getProperty(name, alt)
+  def propOrEmpty(name: String): String                 = propOrElse(name, "").nn
+  def propOrNull(name: String): Nullable[String]        = propOrElse(name, null)
+  def propOrNone(name: String): Option[String]          = Option(propOrNull(name).asInstanceOf[String])
   def propOrFalse(name: String): Boolean                = propOrNone(name) exists (x => List("yes", "on", "true") contains x.toLowerCase)
-  def setProp(name: String, value: String): String      = System.setProperty(name, value)
-  def clearProp(name: String): String                   = System.clearProperty(name)
+  def setProp(name: String, value: String): Nullable[String]      = System.setProperty(name, value)
+  def clearProp(name: String): Nullable[String]                   = System.clearProperty(name)
 
-  def envOrElse(name: String, alt: String): String      = Option(System getenv name) getOrElse alt
-  def envOrNone(name: String): Option[String]           = Option(System getenv name)
+  def envOrElse(name: String, alt: String): String      = Option(System.getenv(name).asInstanceOf[String]) getOrElse alt
+  def envOrNone(name: String): Option[String]           = Option(System.getenv(name).asInstanceOf[String])
 
   // for values based on propFilename
-  def scalaPropOrElse(name: String, alt: String): String = scalaProps.getProperty(name, alt)
-  def scalaPropOrEmpty(name: String): String             = scalaPropOrElse(name, "")
-  def scalaPropOrNone(name: String): Option[String]      = Option(scalaProps.getProperty(name))
+  def scalaPropOrElse(name: String, alt: String): String = scalaProps.getProperty(name, alt).nn
+  def scalaPropOrEmpty(name: String): String             = scalaPropOrElse(name, "").nn
+  def scalaPropOrNone(name: String): Option[String]      = Option(scalaProps.getProperty(name).asInstanceOf[String])
 
   /** Either the development or release version if known, otherwise
    *  the empty string.
@@ -96,11 +96,11 @@ trait PropertiesTrait {
   /** This is the default text encoding, overridden (unreliably) with
    *  `JAVA_OPTS="-Dfile.encoding=Foo"`
    */
-  def encodingString: String        = propOrElse("file.encoding", "UTF-8")
+  def encodingString: String        = propOrElse("file.encoding", "UTF-8").nn
 
   /** The default end of line character.
    */
-  def lineSeparator: String         = propOrElse("line.separator", "\n")
+  def lineSeparator: String         = propOrElse("line.separator", "\n").nn
 
   /** Various well-known properties.
    */

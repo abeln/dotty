@@ -47,7 +47,7 @@ trait BytecodeWriters {
   }
 
   trait BytecodeWriter {
-    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit
+    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit
     def close(): Unit = ()
   }
 
@@ -96,7 +96,7 @@ trait BytecodeWriters {
       finally pw.close()
     }
 
-    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       super.writeClass(label, jclassName, jclassBytes, outfile)
 
       val segments = jclassName.split("[./]")
@@ -108,10 +108,10 @@ trait BytecodeWriters {
   }
 
   trait ClassBytecodeWriter extends BytecodeWriter {
-    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       assert(outfile != null,
              "Precisely this override requires its invoker to hand out a non-null AbstractFile.")
-      val outstream = new DataOutputStream(outfile.bufferedOutput)
+      val outstream = new DataOutputStream(outfile.nn.bufferedOutput)
 
       try outstream.write(jclassBytes, 0, jclassBytes.length)
       finally outstream.close()
@@ -122,7 +122,7 @@ trait BytecodeWriters {
   trait DumpBytecodeWriter extends BytecodeWriter {
     val baseDir = Directory(int.dumpClasses.get).createDirectory()
 
-    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: AbstractFile): Unit = {
+    abstract override def writeClass(label: String, jclassName: String, jclassBytes: Array[Byte], outfile: Nullable[AbstractFile]): Unit = {
       super.writeClass(label, jclassName, jclassBytes, outfile)
 
       val pathName = jclassName

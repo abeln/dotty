@@ -192,7 +192,7 @@ object ProtoTypes {
 
     override def deepenProto(implicit ctx: Context): SelectionProto = derivedSelectionProto(name, memberProto.deepenProto, compat)
 
-    override def computeHash(bs: Hashable.Binders): Int = {
+    override def computeHash(bs: Nullable[Hashable.Binders]): Int = {
       val delta = (if (compat eq NoViewsAllowed) 1 else 0) | (if (privateOK) 2 else 0)
       addDelta(doHash(bs, name, memberProto), delta)
     }
@@ -438,7 +438,7 @@ object ProtoTypes {
   }
 
   class CachedViewProto(argType: Type, resultType: Type) extends ViewProto(argType, resultType) {
-    override def computeHash(bs: Hashable.Binders): Int = doHash(bs, argType, resultType)
+    override def computeHash(bs: Nullable[Hashable.Binders]): Int = doHash(bs, argType, resultType)
   }
 
   object ViewProto {

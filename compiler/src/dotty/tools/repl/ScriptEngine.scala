@@ -28,14 +28,17 @@ class ScriptEngine extends AbstractScriptEngine {
 
   /* Evaluate with the given context. */
   @throws[ScriptException]
-  def eval(script: String, context: ScriptContext): Nullable[Object] = {
+  def eval(script: String, context: ScriptContext): Object = {
     val vid = state.valIndex
     state = driver.run(script)(state)
     val oid = state.objectIndex
-    Class.forName(s"${str.REPL_SESSION_LINE}$oid", true, rendering.classLoader()(state.context))
-      .getDeclaredMethods.find(_.nn.getName == s"${str.REPL_RES_PREFIX}$vid")
-      .map(_.nn.invoke(null))
-      .getOrElse(null)
+    val res: Nullable[Object] =
+      Class.forName(s"${str.REPL_SESSION_LINE}$oid", true, rendering.classLoader()(state.context))
+        .getDeclaredMethods.find(_.nn.getName == s"${str.REPL_RES_PREFIX}$vid")
+        .map(_.nn.invoke(null))
+        .getOrElse(null)
+    // TODO(abeln): hack because we can't make the method return `Nullable[Object]` (because of our limitations with Nullable and overriding).
+    res.asInstanceOf[Object]
   }
 
   @throws[ScriptException]
@@ -59,13 +62,17 @@ object ScriptEngine {
 
     def getOutputStatement(toDisplay: String) = s"""print("$toDisplay")"""
 
-    def getParameter(key: String): Nullable[Object] = key match {
-      case JScriptEngine.ENGINE           => getEngineName
-      case JScriptEngine.ENGINE_VERSION   => getEngineVersion
-      case JScriptEngine.LANGUAGE         => getLanguageName
-      case JScriptEngine.LANGUAGE_VERSION => getLanguageVersion
-      case JScriptEngine.NAME             => getNames.get(0)
-      case _ => null
+    def getParameter(key: String): Object = {
+      val res: Nullable[Object] = key match {
+        case JScriptEngine.ENGINE           => getEngineName
+        case JScriptEngine.ENGINE_VERSION   => getEngineVersion
+        case JScriptEngine.LANGUAGE         => getLanguageName
+        case JScriptEngine.LANGUAGE_VERSION => getLanguageVersion
+        case JScriptEngine.NAME             => getNames.get(0)
+        case _ => null
+      }
+      // TODO(abeln): hack
+      res.asInstanceOf[Object]
     }
 
     def getProgram(statements: String*) = statements.mkString("; ")
