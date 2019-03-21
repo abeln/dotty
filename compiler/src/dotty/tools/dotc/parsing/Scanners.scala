@@ -15,7 +15,7 @@ import scala.collection.mutable
 import scala.collection.immutable.{SortedMap, BitSet}
 import rewrites.Rewrites.patch
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 object Scanners {
 
@@ -39,10 +39,10 @@ object Scanners {
     var lastOffset: Offset = 0
 
     /** the name of an identifier */
-    var name: SimpleName = null
+    var name: Nullable[SimpleName] = null
 
     /** the string value of a literal */
-    var strVal: String = null
+    var strVal: Nullable[String] = null
 
     /** the base of a number */
     var base: Int = 0
@@ -103,7 +103,7 @@ object Scanners {
       target.name = termName(flushBuf(litBuf))
       target.token = idtoken
       if (idtoken == IDENTIFIER)
-        target.token = toToken(target.name)
+        target.token = toToken(target.name.nn)
     }
 
     /** The token for given `name`. Either IDENTIFIER or a keyword. */
@@ -115,7 +115,7 @@ object Scanners {
 
     /** Convert current strVal to char value
       */
-    def charVal: Char = if (strVal.length > 0) strVal.charAt(0) else 0
+    def charVal: Char = if (strVal.nn.length > 0) strVal.nn.charAt(0) else 0
 
     /** Convert current strVal, base to long value
       *  This is tricky because of max negative value.
@@ -129,9 +129,9 @@ object Scanners {
         val limit: Long =
           if (token == LONGLIT) Long.MaxValue else Int.MaxValue
         var i = 0
-        val len = strVal.length
+        val len = strVal.nn.length
         while (i < len) {
-          val d = digit2int(strVal charAt i, base)
+          val d = digit2int(strVal.nn charAt i, base)
           if (d < 0) {
             error("malformed integer number")
             return 0
@@ -212,7 +212,7 @@ object Scanners {
     private def treatAsIdent() = {
       testScala2Mode(i"$name is now a keyword, write `$name` instead of $name to keep it as an identifier")
       patch(source, Span(offset), "`")
-      patch(source, Span(offset + name.length), "`")
+      patch(source, Span(offset + name.nn.length), "`")
       IDENTIFIER
     }
 
@@ -670,10 +670,10 @@ object Scanners {
       if (ch == '`') {
         nextChar()
         finishNamed(BACKQUOTED_IDENT)
-        name = avoidIllegalChars(name)
-        if (name.length == 0)
+        name = avoidIllegalChars(name.nn)
+        if (name.nn.length == 0)
           error("empty quoted identifier")
-        else if (name == nme.WILDCARD)
+        else if (name.nn == nme.WILDCARD)
           error("wildcard invalid as backquoted identifier")
       }
       else error("unclosed quoted identifier")
@@ -743,7 +743,7 @@ object Scanners {
     }
 
     def isSoftModifier: Boolean =
-      token == IDENTIFIER && softModifierNames.contains(name)
+      token == IDENTIFIER && softModifierNames.contains(name.nn)
 
     def isSoftModifierInModifierPosition: Boolean =
       isSoftModifier && inModifierPosition()

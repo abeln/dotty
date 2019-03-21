@@ -54,7 +54,7 @@ object SyntaxHighlighting {
       while (scanner.token != EOF) {
         val start = scanner.offset
         val token = scanner.token
-        val name = scanner.name
+        val name = scanner.name.nn
         val isSoftModifier = scanner.isSoftModifierInModifierPosition
         scanner.nextToken()
         val end = scanner.lastOffset

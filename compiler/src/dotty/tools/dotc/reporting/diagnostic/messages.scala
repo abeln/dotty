@@ -1184,7 +1184,7 @@ object messages {
     val explanation: String = s"$ifKeyword"
   }
 
-  case class MixedLeftAndRightAssociativeOps(op1: Name, op2: Name, op2LeftAssoc: Boolean)(implicit ctx: Context)
+  case class MixedLeftAndRightAssociativeOps(op1: Name, op2: Nullable[Name], op2LeftAssoc: Boolean)(implicit ctx: Context)
   extends Message(MixedLeftAndRightAssociativeOpsID.nn) {
     val kind: String = "Syntax"
     val op1Asso: String = if (op2LeftAssoc) "which is right-associative" else "which is left-associative"
