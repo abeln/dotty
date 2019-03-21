@@ -20,7 +20,7 @@ import util.common._
 import SymDenotations.NoDenotation
 import collection.mutable
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 object Scopes {
 
@@ -51,11 +51,11 @@ object Scopes {
 
     /** the next entry in the hash bucket
      */
-    var tail: ScopeEntry = null
+    var tail: Nullable[ScopeEntry] = null
 
     /** the preceding entry in this scope
      */
-    var prev: ScopeEntry = null
+    var prev: Nullable[ScopeEntry] = null
 
     override def toString: String = sym.toString
   }
@@ -69,7 +69,7 @@ object Scopes {
   abstract class Scope extends printing.Showable {
 
     /** The last scope-entry from which all others are reachable via `prev` */
-    private[dotc] def lastEntry: ScopeEntry
+    private[dotc] def lastEntry: Nullable[ScopeEntry]
 
     /** The number of symbols in this scope (including inherited ones
      *  from outer scopes).
@@ -99,10 +99,10 @@ object Scopes {
       ensureComplete()
       var syms: List[Symbol] = Nil
       var e = lastEntry
-      while ((e ne null) && e.owner == this) {
-        val sym = e.sym
+      while ((e ne null) && e.nn.owner == this) {
+        val sym = e.nn.sym
         if (p(sym)) syms = sym :: syms
-        e = e.prev
+        e = e.nn.prev
       }
       syms
     }
@@ -120,10 +120,10 @@ object Scopes {
     def cloneScope(implicit ctx: Context): MutableScope
 
     /** Lookup a symbol entry matching given name. */
-    def lookupEntry(name: Name)(implicit ctx: Context): ScopeEntry
+    def lookupEntry(name: Name)(implicit ctx: Context): Nullable[ScopeEntry]
 
     /** Lookup next entry with same name as this one */
-    def lookupNextEntry(entry: ScopeEntry)(implicit ctx: Context): ScopeEntry
+    def lookupNextEntry(entry: ScopeEntry)(implicit ctx: Context): Nullable[ScopeEntry]
 
     /** Lookup a symbol */
     final def lookup(name: Name)(implicit ctx: Context): Symbol = {
@@ -136,7 +136,7 @@ object Scopes {
     final def lookupAll(name: Name)(implicit ctx: Context): Iterator[Symbol] = new Iterator[Symbol] {
       var e = lookupEntry(name)
       def hasNext: Boolean = e ne null
-      def next(): Symbol = { val r = e.sym; e = lookupNextEntry(e); r }
+      def next(): Symbol = { val r = e.nn.sym; e = lookupNextEntry(e.nn); r }
     }
 
     /** The denotation set of all the symbols with given name in this scope
@@ -147,9 +147,9 @@ object Scopes {
       var syms: PreDenotation = NoDenotation
       var e = lookupEntry(name)
       while (e != null) {
-        val d = e.sym.denot
+        val d = e.nn.sym.denot
         if (select(d)) syms = syms union d
-        e = lookupNextEntry(e)
+        e = lookupNextEntry(e.nn)
       }
       syms
     }
@@ -159,13 +159,13 @@ object Scopes {
      *  a copy with the matching symbols.
      */
     final def filteredScope(p: Symbol => Boolean)(implicit ctx: Context): Scope = {
-      var result: MutableScope = null
+      var result: Nullable[MutableScope] = null
       for (sym <- iterator)
         if (!p(sym)) {
           if (result == null) result = cloneScope
-          result.unlink(sym)
+          result.nn.unlink(sym)
         }
-      if (result == null) this else result
+      if (result == null) this else result.nn
     }
 
     def implicitDecls(implicit ctx: Context): List[TermRef] = Nil
@@ -189,7 +189,7 @@ object Scopes {
    *  This is necessary because when run from reflection every scope needs to have a
    *  SynchronizedScope as mixin.
    */
-  class MutableScope protected[Scopes](initElems: ScopeEntry, initSize: Int, val nestingLevel: Int = 0)
+  class MutableScope protected[Scopes](initElems: Nullable[ScopeEntry], initSize: Int, val nestingLevel: Int = 0)
       extends Scope {
 
     /** Scope shares elements with `base` */
@@ -200,7 +200,7 @@ object Scopes {
 
     def this() = this(null, 0, 0)
 
-    private[dotc] var lastEntry: ScopeEntry = initElems
+    private[dotc] var lastEntry: Nullable[ScopeEntry] = initElems
 
     /** The size of the scope */
     private[this] var _size = initSize
@@ -210,14 +210,14 @@ object Scopes {
 
     /** the hash table
      */
-    private[this] var hashTable: Array[ScopeEntry] = null
+    private[this] var hashTable: Nullable[Array[Nullable[ScopeEntry]]] = null
 
     /** a cache for all elements, to be used by symbol iterator.
      */
-    private[this] var elemsCache: List[Symbol] = null
+    private[this] var elemsCache: Nullable[List[Symbol]] = null
 
     /** The synthesizer to be used, or `null` if no synthesis is done on this scope */
-    private var synthesize: SymbolSynthesizer = null
+    private var synthesize: Nullable[SymbolSynthesizer] = null
 
     /** Use specified synthesize for this scope */
     def useSynthesizer(s: SymbolSynthesizer): Unit = synthesize = s
@@ -229,9 +229,9 @@ object Scopes {
     def cloneScope(implicit ctx: Context): MutableScope = {
       val entries = new mutable.ArrayBuffer[ScopeEntry]
       var e = lastEntry
-      while ((e ne null) && e.owner == this) {
-        entries += e
-        e = e.prev
+      while ((e ne null) && e.nn.owner == this) {
+        entries += e.nn
+        e = e.nn.prev
       }
       val scope = newScopeLikeThis()
       for (i <- entries.length - 1 to 0 by -1) {
@@ -244,7 +244,7 @@ object Scopes {
 
     /** create and enter a scope entry with given name and symbol */
     protected def newScopeEntry(name: Name, sym: Symbol)(implicit ctx: Context): ScopeEntry = {
-      ensureCapacity(if (hashTable ne null) hashTable.length else MinHashedScopeSize)
+      ensureCapacity(if (hashTable ne null) hashTable.nn.length else MinHashedScopeSize)
       val e = new ScopeEntry(name, sym, this)
       e.prev = lastEntry
       lastEntry = e
@@ -259,10 +259,10 @@ object Scopes {
       newScopeEntry(sym.name, sym)
 
     private def enterInHash(e: ScopeEntry)(implicit ctx: Context): Unit = {
-      val idx = e.name.hashCode & (hashTable.length - 1)
-      e.tail = hashTable(idx)
+      val idx = e.name.hashCode & (hashTable.nn.length - 1)
+      e.tail = hashTable.nn(idx)
       assert(e.tail != e)
-      hashTable(idx) = e
+      hashTable.nn(idx) = e
     }
 
     /** enter a symbol in this scope. */
@@ -287,22 +287,22 @@ object Scopes {
     private def createHash(tableSize: Int)(implicit ctx: Context): Unit =
       if (size > tableSize * FillFactor) createHash(tableSize * 2)
       else {
-        hashTable = new Array[ScopeEntry](tableSize)
+        hashTable = new Array[Nullable[ScopeEntry]](tableSize)
         enterAllInHash(lastEntry)
         // checkConsistent() // DEBUG
       }
 
-    private def enterAllInHash(e: ScopeEntry, n: Int = 0)(implicit ctx: Context): Unit = {
+    private def enterAllInHash(e: Nullable[ScopeEntry], n: Int = 0)(implicit ctx: Context): Unit = {
       if (e ne null) {
         if (n < MaxRecursions) {
           enterAllInHash(e.prev, n + 1)
           enterInHash(e)
         } else {
           var entries: List[ScopeEntry] = List()
-          var ee = e
+          var ee: Nullable[ScopeEntry] = e
           while (ee ne null) {
-            entries = ee :: entries
-            ee = ee.prev
+            entries = ee.nn :: entries
+            ee = ee.nn.prev
           }
           entries foreach enterInHash
         }
@@ -315,17 +315,17 @@ object Scopes {
         lastEntry = e.prev
       } else {
         var e1 = lastEntry
-        while (e1.prev != e) e1 = e1.prev
-        e1.prev = e.prev
+        while (e1.nn.prev != e) e1 = e1.nn.prev
+        e1.nn.prev = e.prev
       }
       if (hashTable ne null) {
-        val index = e.name.hashCode & (hashTable.length - 1)
-        var e1 = hashTable(index)
+        val index = e.name.hashCode & (hashTable.nn.length - 1)
+        var e1 = hashTable.nn(index)
         if (e1 == e)
-          hashTable(index) = e.tail
+          hashTable.nn(index) = e.nn.tail
         else {
-          while (e1.tail != e) e1 = e1.tail
-          e1.tail = e.tail
+          while (e1.nn.tail != e) e1 = e1.nn.tail
+          e1.nn.tail = e.tail
         }
       }
       elemsCache = null
@@ -340,8 +340,8 @@ object Scopes {
     final def unlink(sym: Symbol, name: Name)(implicit ctx: Context): Unit = {
       var e = lookupEntry(name)
       while (e ne null) {
-        if (e.sym == sym) unlink(e)
-        e = lookupNextEntry(e)
+        if (e.nn.sym == sym) unlink(e.nn)
+        e = lookupNextEntry(e.nn)
       }
     }
 
@@ -352,41 +352,41 @@ object Scopes {
       require(prev.name == replacement.name)
       var e = lookupEntry(prev.name)
       while (e ne null) {
-        if (e.sym == prev) e.sym = replacement
-        e = lookupNextEntry(e)
+        if (e.nn.sym == prev) e.nn.sym = replacement
+        e = lookupNextEntry(e.nn)
       }
       elemsCache = null
     }
 
     /** Lookup a symbol entry matching given name.
      */
-    override def lookupEntry(name: Name)(implicit ctx: Context): ScopeEntry = {
-      var e: ScopeEntry = null
+    override def lookupEntry(name: Name)(implicit ctx: Context): Nullable[ScopeEntry] = {
+      var e: Nullable[ScopeEntry] = null
       if (hashTable ne null) {
-        e = hashTable(name.hashCode & (hashTable.length - 1))
-        while ((e ne null) && e.name != name) {
-          e = e.tail
+        e = hashTable.nn(name.hashCode & (hashTable.nn.length - 1))
+        while ((e ne null) && e.nn.name != name) {
+          e = e.nn.tail
         }
       } else {
         e = lastEntry
-        while ((e ne null) && e.name != name) {
-          e = e.prev
+        while ((e ne null) && e.nn.name != name) {
+          e = e.nn.prev
         }
       }
       if ((e eq null) && (synthesize != null)) {
-        val sym = synthesize(name)(ctx)
+        val sym = synthesize.nn(name)(ctx)
         if (sym.exists) newScopeEntry(sym) else e
       }
       else e
     }
 
     /** lookup next entry with same name as this one */
-    override final def lookupNextEntry(entry: ScopeEntry)(implicit ctx: Context): ScopeEntry = {
-      var e = entry
+    override final def lookupNextEntry(entry: ScopeEntry)(implicit ctx: Context): Nullable[ScopeEntry] = {
+      var e: Nullable[ScopeEntry] = entry
       if (hashTable ne null)
-        do { e = e.tail } while ((e ne null) && e.name != entry.name)
+        do { e = e.nn.tail } while ((e ne null) && e.nn.name != entry.name)
       else
-        do { e = e.prev } while ((e ne null) && e.name != entry.name)
+        do { e = e.nn.prev } while ((e ne null) && e.nn.name != entry.name)
       e
     }
 
@@ -398,12 +398,12 @@ object Scopes {
         ensureComplete()
         elemsCache = Nil
         var e = lastEntry
-        while ((e ne null) && e.owner == this) {
-          elemsCache = e.sym :: elemsCache
-          e = e.prev
+        while ((e ne null) && e.nn.owner == this) {
+          elemsCache = e.nn.sym :: elemsCache.nn
+          e = e.nn.prev
         }
       }
-      elemsCache
+      elemsCache.nn
     }
 
     override def implicitDecls(implicit ctx: Context): List[TermRef] = {
@@ -411,11 +411,11 @@ object Scopes {
       var irefs = new mutable.ListBuffer[TermRef]
       var e = lastEntry
       while (e ne null) {
-        if (e.sym is ImplicitOrImplied) {
-          val d = e.sym.denot
+        if (e.nn.sym is ImplicitOrImplied) {
+          val d = e.nn.sym.denot
           irefs += TermRef(NoPrefix, d.symbol.asTerm).withDenot(d)
         }
-        e = e.prev
+        e = e.nn.prev
       }
       irefs.toList
     }
@@ -431,10 +431,10 @@ object Scopes {
       ensureComplete()
       var e = lastEntry
       while (e != null) {
-        var e1 = lookupEntry(e.name)
-        while (e1 != e && e1 != null) e1 = lookupNextEntry(e1)
-        assert(e1 == e, s"PANIC: Entry ${e.name} is badly linked")
-        e = e.prev
+        var e1 = lookupEntry(e.nn.name)
+        while (e1 != e && e1 != null) e1 = lookupNextEntry(e1.nn)
+        assert(e1 == e, s"PANIC: Entry ${e.nn.name} is badly linked")
+        e = e.nn.prev
       }
     }
   }
@@ -464,13 +464,13 @@ object Scopes {
   /** The empty scope (immutable).
    */
   object EmptyScope extends Scope {
-    override private[dotc] def lastEntry: ScopeEntry = null
+    override private[dotc] def lastEntry: Nullable[ScopeEntry] = null
     override def size: Int = 0
     override def nestingLevel: Int = 0
     override def toList(implicit ctx: Context): List[Symbol] = Nil
     override def cloneScope(implicit ctx: Context): MutableScope = unsupported("cloneScope")
-    override def lookupEntry(name: Name)(implicit ctx: Context): ScopeEntry = null
-    override def lookupNextEntry(entry: ScopeEntry)(implicit ctx: Context): ScopeEntry = null
+    override def lookupEntry(name: Name)(implicit ctx: Context): Nullable[ScopeEntry] = null
+    override def lookupNextEntry(entry: ScopeEntry)(implicit ctx: Context): Nullable[ScopeEntry] = null
   }
 
   /** A class for error scopes (mutable)

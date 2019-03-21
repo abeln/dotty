@@ -52,7 +52,7 @@ trait NamerContextOps { this: Context =>
       if (outer.owner == owner) { // inner class scope; check whether we are referring to self
         if (scope.size == 1) {
           val elem = scope.lastEntry
-          if (elem.name == name) return elem.sym.denot // return self
+          if (elem.nn.name == name) return elem.nn.sym.denot // return self
         }
         val pre = owner.thisType
         pre.findMember(name, pre, required, EmptyFlags)

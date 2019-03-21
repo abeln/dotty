@@ -219,7 +219,7 @@ object SymbolLoaders {
       override def newScopeEntry(name: Name, sym: Symbol)(implicit ctx: Context): ScopeEntry =
         super.newScopeEntry(name.mangled, sym)
 
-      override def lookupEntry(name: Name)(implicit ctx: Context): ScopeEntry = {
+      override def lookupEntry(name: Name)(implicit ctx: Context): Nullable[ScopeEntry] = {
         val mangled = name.mangled
         val e = super.lookupEntry(mangled)
         if (e != null) e

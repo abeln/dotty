@@ -16,7 +16,7 @@ import Periods._
 import typer.{FrontEnd, RefChecks}
 import ast.tpd
 
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 trait Phases {
   self: Context =>
@@ -344,7 +344,7 @@ object Phases {
     def initContext(ctx: FreshContext): Unit = ()
 
     private[this] var myPeriod: Period = Periods.InvalidPeriod
-    private[this] var myBase: ContextBase = null
+    private[this] var myBase: Nullable[ContextBase] = null
     private[this] var myErasedTypes = false
     private[this] var myFlatClasses = false
     private[this] var myRefChecked = false
@@ -394,12 +394,12 @@ object Phases {
       exists && id <= that.id
 
     final def prev: Phase =
-      if (id > FirstPhaseId) myBase.phases(start - 1) else myBase.NoPhase
+      if (id > FirstPhaseId) myBase.nn.phases(start - 1) else myBase.nn.NoPhase
 
     final def next: Phase =
-      if (hasNext) myBase.phases(end + 1) else myBase.NoPhase
+      if (hasNext) myBase.nn.phases(end + 1) else myBase.nn.NoPhase
 
-    final def hasNext: Boolean = start >= FirstPhaseId && end + 1 < myBase.phases.length
+    final def hasNext: Boolean = start >= FirstPhaseId && end + 1 < myBase.nn.phases.length
 
     final def iterator: Iterator[Phase] =
       Iterator.iterate(this)(_.next) takeWhile (_.hasNext)

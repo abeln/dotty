@@ -6,7 +6,7 @@ import config.ScalaVersion
 import StdNames._
 import dotty.tools.dotc.ast.tpd
 import scala.util.Try
-import scala.ExplicitNullsLanguage.implicitNulls
+import scala.ExplicitNulls._
 
 object Annotations {
 
@@ -49,10 +49,10 @@ object Annotations {
     override def symbol(implicit ctx: Context): Symbol
     def complete(implicit ctx: Context): Tree
 
-    private[this] var myTree: Tree = null
+    private[this] var myTree: Nullable[Tree] = null
     def tree(implicit ctx: Context): Tree = {
       if (myTree == null) myTree = complete(ctx)
-      myTree
+      myTree.nn
     }
 
     override def isEvaluated: Boolean = myTree != null
@@ -74,14 +74,14 @@ object Annotations {
     def tree(implicit ctx: Context): Tree = body
   }
 
-  case class LazyBodyAnnotation(private var bodyExpr: Context => Tree) extends BodyAnnotation {
+  case class LazyBodyAnnotation(private var bodyExpr: Nullable[Context => Tree]) extends BodyAnnotation {
     private[this] var evaluated = false
     private[this] var myBody: Tree = _
     def tree(implicit ctx: Context): Tree = {
       if (evaluated) assert(myBody != null)
       else {
         evaluated = true
-        myBody = bodyExpr(ctx)
+        myBody = bodyExpr.nn(ctx)
         bodyExpr = null
       }
       myBody
