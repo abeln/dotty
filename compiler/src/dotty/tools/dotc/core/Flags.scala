@@ -390,6 +390,15 @@ object Flags {
   /** Symbol is an enum class or enum case (if used with case) */
   final val Enum: FlagSet = commonFlag(40, "<enum>")
 
+  /** A Java enum */
+  final val JavaEnum: FlagConjunction = allOf(JavaDefined, Enum)
+
+  /** A Java enum trait */
+  final val JavaEnumTrait: FlagConjunction = allOf(JavaDefined, Enum)
+
+  /** A Java enum value */
+  final val JavaEnumValue: FlagConjunction = allOf(StableRealizable, JavaStatic, JavaDefined, Enum)
+
   /** Labeled with `erased` modifier (erased value)  */
   final val Erased: FlagSet = termFlag(42, "erased")
 
@@ -486,7 +495,8 @@ object Flags {
   final val FromStartFlags: FlagSet =
     Module | Package | Deferred | Method.toCommonFlags | Case |
     HigherKinded.toCommonFlags | Param | ParamAccessor.toCommonFlags |
-    Scala2ExistentialCommon | MutableOrOpaque | Touched | JavaStatic | JavaDefined |
+    // TODO(abeln): is it safe for `JavaEnumValue` to be in this list?
+    Scala2ExistentialCommon | MutableOrOpaque | Touched | JavaStatic | JavaDefined | JavaEnumValue.toCommonFlags |
     CovariantOrOuter | ContravariantOrLabel | CaseAccessor.toCommonFlags |
     Extension.toCommonFlags | NonMember | Implicit | Implied | Permanent | Synthetic |
     SuperAccessorOrScala2x | Inline
@@ -682,15 +692,6 @@ object Flags {
 
   /** A Java companion object */
   final val JavaProtected: FlagConjunction = allOf(JavaDefined, Protected)
-
-  /** A Java enum */
-  final val JavaEnum: FlagConjunction = allOf(JavaDefined, Enum)
-
-  /** A Java enum trait */
-  final val JavaEnumTrait: FlagConjunction = allOf(JavaDefined, Enum)
-
-  /** A Java enum value */
-  final val JavaEnumValue: FlagConjunction = allOf(StableRealizable, JavaStatic, JavaDefined, Enum)
 
   /** Labeled private[this] */
   final val PrivateLocal: FlagConjunction = allOf(Private, Local)

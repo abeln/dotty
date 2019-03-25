@@ -28,7 +28,9 @@ object JavaNull {
       // The `toString` method.
       MethodP(_.name == nme.toString_, Seq.empty, nnRes = true, nnShallow = true),
       // Constructors: params are nullified, but the result type isn't.
-      paramsOnlyP(_.isConstructor)
+      paramsOnlyP(_.isConstructor),
+      // Don't nullify the type of Java enum instances.
+      NoOpP(_.is(Flags.JavaEnumValue))
     ) ++ Seq(
       // Methods in `java.lang.String`.
       paramsOnlyP(_.name == nme.split)
@@ -131,6 +133,13 @@ object JavaNull {
       assert(false, "false nullify policy should never be applied")
       tp
     }
+  }
+
+  /** A policy that leaves the passed-in type unchanged. */
+  private case class NoOpP(trigger: Symbol => Boolean) extends NullifyPolicy {
+    override def isApplicable(sym: Symbol): Boolean = trigger(sym)
+
+    override def apply(tp: Type): Type = tp
   }
 
   /** A policy that avoids modifying a field. */
