@@ -358,9 +358,6 @@ object Flags {
   /** An inferable (`given`) parameter */
   final val Given = commonFlag(29, "given")
 
-  /** Symbol is defined by a Java class */
-  final val JavaDefined: FlagSet = commonFlag(30, "<java>")
-
   /** Symbol is implemented as a Java static */
   final val JavaStatic: FlagSet = commonFlag(31, "<static>")
   final val JavaStaticTerm: FlagSet = JavaStatic.toTermFlags
@@ -396,6 +393,12 @@ object Flags {
 
   /** Symbol is an enum class or enum case (if used with case) */
   final val Enum: FlagSet = commonFlag(40, "<enum>")
+
+  /** Symbol is defined by a Java class */
+  final val JavaDefined: FlagSet = commonFlag(30, "<java>")
+
+  /** A Java enum value */
+  final val JavaEnumValue: FlagConjunction = allOf(StableRealizable, JavaStatic, JavaDefined, Enum)
 
   /** An export forwarder */
   final val Exported: FlagSet = commonFlag(41, "exported")
@@ -488,7 +491,7 @@ object Flags {
   final val FromStartFlags: FlagSet =
     Module | Package | Deferred | Method.toCommonFlags | Case |
     HigherKinded.toCommonFlags | Param | ParamAccessor.toCommonFlags |
-    Scala2ExistentialCommon | MutableOrOpaque | Touched | JavaStatic |
+    Scala2ExistentialCommon | MutableOrOpaque | Touched | JavaStatic | JavaDefined | JavaEnumValue.toCommonFlags |
     CovariantOrOuter | ContravariantOrLabel | CaseAccessor.toCommonFlags |
     Extension.toCommonFlags | NonMember | Implicit | Given | Implied | Permanent | Synthetic |
     SuperAccessorOrScala2x | Inline
@@ -689,9 +692,6 @@ object Flags {
 
   /** A Java enum trait */
   final val JavaEnumTrait: FlagConjunction = allOf(JavaDefined, Enum)
-
-  /** A Java enum value */
-  final val JavaEnumValue: FlagConjunction = allOf(StableRealizable, JavaStatic, JavaDefined, Enum)
 
   /** An enum value */
   final val EnumValue: FlagConjunction = allOf(StableRealizable, JavaStatic, Enum)

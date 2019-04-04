@@ -4,7 +4,7 @@ package core
 
 import scala.annotation.threadUnsafe
 import Types._, Contexts._, Symbols._, SymDenotations._, StdNames._, Names._
-import Flags._, Scopes._, Decorators._, NameOps._, Periods._
+import Flags._, Scopes._, Decorators._, NameOps._, Periods._, NullOpsDecorator._
 import unpickleScala2.Scala2Unpickler.ensureConstructor
 import scala.collection.mutable
 import collection.mutable
@@ -293,7 +293,7 @@ class Definitions {
   @threadUnsafe lazy val ObjectClass: ClassSymbol = {
     val cls = ctx.requiredClass("java.lang.Object")
     assert(!cls.isCompleted, "race for completing java.lang.Object")
-    cls.info = ClassInfo(cls.owner.thisType, cls, AnyClass.typeRef :: Nil, newScope)
+    cls.info = ClassInfo(cls.owner.thisType, cls, AnyType :: Nil, newScope)
     cls.setFlag(NoInits)
 
     // The companion object doesn't really exist, `NoType` is the general
@@ -309,8 +309,18 @@ class Definitions {
   @threadUnsafe lazy val AnyRefAlias: TypeSymbol = enterAliasType(tpnme.AnyRef, ObjectType)
   def AnyRefType: TypeRef = AnyRefAlias.typeRef
 
-    @threadUnsafe lazy val Object_eq: TermSymbol = enterMethod(ObjectClass, nme.eq, methOfAnyRef(BooleanType), Final)
-    @threadUnsafe lazy val Object_ne: TermSymbol = enterMethod(ObjectClass, nme.ne, methOfAnyRef(BooleanType), Final)
+    @threadUnsafe lazy val Object_eq: TermSymbol = {
+      // If explicit nulls is enabled, then we want to allow `(x: String).eq(null)`, so we need
+      // to adjust the signature of `eq` accordingly.
+      val tpe = if (ctx.explicitNulls) methOfAnyRefOrNull(BooleanType) else methOfAnyRef(BooleanType)
+      enterMethod(ObjectClass, nme.eq, tpe, Final)
+    }
+    @threadUnsafe lazy val Object_ne: TermSymbol = {
+      // If explicit nulls is enabled, then we want to allow `(x: String).ne(null)`, so we need
+      // to adjust the signature of `ne` accordingly.
+      val tpe = if (ctx.explicitNulls) methOfAnyRefOrNull(BooleanType) else methOfAnyRef(BooleanType)
+      enterMethod(ObjectClass, nme.ne, tpe, Final)
+    }
     @threadUnsafe lazy val Object_synchronized: TermSymbol = enterPolyMethod(ObjectClass, nme.synchronized_, 1,
         pt => MethodType(List(pt.paramRefs(0)), pt.paramRefs(0)), Final)
     @threadUnsafe lazy val Object_clone: TermSymbol = enterMethod(ObjectClass, nme.clone_, MethodType(Nil, ObjectType), Protected)
@@ -344,17 +354,41 @@ class Definitions {
       pt => MethodType(List(FunctionOf(Nil, pt.paramRefs(0))), pt.paramRefs(0)))
 
   /** Method representing a throw */
-  @threadUnsafe lazy val throwMethod: TermSymbol = enterMethod(OpsPackageClass, nme.THROWkw,
-      MethodType(List(ThrowableType), NothingType))
+  @threadUnsafe lazy val throwMethod: TermSymbol = {
+    val argTpe = if (ctx.explicitNulls) OrType(ThrowableType, NullType) else ThrowableType
+    enterMethod(OpsPackageClass, nme.THROWkw, MethodType(List(argTpe), NothingType))
+  }
 
   @threadUnsafe lazy val NothingClass: ClassSymbol = enterCompleteClassSymbol(
     ScalaPackageClass, tpnme.Nothing, AbstractFinal, List(AnyClass.typeRef))
   def NothingType: TypeRef = NothingClass.typeRef
   @threadUnsafe lazy val RuntimeNothingModuleRef: TermRef = ctx.requiredModuleRef("scala.runtime.Nothing")
-  @threadUnsafe lazy val NullClass: ClassSymbol = enterCompleteClassSymbol(
-    ScalaPackageClass, tpnme.Null, AbstractFinal, List(ObjectClass.typeRef))
+
+  @threadUnsafe lazy val NullClass: ClassSymbol = {
+    val parents = List(if (ctx.explicitNulls) AnyType else ObjectType)
+    enterCompleteClassSymbol(ScalaPackageClass, tpnme.Null, AbstractFinal, parents)
+  }
   def NullType: TypeRef = NullClass.typeRef
   @threadUnsafe lazy val RuntimeNullModuleRef: TermRef = ctx.requiredModuleRef("scala.runtime.Null")
+
+  /** An alias for null values that originate in Java code.
+   *  This type gets special treatment in the Typer. Specifically, `JavaNull` can be selected through:
+   *  e.g.
+   *  ```
+   *  // x: String|Null
+   *  x.length // error: `Null` has no `length` field
+   *  // x2: String|JavaNull
+   *  x2.length // allowed by the Typer, but unsound (might throw NPE)
+   *  ```
+   */
+  lazy val JavaNullAlias: TypeSymbol = {
+    assert(ctx.explicitNulls)
+    enterAliasType(tpnme.JavaNull, NullType)
+  }
+  def JavaNullAliasType: TypeRef = {
+    assert(ctx.explicitNulls)
+    JavaNullAlias.typeRef
+  }
 
   @threadUnsafe lazy val ImplicitScrutineeTypeSym =
     newSymbol(ScalaPackageClass, tpnme.IMPLICITkw, EmptyFlags, TypeBounds.empty).entered
@@ -591,12 +625,16 @@ class Definitions {
   @threadUnsafe lazy val BoxedNumberClass: ClassSymbol          = ctx.requiredClass("java.lang.Number")
   @threadUnsafe lazy val ClassCastExceptionClass: ClassSymbol   = ctx.requiredClass("java.lang.ClassCastException")
     @threadUnsafe lazy val ClassCastExceptionClass_stringConstructor: TermSymbol  = ClassCastExceptionClass.info.member(nme.CONSTRUCTOR).suchThat(_.info.firstParamTypes match {
-      case List(pt) => (pt isRef StringClass)
+      case List(pt) =>
+        val pt1 = if (ctx.explicitNulls) pt.stripNull else pt
+        pt1 isRef StringClass
       case _ => false
     }).symbol.asTerm
   @threadUnsafe lazy val ArithmeticExceptionClass: ClassSymbol  = ctx.requiredClass("java.lang.ArithmeticException")
     @threadUnsafe lazy val ArithmeticExceptionClass_stringConstructor: TermSymbol  = ArithmeticExceptionClass.info.member(nme.CONSTRUCTOR).suchThat(_.info.firstParamTypes match {
-      case List(pt) => (pt isRef StringClass)
+      case List(pt) =>
+        val pt1 = if (ctx.explicitNulls) pt.stripNull else pt
+        pt1 isRef StringClass
       case _ => false
     }).symbol.asTerm
 
@@ -967,6 +1005,7 @@ class Definitions {
   def methOfAny(tp: Type): MethodType = MethodType(List(AnyType), tp)
   def methOfAnyVal(tp: Type): MethodType = MethodType(List(AnyValType), tp)
   def methOfAnyRef(tp: Type): MethodType = MethodType(List(ObjectType), tp)
+  def methOfAnyRefOrNull(tp: Type): MethodType = MethodType(List(OrType(ObjectType, NullType)), tp)
 
   // Derived types
 
@@ -1128,10 +1167,23 @@ class Definitions {
       name.length > prefix.length &&
       name.drop(prefix.length).forall(_.isDigit))
 
-  def isBottomClass(cls: Symbol): Boolean =
+  def isBottomClass(cls: Symbol): Boolean = {
+    if (ctx.explicitNulls && !ctx.phase.erasedTypes) cls == NothingClass
+    else isBottomClassAfterErasure(cls)
+  }
+
+  def isBottomClassAfterErasure(cls: Symbol): Boolean = {
     cls == NothingClass || cls == NullClass
-  def isBottomType(tp: Type): Boolean =
+  }
+
+  def isBottomType(tp: Type): Boolean = {
+    if (ctx.explicitNulls && !ctx.phase.erasedTypes) tp.derivesFrom(NothingClass)
+    else isBottomTypeAfterErasure(tp)
+  }
+
+  def isBottomTypeAfterErasure(tp: Type): Boolean = {
     tp.derivesFrom(NothingClass) || tp.derivesFrom(NullClass)
+  }
 
   /** Is a function class.
    *   - FunctionXXL
@@ -1225,9 +1277,12 @@ class Definitions {
     () => ScalaPackageVal.termRef
   )
 
-  val PredefImportFns: List[() => TermRef] = List[() => TermRef](
+  lazy val PredefImportFns: List[() => TermRef] = List[() => TermRef](
     () => ScalaPredefModuleRef,
-    () => DottyPredefModuleRef
+    () => DottyPredefModuleRef,
+    // TODO(abeln): is this in the right place?
+    // And is it ok to import this unconditionally?
+    () => ctx.requiredModuleRef("scala.ExplicitNullsOps")
   )
 
   @threadUnsafe lazy val RootImportFns: List[() => TermRef] =
@@ -1475,18 +1530,22 @@ class Definitions {
   // ----- Initialization ---------------------------------------------------
 
   /** Lists core classes that don't have underlying bytecode, but are synthesized on-the-fly in every reflection universe */
-  @threadUnsafe lazy val syntheticScalaClasses: List[TypeSymbol] = List(
-    AnyClass,
-    AnyRefAlias,
-    AnyKindClass,
-    andType,
-    orType,
-    RepeatedParamClass,
-    ByNameParamClass2x,
-    AnyValClass,
-    NullClass,
-    NothingClass,
-    SingletonClass)
+  @threadUnsafe lazy val syntheticScalaClasses: List[TypeSymbol] = {
+    val synth = List(
+      AnyClass,
+      AnyRefAlias,
+      AnyKindClass,
+      andType,
+      orType,
+      RepeatedParamClass,
+      ByNameParamClass2x,
+      AnyValClass,
+      NullClass,
+      NothingClass,
+      SingletonClass)
+
+    if (ctx.explicitNulls) synth :+ JavaNullAlias else synth
+  }
 
   @threadUnsafe lazy val syntheticCoreClasses: List[Symbol] = syntheticScalaClasses ++ List(
     EmptyPackageVal,
