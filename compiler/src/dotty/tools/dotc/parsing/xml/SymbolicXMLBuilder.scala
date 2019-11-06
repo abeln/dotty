@@ -45,6 +45,7 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
     val _Text: TypeName                = "Text"
     val _Unparsed: TypeName            = "Unparsed"
     val _UnprefixedAttribute: TypeName = "UnprefixedAttribute"
+    val _String: TypeName = "String"
   }
 
   private object xmlterms extends ScalaTermNames {
@@ -56,12 +57,13 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
     val _plus: TermName     = "&+"
     val _tmpscope: TermName = "$tmpscope"
     val _xml: TermName      = "xml"
+    val _asInstanceOf: TermName = "asInstanceOf"
   }
 
   import xmltypes.{_Comment, _Elem, _EntityRef, _Group, _MetaData, _NamespaceBinding, _NodeBuffer,
-    _PrefixedAttribute, _ProcInstr, _Text, _Unparsed, _UnprefixedAttribute}
+    _PrefixedAttribute, _ProcInstr, _Text, _Unparsed, _UnprefixedAttribute, _String}
 
-  import xmlterms.{_Null, __Elem, __Text, _buf, _md, _plus, _scope, _tmpscope, _xml}
+  import xmlterms.{_Null, __Elem, __Text, _buf, _md, _plus, _scope, _tmpscope, _xml, _asInstanceOf}
 
   // convenience methods
   private def LL[A](x: A*): List[List[A]] = List(List(x:_*))
@@ -87,6 +89,10 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
   private def _scala_xml__Elem              = _scala_xml(__Elem)
   private def _scala_xml__Text              = _scala_xml(__Text)
 
+  private def asString(t: Tree): Tree =
+    if (ctx.explicitNulls) TypeApply(Select(t, _asInstanceOf),List(Ident(_String)))
+    else t
+
   /** Wildly wrong documentation deleted in favor of "self-documenting code." */
   protected def mkXML(
     span: Span,
@@ -102,8 +108,10 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
       if (children.isEmpty) Nil
       else List(Typed(makeXMLseq(span, children), wildStar))
 
-    def pat    = Apply(_scala_xml__Elem, List(pre, label, wild, wild) ::: convertToTextPat(children))
-    def nonpat = New(_scala_xml_Elem, List(List(pre, label, attrs, scope, if (empty) Literal(Constant(true)) else Literal(Constant(false))) ::: starArgs))
+    val preString = asString(pre)
+
+    def pat    = Apply(_scala_xml__Elem, List(preString, label, wild, wild) ::: convertToTextPat(children))
+    def nonpat = New(_scala_xml_Elem, List(List(preString, label, attrs, scope, if (empty) Literal(Constant(true)) else Literal(Constant(false))) ::: starArgs))
 
     atSpan(span) { if (isPattern) pat else nonpat }
   }
@@ -183,7 +191,7 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(implicit ctx: Cont
     def handleNamespaceBinding(pre: String, z: String): Tree = {
       def mkAssign(t: Tree): Tree = Assign(
         Ident(_tmpscope),
-        New(_scala_xml_NamespaceBinding, LL(const(pre), t, Ident(_tmpscope)))
+        New(_scala_xml_NamespaceBinding, LL(asString(const(pre)), t, Ident(_tmpscope)))
       )
 
       val uri1 = attrMap(z) match {
