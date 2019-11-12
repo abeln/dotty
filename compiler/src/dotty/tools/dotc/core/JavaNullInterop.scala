@@ -66,7 +66,7 @@ object JavaNullInterop {
       // Don't nullify the return type of constructors.
       // Don't nullify the return type of methods with a not-null annotation.
       nullifyExceptReturnType(tp)
-    else if (ctx.settings.YJavaInteropDontNullifyOutermost.value || isInNotNullStdLibList(sym, tp))
+    else if (ctx.settings.YJavaInteropDontNullifyOutermost.value || (ctx.settings.YJavaInteropCheckerFramework.value && isInNotNullStdLibList(sym, tp)))
       nullifyExceptReturnType(tp)
     else
       // Otherwise, nullify everything
@@ -113,7 +113,7 @@ object JavaNullInterop {
 
   // TODO(abeln): add better error handling when reading stats
   private def readNullStats(): Map[String, ClassStats] = {
-    val lines = Source.fromFile("explicit-nulls-meta.txt").getLines.map(_.trim).toArray
+    val lines = Source.fromFile("/home/anietoro/src/dotty2/explicit-nulls-meta.txt").getLines.map(_.trim).toArray
     var pos = 0
 
     def readFieldStats(): Seq[FieldStats] = {
