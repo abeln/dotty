@@ -588,7 +588,7 @@ object Types {
         case AndType(l, r) =>
           goAnd(l, r)
         case tp: OrType =>
-          if (ctx.explicitNulls && tp.isJavaNullableUnion) {
+          if (ctx.explicitNulls && ctx.settings.YJavaInteropJavaNull.value && tp.isJavaNullableUnion) {
             // Selecting `name` from a type `T|JavaNull` is like selecting `name` from `T`.
             // This can throw at runtime, but we trade soundness for usability.
             // We need to strip `JavaNull` from both the type and the prefix so that
@@ -2409,9 +2409,14 @@ object Types {
     override type ThisType = NonNullTermRef
 
     override protected def finish(d: Denotation)(implicit ctx: Context): Denotation =
-      // If the denotation is computed for the first time, or if it's ever updated, make sure
-      // that the `info` is non-null.
-      super.finish(d.mapInfo(_.stripNull))
+      if (ctx.settings.YflowTyping.value) {
+        // If the denotation is computed for the first time, or if it's ever updated, make sure
+        // that the `info` is non-null.
+        super.finish(d.mapInfo(_.stripNull))
+      } else {
+        super.finish(d)
+      }
+
 
     override protected def newLikeThis(prefix: Type, designator: Designator)(implicit ctx: Context): NamedType =
       NonNullTermRef(prefix, designator)
