@@ -91,6 +91,13 @@ class CommunityBuildTest {
     }
   }
 
+  @Test def squants = test(
+    project       = "squants",
+    testCommand   = "squantsJVM/compile",
+    updateCommand = "squantsJVM/update"
+  )
+
+  /*
   @Test def intent = test(
     project       = "intent",
     testCommand   = "test",
@@ -211,6 +218,7 @@ class CommunityBuildTest {
     testCommand   = ";set ThisBuild / useEffpiPlugin := false; effpi/test:compile; benchmarks/test:compile; examples/test:compile; pluginBenchmarks/test:compile",
     updateCommand = ";set ThisBuild / useEffpiPlugin := false; effpi/test:update; benchmarks/test:update; examples/test:update; pluginBenchmarks/test:update"
   )
+  */
 
   // TODO @oderky? It got broken by #5458
   // @Test def pdbp = test(
