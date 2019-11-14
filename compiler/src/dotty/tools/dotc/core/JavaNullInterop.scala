@@ -66,7 +66,7 @@ object JavaNullInterop {
       // Don't nullify the return type of constructors.
       // Don't nullify the return type of methods with a not-null annotation.
       nullifyExceptReturnType(tp)
-    else if (ctx.settings.YJavaInteropDontNullifyOutermost.value || (ctx.settings.YJavaInteropCheckerFramework.value && isInNotNullStdLibList(sym, tp)))
+    else if (ctx.settings.YjavaInteropOptimistic.value || (ctx.settings.YjavaInteropCheckerFramework.value && isInNotNullStdLibList(sym, tp)))
       nullifyExceptReturnType(tp)
     else
       // Otherwise, nullify everything

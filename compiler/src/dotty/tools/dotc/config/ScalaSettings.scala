@@ -162,9 +162,9 @@ class ScalaSettings extends Settings.SettingGroup {
   // Extremely experimental language features
   val YnoKindPolymorphism: Setting[Boolean] = BooleanSetting("-Yno-kind-polymorphism", "Enable kind polymorphism (see https://dotty.epfl.ch/docs/reference/kind-polymorphism.html). Potentially unsound.")
   val YexplicitNulls: Setting[Boolean] = BooleanSetting("-Yexplicit-nulls", "Make reference types non-nullable. Nullable types can be expressed with unions: e.g. String|Null.")
-  val YJavaInteropDontNullifyOutermost: Setting[Boolean] = BooleanSetting("-Yjava-interop-dont-nullify-outermost", "If this and -Yexplicit-nulls are set, we do not nullify the return type of fields and methods at the outermost level.")
-  val YJavaInteropCheckerFramework: Setting[Boolean] = BooleanSetting("-Yjava-interop-checker-framework", "If this is set, use nullability information from the checker framework to not nullify certain fields and methods at the outermost level.")
-  val YJavaInteropJavaNull: Setting[Boolean] = BooleanSetting("-Yjava-interop-java-null", "If this is set, the JavaNull type has magic powers.")
+  val YjavaInteropOptimistic: Setting[Boolean] = BooleanSetting("-Yjava-interop-optimistic", "If set, we do not nullify the return type of fields and methods at the outermost level.")
+  val YjavaInteropCheckerFramework: Setting[Boolean] = BooleanSetting("-Yjava-interop-checker-framework", "If this is set, use nullability information from the checker framework to not nullify certain fields and methods at the outermost level.")
+  val YjavaNull: Setting[Boolean] = BooleanSetting("-Yjava-null", "If this is set, the JavaNull type has magic powers.")
   val YflowTyping: Setting[Boolean] = BooleanSetting("-Yflow-typing", "If this is set, we use flow-sensitive type inference.")
 
   /** Area-specific debug output */

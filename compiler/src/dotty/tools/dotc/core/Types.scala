@@ -588,7 +588,7 @@ object Types {
         case AndType(l, r) =>
           goAnd(l, r)
         case tp: OrType =>
-          if (ctx.explicitNulls && ctx.settings.YJavaInteropJavaNull.value && tp.isJavaNullableUnion) {
+          if (ctx.explicitNulls && ctx.settings.YjavaNull.value && tp.isJavaNullableUnion) {
             // Selecting `name` from a type `T|JavaNull` is like selecting `name` from `T`.
             // This can throw at runtime, but we trade soundness for usability.
             // We need to strip `JavaNull` from both the type and the prefix so that
